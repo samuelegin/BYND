@@ -22,8 +22,6 @@ contract MockValidatorsVoter {
         musd = IERC20(_musd);
     }
 
-    // ── Write ──────────────────────────────────────────────────────────────────
-
     function vote(uint256, address[] calldata, uint256[] calldata) external {}
 
     function claimBribes(
@@ -40,8 +38,6 @@ contract MockValidatorsVoter {
         }
     }
 
-    // ── Read (mirrors BoostVoter) ──────────────────────────────────────────────
-
     function gauges(uint256 index) external view returns (address) {
         return _gauges[index];
     }
@@ -49,8 +45,6 @@ contract MockValidatorsVoter {
     function length() external view returns (uint256) {
         return _gauges.length;
     }
-
-    // ── Test helpers ───────────────────────────────────────────────────────────
 
     /// Register a gauge (mirrors BoostVoter.createBoostGauge)
     function addGauge(address gauge, address bribe) external {

@@ -17,28 +17,12 @@ interface IVeMEZO is IERC721 {
     }
 
     function locked(uint256 tokenId) external view returns (LockedBalance memory);
-
-    /// @notice Current voting power of a specific NFT. Decays linearly toward zero as lock approaches expiry.
     function votingPowerOfNFT(uint256 tokenId) external view returns (uint256);
-
-    /// @notice Extend the lock expiry of a tokenId to newEndTime. Caller must own (or be approved for) the NFT.
-    // newEndTime must be greater than current end and <= block.timestamp + MAXTIME.
     function increaseUnlockTime(uint256 tokenId, uint256 newEndTime) external;
 }
 
 /// @title  ByNdVault — BynD deposit vault
-/// @notice Users deposit veMEZO NFTs here.
-//         The vault permanently re-locks every NFT to the 4-year maximum
-//         via extendLocks() — a permissionless keeper function (once per epoch).
-//
-//         Mint formula:
-//         veBYND minted = locked(tokenId).amount
-//         Because BynD immediately extends the lock to MAXTIME, the weight
-//         factor is always 1.0 after extension. Minting against raw locked
-//         amount (not current VP) avoids inflation from the extendLocks cycle.
-//
-//         There is NO withdraw() — the NFTs are permanently held.
-//         Exit liquidity is via the veBYND/MEZO secondary market pool on Mezo Swap.
+/// @notice Users deposit veMEZO NFTs here.The vault permanently re-locks every NFT to the 4-year maximumvia extendLocks() — a permissionless keeper function (once per epoch).
 contract ByNdVault is IERC721Receiver, ReentrancyGuard, Ownable {
 
     uint256 public constant MAXTIME = 4 * 365 days;
@@ -53,7 +37,6 @@ contract ByNdVault is IERC721Receiver, ReentrancyGuard, Ownable {
     mapping(address => uint256[]) private _userTokens;
     mapping(uint256 => uint256) private _tokenIndex;
 
-    /// @dev All tokenIds held by the vault (for extendLocks iteration)
     uint256[] public allTokenIds;
 
     event Deposited(address indexed user, uint256 indexed tokenId, uint256 veByndMinted);
@@ -66,22 +49,17 @@ contract ByNdVault is IERC721Receiver, ReentrancyGuard, Ownable {
 
     function deposit(uint256 tokenId) external nonReentrant {
         require(veMEZO.ownerOf(tokenId) == msg.sender, "ByNdVault: not owner");
-
-        // Read locked MEZO amount from the live veMEZO contract.
-        // locked().amount is int128 — cast to uint256 (always positive for active locks).
         IVeMEZO.LockedBalance memory lock = veMEZO.locked(tokenId);
         require(lock.amount > 0, "ByNdVault: empty lock");
         require(lock.end > block.timestamp, "ByNdVault: lock expired");
 
         uint256 mintAmount = uint256(uint128(lock.amount));
-
         veMEZO.safeTransferFrom(msg.sender, address(this), tokenId);
 
         depositorOf[tokenId]  = msg.sender;
         _tokenIndex[tokenId]  = _userTokens[msg.sender].length;
         _userTokens[msg.sender].push(tokenId);
         allTokenIds.push(tokenId);
-
         veBYND.mint(msg.sender, mintAmount);
 
         emit Deposited(msg.sender, tokenId, mintAmount);

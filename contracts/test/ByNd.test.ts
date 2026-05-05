@@ -2,30 +2,30 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture, time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
-const EPOCH   = 7 * 24 * 60 * 60;
-const MUSD_TOKEN: string[] = []; // filled in fixture after musd deploy
+const EPOCH = 7 * 24 * 60 * 60;
+const MUSD_TOKEN: string[] = [];
 
 async function deployFixture() {
   const [deployer, keeper, samuel, michael] = await ethers.getSigners();
 
-  const MockERC20  = await ethers.getContractFactory("MockERC20");
+  const MockERC20 = await ethers.getContractFactory("MockERC20");
   const MockVeMEZO = await ethers.getContractFactory("MockVeMEZO");
-  const MockVoter  = await ethers.getContractFactory("MockValidatorsVoter");
+  const MockVoter = await ethers.getContractFactory("MockValidatorsVoter");
 
-  const musd    = await MockERC20.deploy("Mock MUSD", "MUSD", 18);
-  const veMEZO  = await MockVeMEZO.deploy();
+  const musd = await MockERC20.deploy("Mock MUSD", "MUSD", 18);
+  const veMEZO = await MockVeMEZO.deploy();
   const mockVoter = await MockVoter.deploy(await musd.getAddress());
 
   await musd.mint(deployer.address, ethers.parseEther("10000000"));
   await musd.approve(await mockVoter.getAddress(), ethers.parseEther("10000000"));
 
-  const VeBYND      = await ethers.getContractFactory("VeBYND");
-  const ByNdVault   = await ethers.getContractFactory("ByNdVault");
+  const VeBYND = await ethers.getContractFactory("VeBYND");
+  const ByNdVault = await ethers.getContractFactory("ByNdVault");
   const ByNdStaking = await ethers.getContractFactory("ByNdStaking");
-  const ByNdVoter   = await ethers.getContractFactory("ByNdVoter");
+  const ByNdVoter = await ethers.getContractFactory("ByNdVoter");
 
-  const veBYND  = await VeBYND.deploy();
-  const vault   = await ByNdVault.deploy(await veMEZO.getAddress(), await veBYND.getAddress());
+  const veBYND = await VeBYND.deploy();
+  const vault = await ByNdVault.deploy(await veMEZO.getAddress(), await veBYND.getAddress());
   const staking = await ByNdStaking.deploy(
     await veBYND.getAddress(),
     await musd.getAddress(),
@@ -37,36 +37,28 @@ async function deployFixture() {
     await mockVoter.getAddress()
   );
 
-  // Wire
   const MINTER_ROLE = await veBYND.MINTER_ROLE();
   await veBYND.grantRole(MINTER_ROLE, await vault.getAddress());
   await staking.setDistributor(await voter.getAddress());
-
-  // Set managedTokenId — tokenId 1 is the first NFT deposited (samuel's)
   await voter.setManagedTokenId(1);
 
-  // Register gauges in mock so isAlive check passes in setGauges()
-  // In real BoostVoter: gaugeA/gaugeB are created via createBoostGauge()
-  //                     brideA/brideB come from BoostVoter.gaugeToBribe[gauge]
   const gaugeA = ethers.Wallet.createRandom().address;
   const gaugeB = ethers.Wallet.createRandom().address;
   const brideA = ethers.Wallet.createRandom().address;
   const brideB = ethers.Wallet.createRandom().address;
 
-  // Register in mock (mirrors BoostVoter.createBoostGauge)
   await mockVoter.addGauge(gaugeA, brideA);
   await mockVoter.addGauge(gaugeB, brideB);
   await mockVoter.whitelistToken(await musd.getAddress());
 
   await voter.setGauges(
-    [gaugeA, gaugeB],                                          // boost gauge addresses
-    [brideA, brideB],                                          // bribe contract addresses (auto-filled from BoostVoter if passed as 0x0)
-    ["veBTC #1 Boost Gauge", "veBTC #2 Boost Gauge"],          // names
-    [7000, 3000],                                              // weights (must sum to 10000)
-    [[await musd.getAddress()], [await musd.getAddress()]]     // bribe tokens per gauge
+    [gaugeA, gaugeB],                               
+    [brideA, brideB],       
+    ["veBTC #1 Boost Gauge", "veBTC #2 Boost Gauge"],       
+    [7000, 3000],                                         
+    [[await musd.getAddress()], [await musd.getAddress()]]     
   );
 
-  // Mint veMEZO NFTs: tokenId 1 → 1000 MEZO (samuel), tokenId 2 → 2000 MEZO (michael)
   await veMEZO.mint(samuel.address,  1);
   await veMEZO.mint(michael.address, 2);
 
@@ -86,8 +78,6 @@ async function samuelDepositAndStake(f: Awaited<ReturnType<typeof deployFixture>
   return bal;
 }
 
-// ── VeBYND ────────────────────────────────────────────────────────────────────
-
 describe("VeBYND", () => {
   it("has correct name and symbol", async () => {
     const { veBYND } = await loadFixture(deployFixture);
@@ -100,8 +90,6 @@ describe("VeBYND", () => {
     await expect(veBYND.connect(samuel).mint(samuel.address, 1)).to.be.reverted;
   });
 });
-
-// ── ByNdVault — deposit ───────────────────────────────────────────────────────
 
 describe("ByNdVault — deposit", () => {
   it("mints veBYND equal to locked.amount on deposit", async () => {
@@ -151,8 +139,6 @@ describe("ByNdVault — deposit", () => {
   });
 });
 
-// ── ByNdVault — extendLocks ───────────────────────────────────────────────────
-
 describe("ByNdVault — extendLocks", () => {
   it("is callable by anyone (permissionless)", async () => {
     const { vault, veMEZO, samuel, keeper } = await loadFixture(deployFixture);
@@ -178,8 +164,6 @@ describe("ByNdVault — extendLocks", () => {
     await expect(vault.connect(keeper).extendLocks()).to.not.be.reverted;
   });
 });
-
-// ── ByNdStaking ───────────────────────────────────────────────────────────────
 
 describe("ByNdStaking — stake / unstake", () => {
   it("tracks staked balance correctly", async () => {
@@ -211,8 +195,6 @@ describe("ByNdStaking — stake / unstake", () => {
   });
 });
 
-// ── ByNdVoter — castVotes ─────────────────────────────────────────────────────
-
 describe("ByNdVoter — castVotes", () => {
   it("reverts before epoch has passed", async () => {
     const { voter, keeper } = await loadFixture(deployFixture);
@@ -233,8 +215,6 @@ describe("ByNdVoter — castVotes", () => {
     await expect(voter.connect(keeper).castVotes()).to.be.revertedWith("ByNdVoter: already voted");
   });
 });
-
-// ── ByNdVoter — harvestAndDistribute ─────────────────────────────────────────
 
 describe("ByNdVoter — harvestAndDistribute", () => {
   it("reverts if votes not cast first (order enforcement)", async () => {
@@ -314,8 +294,6 @@ describe("ByNdVoter — harvestAndDistribute", () => {
   });
 });
 
-// ── ByNdVoter — markLocksExtended ────────────────────────────────────────────
-
 describe("ByNdVoter — markLocksExtended", () => {
   it("marks the epoch and reverts on duplicate", async () => {
     const { voter, keeper } = await loadFixture(deployFixture);
@@ -325,8 +303,6 @@ describe("ByNdVoter — markLocksExtended", () => {
       .to.be.revertedWith("ByNdVoter: already marked");
   });
 });
-
-// ── ByNdVoter — governance ────────────────────────────────────────────────────
 
 describe("ByNdVoter — governance", () => {
   it("non-governance cannot call setGauges", async () => {
@@ -354,8 +330,6 @@ describe("ByNdVoter — governance", () => {
     expect(await voter.governance()).to.equal(samuel.address);
   });
 });
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function block_far_future() {
   return Math.floor(Date.now() / 1000) + 4 * 365 * 24 * 3600;

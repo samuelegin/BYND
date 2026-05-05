@@ -71,7 +71,6 @@ contract ByNdStaking is ReentrancyGuard, Ownable {
     }
 
     function claimRewards() external nonReentrant updateReward(msg.sender) {
-        // Replace the line at line 106
         uint256 earnedAmount = musdRewards[msg.sender];
         if (earnedAmount > 0) {
             musdRewards[msg.sender] = 0;

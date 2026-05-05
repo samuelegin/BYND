@@ -1,13 +1,13 @@
 {
   "name": "bynd-contracts",
   "version": "1.0.0",
-  "description": "BynD Protocol Smart Contracts — Mezo Matsnet",
+  "description": "BynD Protocol Smart Contracts — hardhat local",
   "scripts": {
-    "compile":     "hardhat compile",
-    "test":        "hardhat test",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
     "deploy:matsnet": "hardhat run scripts/deploy.ts --network matsnet",
-    "node":        "hardhat node --fork https://rpc.test.mezo.org"
+    "node": "hardhat node --fork https://rpc.test.mezo.org"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",

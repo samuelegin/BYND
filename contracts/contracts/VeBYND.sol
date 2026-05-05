@@ -15,12 +15,10 @@ contract VeBYND is ERC20, AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    /// @notice Mint veBYND. Only callable by ByNdVault (MINTER_ROLE).
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
         _mint(to, amount);
     }
 
-    /// @notice Burn veBYND. Only callable by authorised contracts (BURNER_ROLE).
     function burn(address from, uint256 amount) external onlyRole(BURNER_ROLE) {
         _burn(from, amount);
     }

@@ -8,11 +8,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./ByNdStaking.sol";
 
 interface IBoostVoter {
-    // Write
     function vote(uint256 _tokenId, address[] calldata _gaugeVote, uint256[] calldata _weights) external;
     function claimBribes(address[] calldata _bribes, address[][] calldata _tokens, uint256 _tokenId) external;
-
-    // Read — used by fetchGauges() to pull live gauge list from BoostVoter
     function gauges(uint256 index) external view returns (address);
     function length() external view returns (uint256);
     function gaugeToBribe(address gauge) external view returns (address);
@@ -33,20 +30,17 @@ interface IBoostVoter {
 contract ByNdVoter is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
-    IERC20      public immutable musd;
+    IERC20 public immutable musd;
     ByNdStaking public immutable staking;
-    IBoostVoter public           boostVoter; // BoostVoter at 0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1
+    IBoostVoter public boostVoter; // BoostVoter at 0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1
 
     address public governance;
-
-    /// @notice The veMEZO tokenId held by ByNdVault that BynD votes with.
-    ///         Set by governance after the first veMEZO NFT is deposited into the vault.
     uint256 public managedTokenId;
-
-    uint256 public bountyBps           = 100;   // 1% keeper bounty
-    uint256 public constant MAX_BPS    = 10_000;
+    uint256 public bountyBps = 100;   // 1% keeper bounty
+    uint256 public constant MAX_BPS = 10_000;
     uint256 public minHarvestThreshold = 0;
-    uint256 public epochDuration       = 7 days;
+    uint256 public epochDuration = 7 days;
+    uint256 public voteWindow    = 4 hours; // voting opens this many seconds before epoch end
     uint256 public lastVoteTimestamp;
     uint256 public currentEpoch;
 
@@ -54,14 +48,6 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
     mapping(uint256 => bool) public epochHarvested;
     mapping(uint256 => bool) public epochLocksExtended;
 
-    /// @dev Each entry holds:
-    ///   gauge     — the veBTC boost gauge address (used for voting in BoostVoter.vote())
-    ///   bribe     — the bribe reward contract address (BoostVoter.gaugeToBribe[gauge])
-    ///               used in BoostVoter.claimBribes()
-    ///   name      — human-readable label e.g. "veBTC #42 Boost Gauge"
-    ///   weightBps — allocation weight, all entries must sum to 10000
-    ///   tokens    — whitelisted bribe token addresses for this bribe contract
-    ///               (must be whitelisted in BoostVoter — typically MUSD)
     struct Gauge {
         address   gauge;
         address   bribe;
@@ -96,45 +82,37 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
         lastVoteTimestamp = block.timestamp;
     }
 
-    // ── Keeper 0 ─────────────────────────────────────────────────────────────
-
     function markLocksExtended() external {
         require(!epochLocksExtended[currentEpoch], "ByNdVoter: already marked");
         epochLocksExtended[currentEpoch] = true;
         emit LocksExtendedMarked(currentEpoch, msg.sender);
     }
 
-    // ── Keeper 1: castVotes ───────────────────────────────────────────────────
-
     function castVotes() external nonReentrant {
-        require(!epochVoted[currentEpoch],                             "ByNdVoter: already voted");
-        require(block.timestamp >= lastVoteTimestamp + epochDuration,  "ByNdVoter: epoch not ended");
-        require(gauges.length > 0,                                     "ByNdVoter: no gauges set");
-        require(managedTokenId > 0,                                    "ByNdVoter: no managed token");
+        require(!epochVoted[currentEpoch], "ByNdVoter: already voted");
+        require(block.timestamp >= lastVoteTimestamp + epochDuration - voteWindow, "ByNdVoter: vote window not open");
+        require(gauges.length > 0, "ByNdVoter: no gauges set");
+        require(managedTokenId > 0, "ByNdVoter: no managed token");
 
         address[] memory gaugeAddrs = new address[](gauges.length);
-        uint256[] memory weights    = new uint256[](gauges.length);
+        uint256[] memory weights = new uint256[](gauges.length);
 
         for (uint256 i = 0; i < gauges.length; i++) {
             gaugeAddrs[i] = gauges[i].gauge;
-            weights[i]    = gauges[i].weightBps;
+            weights[i] = gauges[i].weightBps;
         }
 
-        // Vote with BynD's veMEZO position on the configured veBTC boost gauges
         boostVoter.vote(managedTokenId, gaugeAddrs, weights);
 
-        lastVoteTimestamp        = block.timestamp;
+        lastVoteTimestamp = block.timestamp;
         epochVoted[currentEpoch] = true;
 
         emit VotesCast(currentEpoch, gauges.length);
     }
 
-    // ── Keeper 2: harvestAndDistribute ────────────────────────────────────────
-
     function harvestAndDistribute() external nonReentrant {
         uint256 epoch = currentEpoch;
 
-        // Idempotency: catch double-call after epoch has incremented
         if (!epochVoted[epoch] && epoch > 0 && epochHarvested[epoch - 1]) {
             revert("ByNdVoter: already harvested");
         }
@@ -144,10 +122,7 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
         epochHarvested[epoch] = true;
         currentEpoch++;
 
-        // Build bribe contract addresses and token arrays for claimBribes()
-        // bribes[i]  = bribe reward contract address (BoostVoter.gaugeToBribe[gauge])
-        // tokens[i]  = whitelisted token addresses for that bribe contract (e.g. MUSD)
-        address[]   memory bribes  = new address[](gauges.length);
+        address[] memory bribes  = new address[](gauges.length);
         address[][] memory tokens  = new address[][](gauges.length);
 
         for (uint256 i = 0; i < gauges.length; i++) {
@@ -162,7 +137,7 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
         require(totalMUSD >= minHarvestThreshold, "ByNdVoter: below threshold");
 
         uint256 keeperBounty = 0;
-        uint256 stakerShare  = 0;
+        uint256 stakerShare = 0;
 
         if (totalMUSD > 0) {
             keeperBounty = (totalMUSD * bountyBps) / MAX_BPS;
@@ -178,11 +153,10 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
         emit Harvested(epoch, msg.sender, totalMUSD, keeperBounty, stakerShare);
     }
 
-    // ── Views ─────────────────────────────────────────────────────────────────
-
     function timeUntilNextVote() external view returns (uint256) {
-        if (block.timestamp >= lastVoteTimestamp + epochDuration) return 0;
-        return (lastVoteTimestamp + epochDuration) - block.timestamp;
+        uint256 voteOpenTime = lastVoteTimestamp + epochDuration - voteWindow;
+        if (block.timestamp >= voteOpenTime) return 0;
+        return voteOpenTime - block.timestamp;
     }
 
     function getPendingIncentives() external view returns (uint256) {
@@ -193,11 +167,6 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
         return gauges.length;
     }
 
-    /// @notice Returns all ALIVE gauges currently registered in BoostVoter.
-    ///         Governance uses this off-chain to see which gauges exist before
-    ///         calling setGauges() with the chosen subset and weights.
-    ///         On-chain: castVotes() uses the governance-curated gauges[] array,
-    ///         not the raw BoostVoter list (which may contain low-bribe gauges).
     function fetchLiveGauges() external view returns (
         address[] memory gaugeAddrs,
         address[] memory brideAddrs,
@@ -211,8 +180,8 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
             if (boostVoter.isAlive(boostVoter.gauges(i))) aliveCount++;
         }
 
-        gaugeAddrs      = new address[](aliveCount);
-        brideAddrs      = new address[](aliveCount);
+        gaugeAddrs = new address[](aliveCount);
+        brideAddrs = new address[](aliveCount);
         claimableAmounts = new uint256[](aliveCount);
 
         uint256 j = 0;
@@ -227,19 +196,13 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
         }
     }
 
-    /// @notice Returns true if a gauge exists and is alive in BoostVoter.
-    ///         Governance should call this before adding a gauge via setGauges().
     function isGaugeAlive(address gauge) external view returns (bool) {
         return boostVoter.isAlive(gauge);
     }
 
-    /// @notice Returns the bribe contract address for a gauge from BoostVoter.
-    ///         Use this to get the correct bribe address when calling setGauges().
     function getBribeForGauge(address gauge) external view returns (address) {
         return boostVoter.gaugeToBribe(gauge);
     }
-
-    // ── Governance ────────────────────────────────────────────────────────────
 
     modifier onlyGovernance() {
         require(msg.sender == governance, "ByNdVoter: not governance");
@@ -272,7 +235,6 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
 
         delete gauges;
         for (uint256 i = 0; i < _gauges.length; i++) {
-            // Verify gauge is alive in BoostVoter (skip check for zero address in tests)
             if (_gauges[i] != address(0)) {
                 require(boostVoter.isAlive(_gauges[i]), "ByNdVoter: gauge not alive");
                 // Auto-fill bribe address from BoostVoter if caller passes address(0)
@@ -280,27 +242,25 @@ contract ByNdVoter is ReentrancyGuard, Ownable {
                     ? boostVoter.gaugeToBribe(_gauges[i])
                     : _bribes[i];
                 gauges.push(Gauge({
-                    gauge:     _gauges[i],
-                    bribe:     bribeAddr,
-                    name:      _names[i],
+                    gauge:  _gauges[i],
+                    bribe: bribeAddr,
+                    name: _names[i],
                     weightBps: _weightsBps[i],
-                    tokens:    _tokens[i]
+                    tokens: _tokens[i]
                 }));
             } else {
                 gauges.push(Gauge({
-                    gauge:     _gauges[i],
-                    bribe:     _bribes[i],
-                    name:      _names[i],
+                    gauge: _gauges[i],
+                    bribe: _bribes[i],
+                    name: _names[i],
                     weightBps: _weightsBps[i],
-                    tokens:    _tokens[i]
+                    tokens: _tokens[i]
                 }));
             }
         }
         emit GaugesUpdated(_gauges.length);
     }
 
-    /// @notice Set the veMEZO tokenId BynD votes with.
-    ///         Call after the first NFT is deposited into ByNdVault.
     function setManagedTokenId(uint256 _tokenId) external onlyGovernance {
         managedTokenId = _tokenId;
     }

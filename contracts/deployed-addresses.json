@@ -1,0 +1,17 @@
+{
+  "network": "localhost",
+  "chainId": "31337",
+  "deployedAt": "2026-05-07T00:02:53.503Z",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "contracts": {
+    "VeBYND": "0xDAb28073Fa01A171D2AF5707F3b7D2F065bE95dD",
+    "ByNdVault": "0x566be608Fe7e9f23c9337004cfB60877810E6d28",
+    "ByNdStaking": "0x8b1B398b9c49AFE6394aaE438f6F2E8039120253",
+    "ByNdVoter": "0x437a945E1A67eCaC7109DcfB602D7cB318b0465E"
+  },
+  "native": {
+    "VeMEZO": "0x8233369E29653b70E50E93d1276a50B8f2122a01",
+    "MUSD": "0xF978b011bcf604b201996FEb3E53eD3D52F0A90F",
+    "ValidatorsVoter": "0x6B99600daD0a1998337357696827381D122825F3"
+  }
+}

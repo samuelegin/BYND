@@ -126,6 +126,31 @@ async function main() {
       [[], []]                             // _tokens (bribe reward tokens, empty for test)
     )).wait();
     console.log("2 test gauges set (70% / 30%)\n");
+
+    // Set the managed token ID — voter uses this NFT to cast votes
+    // Token ID 1 is always the first NFT minted to deployer
+    await (await voter.setManagedTokenId(1)).wait();
+    console.log("ByNdVoter managedTokenId → 1");
+
+    // Set boost voter address so castVotes() knows where to send votes
+    await (await voter.setBoostVoter(voterAddr)).wait();
+    console.log("ByNdVoter boostVoter → MockValidatorsVoter\n");
+
+    // Seed bribe contracts with MUSD so harvestAndDistribute() has something to collect
+    // In production, protocols pay bribes into these contracts each epoch
+    const mockMUSDContract = await ethers.getContractAt("MockERC20", musdAddr);
+    const bribeAmount = ethers.parseEther("1000"); // 1000 MUSD per bribe contract
+    await (await mockMUSDContract.mint(bribeA, bribeAmount)).wait();
+    await (await mockMUSDContract.mint(bribeB, bribeAmount)).wait();
+    console.log("Seeded bribe contracts with 1000 MUSD each (simulating gauge bribes)");
+
+    // Also approve MockVoter to pull from bribe contracts
+    // MockValidatorsVoter.claimBribes() needs allowance from bribe → voter
+    // Since MockERC20 bribe contracts need to approve the voter, we simulate
+    // by minting directly to the ByNdVoter so harvestAndDistribute works immediately
+    await (await mockMUSDContract.mint(voterDeployedAddr, ethers.parseEther("2000"))).wait();
+    console.log("Minted 2000 MUSD directly to ByNdVoter for immediate harvest testing\n");
+
   } else {
     console.log("Skipping gauge setup on Matsnet.");
     console.log("Run voter.setGauges() manually with real ValidatorsVoter gauge addresses.\n");

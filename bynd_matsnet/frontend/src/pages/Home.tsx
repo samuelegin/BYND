@@ -129,10 +129,10 @@ export default function HomePage() {
               </div>
 
               <p className="text-lg text-silver-dim leading-relaxed max-w-lg">
-                The aggregated boost marketplace for Mezo. Deposit veMEZO, mint liquid{' '}
-                <span className="text-silver font-bold">veBYND</span>, and earn{' '}
-                <span className="text-acid font-bold">any bribe token</span>{' '}
-                captured from protocols bidding for veMEZO boost allocation.
+                A non-custodial boost coordination layer that aggregates veMEZO boost liquidity,
+                automates gauge allocation toward the highest-yielding veBTC gauges, and issues{' '}
+                <span className="text-silver font-bold">veBYND</span>{' '}
+                — a liquid ERC-20 token representing a transferable claim on the pooled position.
               </p>
 
               {/* Mezo boost callout */}
@@ -177,56 +177,46 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right — stats panel */}
+            {/* Right — hero illustration */}
             <div
-              className="hidden lg:block"
+              className="hidden lg:block relative"
               style={{
                 opacity:   heroVisible ? 1 : 0,
                 transform: heroVisible ? 'translateY(0)' : 'translateY(32px)',
                 transition: 'opacity 0.9s ease 0.2s, transform 0.9s ease 0.2s',
               }}
             >
-              <div className="border border-void-border bg-void-soft clip-corner p-8 space-y-6 relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-acid/40 to-transparent" />
-                <div className="absolute bottom-0 right-0 w-48 h-48 bg-acid/5 rounded-full blur-3xl pointer-events-none" />
+              <img
+                src="/hero-orb.png"
+                alt="BynD protocol — veBYND liquid governance"
+                width={600}
+                height={600}
+                className="object-cover"
+              />
 
-                <div className="relative">
-                  <p className="font-mono text-[9px] uppercase tracking-widest text-silver-dim font-bold mb-6">
-                    Protocol — Live Matsnet
-                  </p>
+              <div className="absolute -left-8 top-1/4 bg-void-soft border border-void-border p-4 font-mono text-xs">
+                <p className="text-[8px] text-silver-dim uppercase mb-1">Pooled Power</p>
+                <p className="text-xl font-black text-acid">Live</p>
+                <p className="text-[8px] text-silver-dim">Read from chain</p>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    {[
-                      { label: 'Network',          value: 'Mezo',  sub: 'Bitcoin L2' },
-                      { label: 'Boost Efficiency', value: '98%',   sub: 'Target' },
-                      { label: 'Keeper Bounty',    value: '1%',    sub: 'Per harvest' },
-                      { label: 'Lock Duration',    value: '4 yrs', sub: 'Maximum' },
-                    ].map((s, i) => (
-                      <div key={i} className="border border-void-border p-4">
-                        <p className="font-mono text-[7px] uppercase tracking-widest text-silver-dim mb-1">{s.label}</p>
-                        <p className="font-mono text-2xl font-black text-acid">{s.value}</p>
-                        <p className="font-mono text-[7px] text-void-muted">{s.sub}</p>
-                      </div>
-                    ))}
+              <div className="absolute -right-8 bottom-1/3 bg-void-soft border border-void-border p-4 font-mono text-xs space-y-2 min-w-[180px]">
+                <p className="text-[8px] text-silver-dim uppercase tracking-widest mb-2">Epoch Execution</p>
+                {EPOCH_STEPS.map((s, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <span className="text-[8px] text-void-muted w-4 shrink-0">{s.num}</span>
+                    <div>
+                      <p className="text-[9px] text-acid font-black">{s.fn}</p>
+                      <p className="text-[7px] text-silver-dim">{s.note}</p>
+                    </div>
                   </div>
+                ))}
+              </div>
 
-                  {/* Epoch flow mini-diagram */}
-                  <div className="border border-void-border p-4 space-y-3">
-                    <p className="font-mono text-[8px] uppercase tracking-widest text-acid font-bold">Epoch Execution</p>
-                    {EPOCH_STEPS.map((s, i) => (
-                      <div key={i} className="flex items-start gap-3">
-                        <span className="font-mono text-[8px] text-acid font-black w-5 shrink-0">{s.num}</span>
-                        <div className="flex-1">
-                          <p className="font-mono text-[8px] text-silver font-bold">{s.fn}</p>
-                          <p className="font-mono text-[7px] text-silver-dim">{s.note}</p>
-                        </div>
-                        <span className="font-mono text-[6px] uppercase text-void-muted border border-void-border px-1 py-0.5 shrink-0">
-                          {s.who}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div className="absolute -right-8 bottom-4 bg-void-soft border border-acid/20 p-4 font-mono text-xs">
+                <p className="text-[8px] text-silver-dim uppercase mb-1">Boost Efficiency</p>
+                <p className="text-xl font-black text-acid">98%</p>
+                <p className="text-[8px] text-silver-dim">Target efficiency</p>
               </div>
             </div>
           </div>

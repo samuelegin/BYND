@@ -136,11 +136,10 @@ export default function HomePage() {
               </div>
 
               <p className="text-lg text-silver-dim leading-relaxed max-w-lg">
-                The aggregated boost marketplace for Mezo. Deposit veMEZO, mint liquid{' '}
-                <span className="text-silver font-bold">veBYND</span>,
-                and earn{' '}
-                <span className="text-acid font-bold">any bribe token</span>{' '}
-                captured from protocols bidding for veMEZO boost allocation.
+                A non-custodial boost coordination layer that aggregates veMEZO boost liquidity,
+                automates gauge allocation toward the highest-yielding veBTC gauges, and issues{' '}
+                <span className="text-silver font-bold">veBYND</span>{' '}
+                — a liquid ERC-20 token representing a transferable claim on the pooled position.
               </p>
 
               {/* Mezo gauge callout */}

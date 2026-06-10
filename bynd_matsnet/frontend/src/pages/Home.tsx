@@ -18,6 +18,7 @@ const STEPS = [
     body: 'Deposit your veMEZO NFT into the BynD Vault. The protocol permanently locks it for the 4-year maximum to secure maximum boost weight. You instantly receive veBYND 1:1 — a fully liquid ERC-20.',
     icon: Shield,
     tag: 'Vault',
+    img: '/images/step-lock.png',
   },
   {
     num: '02',
@@ -25,6 +26,7 @@ const STEPS = [
     body: 'Stake your veBYND into the Reward Engine. All bribe tokens harvested from gauges flow here — any ERC-20, not just MUSD. Your share is pro-rata to staked balance.',
     icon: Zap,
     tag: 'Staking',
+    img: '/images/step-deposit.png',
   },
   {
     num: '03',
@@ -32,6 +34,7 @@ const STEPS = [
     body: "Claim your yield every epoch. When you want to exit, unstake veBYND and sell it on the veBYND/MEZO pool on Mezo Swap. No withdrawal needed — the underlying stays locked, your liquidity doesn't.",
     icon: TrendingUp,
     tag: 'Yield',
+    img: '/images/step-deposit.png',
   },
 ];
 
@@ -263,15 +266,11 @@ export default function HomePage() {
                 {/* Visual block */}
                 <div className="relative h-52 bg-void-soft border-b border-void-border flex items-center justify-center overflow-hidden">
                   <div className="absolute inset-0 grid-bg opacity-40" />
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-acid/10 rounded-full blur-3xl" />
-                  <div className="relative z-10 flex flex-col items-center gap-3">
-                    <div className="w-16 h-16 border border-acid/30 bg-acid/5 flex items-center justify-center group-hover:border-acid/60 transition-colors">
-                      <Icon size={28} strokeWidth={1.5} className="text-acid" />
-                    </div>
-                    <span className="font-mono text-[7px] uppercase tracking-widest text-silver-dim border border-void-border px-2 py-0.5">
-                      {step.tag}
-                    </span>
-                  </div>
+                  <img
+                    src={step.img}
+                    alt={step.title}
+                    className="relative z-10 h-full w-full object-cover"
+                  />
                   <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-void-muted group-hover:border-acid/50 transition-colors" />
                 </div>
 

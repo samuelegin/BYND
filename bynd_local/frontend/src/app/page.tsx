@@ -35,7 +35,7 @@ const STEPS = [
     title: 'Earn & Exit',
     body: 'Claim your bribe token yield every epoch. When you want to exit, unstake veBYND and sell it on the veBYND/MEZO pool on Mezo Swap. No withdrawal needed — the underlying stays locked, your liquidity doesn\'t.',
     icon: TrendingUp,
-    img: '/images/step-stake.png',
+    img: '/images/step-deposit.png',
   },
 ];
 
@@ -122,7 +122,7 @@ export default function HomePage() {
             >
               <div className="flex items-center gap-3">
                 <LiveDot />
-                <Badge variant="acid">Mezo Matsnet · Testnet Live</Badge>
+                <Badge variant="acid">Hardhat Local · Dev Mode</Badge>
               </div>
 
               <div>

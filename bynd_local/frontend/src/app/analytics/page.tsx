@@ -255,7 +255,7 @@ export default function AnalyticsPage() {
               </p>
               <StatRow label="Epoch Duration"       value="7 Days" />
               <StatRow label="Keeper Bounty"        value={`${stats.bountyBps} BPS (${stats.bountyBps / 100}%)`} />
-              <StatRow label="Protocol Fee" value="None (0%)" />
+              <StatRow label="Protocol Fee"          value="None (0%)" />
               <StatRow label="Target Boost"         value={`Up to ${stats.boostEfficiency}%`} accent />
               <StatRow label="Gauge Count"          value={gauges.length > 0 ? `${gauges.length} active` : '–'} />
               <StatRow label="veBYND Supply"        value={stats.veByndSupply} />

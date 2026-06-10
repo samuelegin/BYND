@@ -297,6 +297,7 @@ export function useProtocol(
               gauge:        gaugeAddr as `0x${string}`,
               name:         gaugeNames[i] ?? `Gauge ${i + 1}`,
               weightBps,
+              apr:          '–',
               pendingMUSD:  '–',
               boostedVeBTC: '0',
             });
@@ -396,7 +397,7 @@ export function useProtocol(
     });
   };
 
-  const isScanning = (!!address && enabled && isDeployed(addrs.VeMEZO) && (nftCountLoading || tokenIdsLoading))
+  const isScanning = (!!address && enabled && isDeployed(addrs.VeMEZO) && (nftCountLoading || false))
     || (isLocalhost && isScanningVeMezo);
 
   return {

@@ -12,7 +12,7 @@ import { getAddresses, VAULT_ABI, VOTER_ABI } from '@/lib/contracts';
 
 export default function KeeperPage() {
   const { isConnected, address, chainId } = useWallet();
-  const { stats, epoch, gauges, setEpoch, setPosition, refresh } = useProtocol(address, chainId, true);
+  const { stats, epoch, gauges, setEpoch, setPosition, refresh } = useProtocol(address, chainId);
 
   const [activeModal, setActiveModal]       = useState<string | null>(null);
   const [extendingLocks, setExtendingLocks] = useState(false);

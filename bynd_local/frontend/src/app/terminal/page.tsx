@@ -526,7 +526,7 @@ export default function TerminalPage() {
                             : 'Open now — vote!'}
                         </p>
                       </div>
-                      {epoch.epochVoted && <Badge variant="acid" className="ml-auto">Done</Badge>}
+                      {epoch.epochVoted && <Badge variant="acid">Done</Badge>}
                     </div>
                     <Button
                       variant="outline"
@@ -551,7 +551,7 @@ export default function TerminalPage() {
                           Earn {stats.bountyBps / 100}% on MUSD harvested
                         </p>
                       </div>
-                      {epoch.epochHarvested && <Badge variant="muted" className="ml-auto">Done</Badge>}
+                      {epoch.epochHarvested && <Badge variant="muted">Done</Badge>}
                     </div>
                     <Button
                       variant="outline"

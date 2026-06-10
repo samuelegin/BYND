@@ -93,7 +93,7 @@ export function Navbar() {
                   <span className="font-mono text-[9px] font-black text-silver">
                     {formatAddress(address)}
                   </span>
-                  {btcAddress && networkFamily === 'bitcoin' && (
+                  {btcAddress && (networkFamily as string) === 'bitcoin' && (
                     <span className="font-mono text-[7px] text-silver-dim">
                       BTC: {formatAddress(btcAddress)}
                     </span>

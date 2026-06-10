@@ -189,9 +189,7 @@ export default function HomePage() {
               <img
                 src="/hero-orb.png"
                 alt="BynD protocol — veBYND liquid governance"
-                width={600}
-                height={600}
-                className="object-cover"
+                style={{ width: '600px', height: '600px', objectFit: 'cover' }}
               />
 
               <div className="absolute -left-8 top-1/4 bg-void-soft border border-void-border p-4 font-mono text-xs">

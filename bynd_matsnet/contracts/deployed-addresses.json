@@ -1,0 +1,18 @@
+{
+  "network": "matsnet",
+  "chainId": "31611",
+  "deployedAt": "2026-05-25T00:02:51.000Z",
+  "deployer": "0xc8bd74FF3B46B8422ef2255186B15FBE7cCDf947",
+  "contracts": {
+    "VeBYND":      "0x28581E2dc44ba67f78CAD75592Db868eb0EEB45E",
+    "ByNdVault":   "0x4F37E23bb768D9f4bF041384AF69Fdc6A9591130",
+    "ByNdStaking": "0x934EA7318fd8cF660282000D6C16fa631Ba5ECeE",
+    "ByNdVoter":   "0x6925E1BAEeA6B0D9E14e7D9cdeaEf10614b628ef"
+  },
+  "native": {
+    "VeMEZO":             "0xaCE816CA2bcc9b12C59799dcC5A959Fb9b98111b",
+    "MUSD":               "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
+    "ValidatorsVoter":    "0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1",
+    "RewardsDistributor": "0x2962E8817ae716019F759d098e2caE658bDcAd04"
+  }
+}

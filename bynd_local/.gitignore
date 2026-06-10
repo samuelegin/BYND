@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+contracts/node_modules/
+
+# Next.js
+.next/
+out/
+
+# Build artifacts
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+
+# Environment — contains deployed addresses, never commit
+.env.local
+.env*.local
+
+# Hardhat
+contracts/deployed-addresses.json
+
+# Logs
+*.log
+/tmp/bynd-*.log
+
+# OS
+.DS_Store
+Thumbs.db

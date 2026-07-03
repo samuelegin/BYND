@@ -1,22 +1,26 @@
 # Dependencies
 node_modules/
-contracts/node_modules/
 
-# Next.js
+# Turborepo
+.turbo/
+
+# Next.js / Vite build output
 .next/
 out/
+dist/
 
-# Build artifacts
-contracts/artifacts/
-contracts/cache/
-contracts/typechain-types/
+# Hardhat build artifacts
+packages/contracts/artifacts/
+packages/contracts/cache/
+packages/contracts/typechain-types/
 
 # Environment — contains deployed addresses, never commit
 .env.local
 .env*.local
+.env
 
 # Hardhat
-contracts/deployed-addresses.json
+packages/contracts/deployed-addresses.json
 
 # Logs
 *.log

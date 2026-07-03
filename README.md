@@ -22,26 +22,22 @@ Users deposit veMEZO NFTs into BynD once. The protocol maintains those positions
 
 ## Repository Structure
 
+The repo is a **pnpm workspace monorepo** orchestrated with **Turborepo**:
+
 ```
 BYND/
-├── bynd_local/       Local development environment (Next.js frontend + Hardhat)
-│   ├── contracts/    Solidity contracts + Hardhat + mock contracts for local testing
-│   └── frontend/     Next.js frontend with epoch skip for demo
-│
-└── bynd_matsnet/     Matsnet deployment (Vite frontend + Hardhat)
-    ├── contracts/    Production Solidity contracts + Hardhat deploy scripts
-    └── frontend/     Vite-powered React frontend with Mezo Passport wallet integration
+├── apps/
+│   └── web/                Vite + React frontend (@bynd/web) with Mezo Passport wallet integration
+├── packages/
+│   └── contracts/          Solidity contracts + Hardhat (@bynd/contracts) — deploy scripts, tests, mocks
+├── package.json            Root workspace (private) — turbo task entry points
+├── pnpm-workspace.yaml     packages: ["apps/*", "packages/*"]
+└── turbo.json              Build pipeline & task dependencies
 ```
 
-### Why Two Workspaces?
+All dependencies are installed once from the repo root with `pnpm install` — pnpm hoists every package into a single content-addressed store under the root `node_modules/.pnpm`, and each workspace only receives symlinks to its declared dependencies. Common tasks run from the root via Turborepo (`pnpm build`, `pnpm test`, `pnpm dev`), or against a single workspace with `pnpm --filter @bynd/web <script>` / `pnpm --filter @bynd/contracts <script>`.
 
-The repo is split into two self-contained workspaces rather than one monorepo with environment flags. This was a deliberate decision:
-
-**`bynd_local`** is purely for development and judging demos. It runs against a local Hardhat node (Chain ID `31337`) using mock contracts — `MockVeMEZO`, `MockERC20`, `MockValidatorsVoter` — that simulate the full Mezo contract surface without needing real tokens, gas, or a live network. It includes a **Skip Epoch** button in the UI that fast-forwards the EVM clock so reviewers can demo the complete deposit → stake → vote → harvest flow in under a minute. The frontend is Next.js.
-
-**`bynd_matsnet`** is the production-ready testnet deployment. It targets Mezo Matsnet (Chain ID `31611`) and integrates with the real veMEZO, MUSD, RewardsDistributor, and ValidatorsVoter contracts already live on Matsnet. The frontend is Vite + React, deployed on Vercel, and uses Mezo Passport for native wallet support across MetaMask, OKX, Unisat, and Xverse. All four BynD contracts are live and verified on Matsnet.
-
-Keeping them separate means local iteration stays fast and clean with zero external dependencies, while `bynd_matsnet` remains a clean, always-deployable production artifact with no dev tooling mixed in.
+The frontend targets Mezo Matsnet (Chain ID `31611`) and integrates with the real veMEZO, MUSD, RewardsDistributor, and ValidatorsVoter contracts live on Matsnet, with Mezo Passport for native wallet support across MetaMask, OKX, Unisat, and Xverse. The contracts package also ships mocks (`MockVeMEZO`, `MockERC20`, `MockValidatorsVoter`) and a `deploy:local` script for iterating against a local Hardhat node.
 
 ---
 
@@ -156,27 +152,28 @@ Any wallet can call any step. First caller of `harvestAndDistribute()` earns the
 
 ---
 
-## Running Locally (bynd_local)
+## Running Locally
 
 ### Prerequisites
 - Node.js v18+
+- pnpm v10+ (`corepack enable` or `npm i -g pnpm`)
 - Two terminal windows
+
+### Install once (repo root)
+```bash
+pnpm install
+```
 
 ### Terminal 1 — Start Hardhat node
 ```bash
-cd bynd_local/contracts
-npm install
-npx hardhat node --port 8545
+pnpm --filter @bynd/contracts node
 ```
 
 ### Terminal 2 — Deploy and start frontend
 ```bash
-cd bynd_local/contracts
-npm run deploy:local
-
-cd ../frontend
-npm install
-npm run dev
+pnpm --filter @bynd/contracts deploy:local
+pnpm --filter @bynd/web sync-addresses
+pnpm --filter @bynd/web dev
 ```
 
 ### MetaMask Setup
@@ -191,18 +188,17 @@ The **Skip Epoch** button (visible on Chain ID 31337 only) fast-forwards the EVM
 
 ---
 
-## Running on Matsnet (bynd_matsnet)
+## Running on Matsnet
 
 ### Prerequisites
-- Node.js v18+
+- Node.js v18+ and pnpm v10+
 - Funded Matsnet wallet (BTC for gas)
-- `DEPLOYER_PRIVATE_KEY` in `bynd_matsnet/contracts/.env`
+- `DEPLOYER_PRIVATE_KEY` in `packages/contracts/.env`
 
 ### Redeploy (optional — contracts are already live above)
 ```bash
-cd bynd_matsnet/contracts
-npm install
-npm run deploy:matsnet
+pnpm install
+pnpm --filter @bynd/contracts deploy:matsnet
 ```
 
 The deploy script automatically:
@@ -212,13 +208,11 @@ The deploy script automatically:
 - Saves addresses to `deployed-addresses.json`
 
 ### Update frontend addresses (after redeploy only)
-Edit `bynd_matsnet/frontend/.env` with the new addresses from deploy output.
+Edit `apps/web/.env` with the new addresses from deploy output.
 
 ### Start frontend
 ```bash
-cd bynd_matsnet/frontend
-npm install
-npm run dev
+pnpm --filter @bynd/web dev
 ```
 
 ### Keeper operations (each epoch)
@@ -243,8 +237,8 @@ cast send <ByNdVoter> "harvestAndDistribute()" --private-key <KEY> --rpc-url <RP
 Before each epoch vote, run the optimiser to allocate boost weight to the highest-ROI gauges:
 
 ```bash
-cd bynd_matsnet/contracts
-npx hardhat run scripts/optimiseGauges.ts --network matsnet
+cd packages/contracts
+pnpm hardhat run scripts/optimiseGauges.ts --network matsnet
 ```
 
 The optimiser scans all alive gauges from ValidatorsVoter, ranks by `ROI = claimable / totalWeight` (uncontested gauges have ROI = infinity), selects the top N, and calls `voter.setGauges()` with proportional weights.
@@ -255,9 +249,9 @@ The optimiser scans all alive gauges from ValidatorsVoter, ranks by `ROI = claim
 
 | Layer | Stack |
 |---|---|
+| Monorepo | pnpm workspaces · Turborepo |
 | Smart Contracts | Solidity 0.8 · Hardhat · ethers v6 |
-| Frontend (Matsnet) | React · Vite · wagmi v2 · viem |
-| Frontend (Local) | Next.js · wagmi v2 · viem |
+| Frontend | React · Vite · wagmi v2 · viem |
 | Wallet | Mezo Passport · MetaMask · OKX · Unisat · Xverse |
 | Styling | Tailwind CSS |
 | Keeper Scripts | TypeScript · optimiseGauges.ts · cast (Foundry) |

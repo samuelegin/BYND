@@ -1,0 +1,58 @@
+import React from 'react';
+import { Gift } from 'lucide-react';
+import { Button } from '@/components/ui';
+import type { ProtocolStats, UserPosition } from '@/types';
+
+interface YieldTerminalProps {
+  position: UserPosition;
+  stats: ProtocolStats;
+  hasRewards: boolean;
+  onClaim: () => void;
+}
+
+export function YieldTerminal({ position, stats, hasRewards, onClaim }: YieldTerminalProps) {
+  return (
+    <div className="bg-void-soft border border-void-border clip-corner relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-acid/40 to-transparent" />
+      <div className="absolute bottom-0 right-0 w-32 h-32 bg-acid/3 rounded-full blur-3xl pointer-events-none" />
+      <div className="p-6 relative">
+        <div className="flex items-center justify-between mb-6">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-silver-dim font-bold">
+            Yield Terminal
+          </p>
+          <Gift size={16} className="text-void-muted" />
+        </div>
+
+        <div className="space-y-4 mb-6">
+          <div>
+            <p className="font-mono text-[8px] uppercase tracking-widest text-silver-dim mb-1">
+              Claimable {stats.rewardTokenSymbol}
+            </p>
+            <p className="text-4xl font-black text-acid leading-none">
+              {parseFloat(position.claimableMUSD || '0').toFixed(2)}
+            </p>
+            <p className="font-mono text-[7px] text-silver-dim mt-1">
+              {parseFloat(position.stakedBalance || '0') > 0
+                ? parseFloat(position.claimableMUSD || '0') > 0
+                  ? 'MUSD bribes from gauge voting — ready to claim'
+                  : 'Rewards accumulate after keeper harvests each epoch'
+                : `Stake veBYND above to start earning ${stats.rewardTokenSymbol}`}
+            </p>
+          </div>
+          <div>
+            <p className="font-mono text-[8px] uppercase tracking-widest text-silver-dim mb-1">
+              Claimable MEZO
+            </p>
+            <p className="text-2xl font-black text-silver leading-none">
+              {parseFloat(position.claimableMEZO || '0').toFixed(4)}
+            </p>
+          </div>
+        </div>
+
+        <Button variant="primary" fullWidth onClick={onClaim} disabled={!hasRewards}>
+          Claim MUSD Yield
+        </Button>
+      </div>
+    </div>
+  );
+}

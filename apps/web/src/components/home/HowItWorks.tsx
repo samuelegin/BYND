@@ -1,5 +1,4 @@
-import React from 'react';
-import { STEPS } from './data';
+import { STEPS } from "./data";
 
 export function HowItWorks() {
   return (
@@ -41,9 +40,7 @@ export function HowItWorks() {
                 </span>
                 <div className="h-px flex-1 bg-void-border" />
               </div>
-              <h3 className="text-xl font-black text-silver">
-                {step.title}
-              </h3>
+              <h3 className="text-xl font-black text-silver">{step.title}</h3>
               <p className="font-mono text-[10px] text-silver-dim leading-relaxed">
                 {step.body}
               </p>

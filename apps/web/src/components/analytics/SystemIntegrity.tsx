@@ -1,7 +1,6 @@
-import React from 'react';
-import { Activity } from 'lucide-react';
-import { StatRow, formatTime } from '@/components/ui';
-import type { EpochState, ProtocolStats } from '@/types';
+import { Activity } from "lucide-react";
+import { StatRow, formatTime } from "@/components/ui";
+import type { EpochState, ProtocolStats } from "@/types";
 
 interface SystemIntegrityProps {
   epoch: EpochState;
@@ -24,28 +23,32 @@ export function SystemIntegrity({ epoch, stats }: SystemIntegrityProps) {
           <p className="font-mono text-[8px] text-silver-dim uppercase tracking-widest mb-1">
             Pending MUSD in Gauges
           </p>
-          <p className="text-3xl font-black text-acid">{stats.pendingIncentives}</p>
+          <p className="text-3xl font-black text-acid">
+            {stats.pendingIncentives}
+          </p>
         </div>
 
         <div className="mt-4 pt-4 border-t border-void-border space-y-1">
           <StatRow
             label="Locks Extended"
-            value={epoch.epochLocksExtended ? '✓ Yes' : 'No'}
+            value={epoch.epochLocksExtended ? "✓ Yes" : "No"}
             accent={epoch.epochLocksExtended}
           />
           <StatRow
             label="Epoch Voted"
-            value={epoch.epochVoted ? '✓ Yes' : 'No'}
+            value={epoch.epochVoted ? "✓ Yes" : "No"}
             accent={epoch.epochVoted}
           />
           <StatRow
             label="Epoch Harvested"
-            value={epoch.epochHarvested ? '✓ Yes' : 'No'}
+            value={epoch.epochHarvested ? "✓ Yes" : "No"}
             accent={epoch.epochHarvested}
           />
           <StatRow
             label="Time to Next"
-            value={epoch.currentEpoch > 0 ? formatTime(epoch.timeUntilNextVote) : '–'}
+            value={
+              epoch.currentEpoch > 0 ? formatTime(epoch.timeUntilNextVote) : "–"
+            }
           />
         </div>
       </div>

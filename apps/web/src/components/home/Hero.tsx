@@ -1,8 +1,7 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronDown, Lock } from 'lucide-react';
-import { Button, Badge, LiveDot } from '@/components/ui';
-import { EPOCH_STEPS } from './data';
+import { Link } from "react-router-dom";
+import { ArrowRight, ChevronDown, Lock } from "lucide-react";
+import { Button, Badge, LiveDot } from "@/components/ui";
+import { EPOCH_STEPS } from "./data";
 
 interface HeroProps {
   visible: boolean;
@@ -11,7 +10,12 @@ interface HeroProps {
   connect: () => void;
 }
 
-export function Hero({ visible, isConnected, isConnecting, connect }: HeroProps) {
+export function Hero({
+  visible,
+  isConnected,
+  isConnecting,
+  connect,
+}: HeroProps) {
   return (
     <section className="relative min-h-[92vh] flex items-center overflow-hidden grid-bg">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-acid/4 rounded-full blur-[160px] pointer-events-none" />
@@ -23,8 +27,8 @@ export function Hero({ visible, isConnected, isConnecting, connect }: HeroProps)
             className="space-y-8"
             style={{
               opacity: visible ? 1 : 0,
-              transform: visible ? 'translateY(0)' : 'translateY(24px)',
-              transition: 'opacity 0.7s ease, transform 0.7s ease',
+              transform: visible ? "translateY(0)" : "translateY(24px)",
+              transition: "opacity 0.7s ease, transform 0.7s ease",
             }}
           >
             <div className="flex items-center gap-3">
@@ -45,7 +49,7 @@ export function Hero({ visible, isConnected, isConnecting, connect }: HeroProps)
             <p className="text-lg text-silver-dim leading-relaxed max-w-lg">
               A non-custodial boost coordination layer that aggregates veMEZO
               boost liquidity, automates gauge allocation toward the
-              highest-yielding veBTC gauges, and issues{' '}
+              highest-yielding veBTC gauges, and issues{" "}
               <span className="text-silver font-bold">veBYND</span> — a liquid
               ERC-20 token representing a transferable claim on the pooled
               position.
@@ -57,10 +61,10 @@ export function Hero({ visible, isConnected, isConnecting, connect }: HeroProps)
                 <Lock size={10} /> Mezo Boost Gauges — Powered by BynD
               </p>
               <p className="font-mono text-[9px] text-silver-dim leading-relaxed">
-                veMEZO holders vote on boost gauges that amplify veBTC
-                positions up to 5x. BynD pools fragmented veMEZO into one
-                permanent optimised block — the most credible boost source,
-                locked 4 years, rebases auto-compounding every epoch.
+                veMEZO holders vote on boost gauges that amplify veBTC positions
+                up to 5x. BynD pools fragmented veMEZO into one permanent
+                optimised block — the most credible boost source, locked 4
+                years, rebases auto-compounding every epoch.
               </p>
             </div>
 
@@ -108,14 +112,14 @@ export function Hero({ visible, isConnected, isConnecting, connect }: HeroProps)
             className="hidden lg:block relative"
             style={{
               opacity: visible ? 1 : 0,
-              transform: visible ? 'translateY(0)' : 'translateY(32px)',
-              transition: 'opacity 0.9s ease 0.2s, transform 0.9s ease 0.2s',
+              transform: visible ? "translateY(0)" : "translateY(32px)",
+              transition: "opacity 0.9s ease 0.2s, transform 0.9s ease 0.2s",
             }}
           >
             <img
               src="/hero-orb.png"
               alt="BynD protocol — veBYND liquid governance"
-              style={{ width: '600px', height: '600px', objectFit: 'cover' }}
+              style={{ width: "600px", height: "600px", objectFit: "cover" }}
             />
 
             <div className="absolute -left-8 top-1/4 bg-void-soft border border-void-border p-4 font-mono text-xs">

@@ -1,5 +1,4 @@
-import React from 'react';
-import { formatTime } from '@/components/ui';
+import { formatTime } from "@/components/ui";
 
 interface StatusOverviewProps {
   mezoEpoch: number;
@@ -9,19 +8,28 @@ interface StatusOverviewProps {
   bountyBps: number;
 }
 
-export function StatusOverview({ mezoEpoch, liveCountdown, pendingIncentives, rewardTokenSymbol, bountyBps }: StatusOverviewProps) {
+export function StatusOverview({
+  mezoEpoch,
+  liveCountdown,
+  pendingIncentives,
+  rewardTokenSymbol,
+  bountyBps,
+}: StatusOverviewProps) {
   const items = [
-    { label: 'Current Epoch', value: `#${mezoEpoch}` },
-    { label: 'Time Remaining', value: formatTime(liveCountdown) },
+    { label: "Current Epoch", value: `#${mezoEpoch}` },
+    { label: "Time Remaining", value: formatTime(liveCountdown) },
     {
-      label: 'Pending Rewards',
+      label: "Pending Rewards",
       value:
-        pendingIncentives === '–'
-          ? '–'
-          : parseFloat(pendingIncentives).toLocaleString(undefined, { maximumFractionDigits: 2 }) +
-            ' ' + rewardTokenSymbol,
+        pendingIncentives === "–"
+          ? "–"
+          : parseFloat(pendingIncentives).toLocaleString(undefined, {
+              maximumFractionDigits: 2,
+            }) +
+            " " +
+            rewardTokenSymbol,
     },
-    { label: 'Keeper Bounty', value: `${bountyBps / 100}% of harvest` },
+    { label: "Keeper Bounty", value: `${bountyBps / 100}% of harvest` },
   ];
 
   return (

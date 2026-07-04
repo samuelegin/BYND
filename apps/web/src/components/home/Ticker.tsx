@@ -1,5 +1,4 @@
-import React from 'react';
-import { TICKER_ITEMS } from './data';
+import { TICKER_ITEMS } from "./data";
 
 export function Ticker() {
   return (

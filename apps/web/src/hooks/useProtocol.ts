@@ -146,7 +146,7 @@ export function useProtocol(
       fetchingRef.current = false;
       setIsScanning(false);
     }
-  }, [address, publicClient, addrs.VeMEZO, enabled, nftCount, veMezoSupply]);
+  }, [address, publicClient, addrs.VeMEZO, nftCount, veMezoSupply]);
 
 
   // Fetch on mount / address change / network change
@@ -346,7 +346,7 @@ export function useProtocol(
         lastVoteTimestamp:   lastVoteTs != null ? Number(lastVoteTs) : prev.lastVoteTimestamp,
       }));
     }
-  }, [protocolData, epochFlags, matsnetEpochData]);
+  }, [protocolData, epochFlags, matsnetEpochData, rewardSymbolData]);
 
   // ── Sync user position ────────────────────────────────────────────────────
   useEffect(() => {
@@ -409,7 +409,7 @@ export function useProtocol(
     };
     setEpochHistory(prev => {
       const updated = [entry, ...prev.filter(e => e.epoch !== epochNum)].slice(0, 20);
-      try { localStorage.setItem('bynd_epoch_history', JSON.stringify(updated)); } catch {}
+      try { localStorage.setItem('bynd_epoch_history', JSON.stringify(updated)); } catch { /* quota exceeded or storage disabled — non-fatal */ }
       return updated;
     });
   };

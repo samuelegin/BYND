@@ -1,5 +1,4 @@
-import React from 'react';
-import type { ProtocolStats } from '@/types';
+import type { ProtocolStats } from "@/types";
 
 interface MarketStatsProps {
   stats: ProtocolStats;
@@ -8,7 +7,12 @@ interface MarketStatsProps {
   stakerRatio: string;
 }
 
-export function MarketStats({ stats, veByndSupplyNum, totalStakedNum, stakerRatio }: MarketStatsProps) {
+export function MarketStats({
+  stats,
+  veByndSupplyNum,
+  totalStakedNum,
+  stakerRatio,
+}: MarketStatsProps) {
   return (
     <div className="grid md:grid-cols-3 gap-6">
       <div className="border border-acid/20 bg-acid/3 clip-corner p-6">
@@ -16,7 +20,9 @@ export function MarketStats({ stats, veByndSupplyNum, totalStakedNum, stakerRati
           veBYND / veMEZO Ratio
         </p>
         <p className="text-4xl font-black text-silver">
-          {veByndSupplyNum > 0 ? (veByndSupplyNum / veByndSupplyNum).toFixed(4) : '1:1'}
+          {veByndSupplyNum > 0
+            ? (veByndSupplyNum / veByndSupplyNum).toFixed(4)
+            : "1:1"}
         </p>
         <p className="font-mono text-[8px] text-silver-dim mt-1">
           Mint rate is always 1:1 on deposit
@@ -28,7 +34,8 @@ export function MarketStats({ stats, veByndSupplyNum, totalStakedNum, stakerRati
         </p>
         <p className="text-4xl font-black text-silver">{stakerRatio}%</p>
         <p className="font-mono text-[8px] text-acid mt-1">
-          {totalStakedNum.toLocaleString()} of {veByndSupplyNum.toLocaleString()} veBYND staked
+          {totalStakedNum.toLocaleString()} of{" "}
+          {veByndSupplyNum.toLocaleString()} veBYND staked
         </p>
       </div>
       <div className="border border-void-border p-6 clip-corner">

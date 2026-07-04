@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Zap } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Button, LiveDot } from '@/components/ui';
 import { useWallet } from '@/hooks/useWallet';
@@ -19,8 +19,7 @@ export function Navbar() {
 
   const {
     isConnected, isConnecting, address,
-    btcAddress, networkFamily,
-    chainId,
+    btcAddress,
     isCorrectNetwork, isSwitching,
     connect, disconnect, switchToMatsnet,
     formatAddress,

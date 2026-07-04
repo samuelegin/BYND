@@ -1,7 +1,6 @@
-import React from 'react';
-import { Panel, Button, Badge } from '@/components/ui';
+import { Panel, Button, Badge } from "@/components/ui";
 
-export type BadgeVariant = 'acid' | 'orange' | 'muted';
+export type BadgeVariant = "acid" | "orange" | "muted";
 
 export type KeeperStepDef = {
   id: string;
@@ -31,26 +30,34 @@ export function EpochFlowSteps({ steps }: { steps: KeeperStepDef[] }) {
           return (
             <div
               key={s.id}
-              className={`border p-5 space-y-4 transition-colors ${active ? 'border-acid/50 bg-acid/3' : 'border-void-border'}`}
+              className={`border p-5 space-y-4 transition-colors ${active ? "border-acid/50 bg-acid/3" : "border-void-border"}`}
             >
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <div className={`p-2 border ${active ? 'border-acid/50 bg-acid/10' : 'border-void-border'}`}>
+                  <div
+                    className={`p-2 border ${active ? "border-acid/50 bg-acid/10" : "border-void-border"}`}
+                  >
                     <Icon
                       size={14}
-                      className={`${active ? 'text-acid' : 'text-silver-dim'} transition-colors ${s.id === 'castVotes' && active ? 'animate-spin' : ''}`}
+                      className={`${active ? "text-acid" : "text-silver-dim"} transition-colors ${s.id === "castVotes" && active ? "animate-spin" : ""}`}
                     />
                   </div>
                   <Badge variant={s.badgeVariant}>{s.badge}</Badge>
                 </div>
                 <div>
-                  <p className="font-mono text-[9px] uppercase font-black text-silver">{s.label}</p>
-                  <p className="font-mono text-[7px] text-silver-dim mt-0.5">Step {s.step}</p>
+                  <p className="font-mono text-[9px] uppercase font-black text-silver">
+                    {s.label}
+                  </p>
+                  <p className="font-mono text-[7px] text-silver-dim mt-0.5">
+                    Step {s.step}
+                  </p>
                 </div>
               </div>
-              <p className="font-mono text-[8px] text-silver-dim leading-relaxed">{s.description}</p>
+              <p className="font-mono text-[8px] text-silver-dim leading-relaxed">
+                {s.description}
+              </p>
               <Button
-                variant={active ? 'primary' : 'ghost'}
+                variant={active ? "primary" : "ghost"}
                 size="sm"
                 fullWidth
                 onClick={s.onClick}

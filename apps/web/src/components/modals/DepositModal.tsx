@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Lock } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Button, Input, StatRow } from '@/components/ui';
+import { Button, StatRow } from '@/components/ui';
 import type { TxStatus } from '@/types';
 import { Modal } from './Modal';
 import { TxBlock } from './TxBlock';

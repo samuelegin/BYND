@@ -1,6 +1,5 @@
-import React from 'react';
-import { AlertTriangle } from 'lucide-react';
-import { Panel } from '@/components/ui';
+import { AlertTriangle } from "lucide-react";
+import { Panel } from "@/components/ui";
 
 export function KeeperNotes() {
   return (
@@ -12,26 +11,26 @@ export function KeeperNotes() {
             Keeper Design
           </p>
           <p>
-            •{' '}
+            •{" "}
             <span className="text-silver">
               claimRebases() is permissionless and has no epoch gate.
-            </span>{' '}
-            Call it any time. Rebase compounds locked MEZO in-place — no
-            tokens leave the vault.
+            </span>{" "}
+            Call it any time. Rebase compounds locked MEZO in-place — no tokens
+            leave the vault.
           </p>
           <p>
-            • <span className="text-silver">Epoch-gated steps 01–03.</span>{' '}
-            Each executes once per epoch. Repeat calls revert.
+            • <span className="text-silver">Epoch-gated steps 01–03.</span> Each
+            executes once per epoch. Repeat calls revert.
           </p>
           <p>
-            • <span className="text-silver">Multi-token harvest.</span>{' '}
-            harvestAndDistribute() sweeps any ERC-20 bribe token. Keepers
-            earn 1% in each token harvested.
+            • <span className="text-silver">Multi-token harvest.</span>{" "}
+            harvestAndDistribute() sweeps any ERC-20 bribe token. Keepers earn
+            1% in each token harvested.
           </p>
           <p>
-            • <span className="text-silver">Permissionless.</span> Any
-            wallet can call any step. First caller of harvestAndDistribute()
-            earns the bounty.
+            • <span className="text-silver">Permissionless.</span> Any wallet
+            can call any step. First caller of harvestAndDistribute() earns the
+            bounty.
           </p>
         </div>
       </div>

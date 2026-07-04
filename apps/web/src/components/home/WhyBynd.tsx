@@ -1,5 +1,4 @@
-import React from 'react';
-import { COMPARE, EPOCH_STEPS } from './data';
+import { COMPARE, EPOCH_STEPS } from "./data";
 
 export function WhyBynd() {
   return (
@@ -26,13 +25,13 @@ export function WhyBynd() {
             {COMPARE.map((item, i) => (
               <div
                 key={i}
-                className={`p-3 border ${item.bad ? 'border-void-border' : 'border-acid/30 bg-acid/3'}`}
+                className={`p-3 border ${item.bad ? "border-void-border" : "border-acid/30 bg-acid/3"}`}
               >
                 <p className="font-mono text-[8px] uppercase tracking-widest text-silver-dim mb-1">
                   {item.label}
                 </p>
                 <p
-                  className={`font-mono text-sm font-black ${item.bad ? 'text-silver-dim' : 'text-acid'}`}
+                  className={`font-mono text-sm font-black ${item.bad ? "text-silver-dim" : "text-acid"}`}
                 >
                   {item.value}
                 </p>
@@ -77,8 +76,8 @@ export function WhyBynd() {
 
           <div className="border-t border-void-border pt-4">
             <p className="font-mono text-[8px] text-silver-dim leading-relaxed">
-              <span className="text-acid font-bold">claimRebases()</span> has
-              no epoch gate — call any time. The other three are gated: each
+              <span className="text-acid font-bold">claimRebases()</span> has no
+              epoch gate — call any time. The other three are gated: each
               executes exactly once per epoch, enforced on-chain.
             </p>
           </div>

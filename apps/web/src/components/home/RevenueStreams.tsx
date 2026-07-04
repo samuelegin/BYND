@@ -1,5 +1,4 @@
-import React from 'react';
-import { REVENUE_STREAMS } from './data';
+import { REVENUE_STREAMS } from "./data";
 
 export function RevenueStreams() {
   return (

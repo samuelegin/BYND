@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface BountyHeroProps {
   estimatedBounty: string;
   rewardTokenSymbol: string;
@@ -7,7 +5,12 @@ interface BountyHeroProps {
   pendingIncentives: string;
 }
 
-export function BountyHero({ estimatedBounty, rewardTokenSymbol, bountyBps, pendingIncentives }: BountyHeroProps) {
+export function BountyHero({
+  estimatedBounty,
+  rewardTokenSymbol,
+  bountyBps,
+  pendingIncentives,
+}: BountyHeroProps) {
   return (
     <div className="border border-acid/30 bg-acid/3 clip-corner p-8 text-center relative overflow-hidden">
       <div className="absolute inset-0 grid-bg opacity-30" />
@@ -20,10 +23,12 @@ export function BountyHero({ estimatedBounty, rewardTokenSymbol, bountyBps, pend
           ~${estimatedBounty}
         </p>
         <p className="font-mono text-[10px] text-silver-dim mt-2 uppercase tracking-widest">
-          {rewardTokenSymbol} · {bountyBps / 100}% of{' '}
-          {pendingIncentives === '–'
-            ? '–'
-            : parseFloat(pendingIncentives).toLocaleString(undefined, { maximumFractionDigits: 2 })}{' '}
+          {rewardTokenSymbol} · {bountyBps / 100}% of{" "}
+          {pendingIncentives === "–"
+            ? "–"
+            : parseFloat(pendingIncentives).toLocaleString(undefined, {
+                maximumFractionDigits: 2,
+              })}{" "}
           {rewardTokenSymbol} pending
         </p>
       </div>

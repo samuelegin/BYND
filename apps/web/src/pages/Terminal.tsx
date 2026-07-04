@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Lock } from 'lucide-react';
-import { Button } from '@/components/ui';
+import { useState, useEffect } from "react";
+import { Lock } from "lucide-react";
+import { Button } from "@/components/ui";
 import {
   TerminalHeader,
   StatStrip,
@@ -11,11 +11,11 @@ import {
   KeeperFunctions,
   EpochStatus,
   TerminalModals,
-} from '@/components/terminal';
-import { useWallet } from '@/hooks/useWallet';
-import { useProtocol } from '@/hooks/useProtocol';
-import { useWriteContract, usePublicClient } from 'wagmi';
-import { parseEther } from 'viem';
+} from "@/components/terminal";
+import { useWallet } from "@/hooks/useWallet";
+import { useProtocol } from "@/hooks/useProtocol";
+import { useWriteContract, usePublicClient } from "wagmi";
+import { parseEther } from "viem";
 import {
   getAddresses,
   VAULT_ABI,
@@ -24,15 +24,10 @@ import {
   VEMEZO_ABI,
   ERC20_ABI,
   MATSNET_CHAIN_ID,
-} from '@/lib/contracts';
+} from "@/lib/contracts";
 
 export default function TerminalPage() {
-  const {
-    isConnected,
-    address,
-    chainId,
-    connect,
-  } = useWallet();
+  const { isConnected, address, chainId, connect } = useWallet();
 
   const {
     stats,
@@ -86,14 +81,18 @@ export default function TerminalPage() {
       const lockData = (await publicClient?.readContract({
         address: addrs.VeMEZO as `0x${string}`,
         abi: VEMEZO_ABI,
-        functionName: 'locked',
+        functionName: "locked",
         args: [BigInt(tokenId)],
       })) as { amount: bigint; end: bigint; isPermanent: boolean } | undefined;
 
       if (lockData?.isPermanent) {
         throw new Error(
-          'veMEZO #' + tokenId + ' is permanently locked. ' +
-          'Call unlock_permanent(' + tokenId + ') on the veMEZO contract first, then deposit.',
+          "veMEZO #" +
+            tokenId +
+            " is permanently locked. " +
+            "Call unlock_permanent(" +
+            tokenId +
+            ") on the veMEZO contract first, then deposit.",
         );
       }
 
@@ -103,7 +102,7 @@ export default function TerminalPage() {
       const approveHash = await writeContractAsync({
         address: addrs.VeMEZO,
         abi: VEMEZO_ABI,
-        functionName: 'approve',
+        functionName: "approve",
         args: [addrs.ByNdVault, BigInt(tokenId)],
       });
       await publicClient?.waitForTransactionReceipt({ hash: approveHash });
@@ -112,14 +111,14 @@ export default function TerminalPage() {
       return writeContractAsync({
         address: addrs.ByNdVault,
         abi: VAULT_ABI,
-        functionName: 'deposit',
+        functionName: "deposit",
         args: [BigInt(tokenId)],
       });
     });
   };
 
   const handleWithdraw = async (_tokenId: number) => {
-    alert('Permanent lock — exit via veBYND/MEZO pool on Mezo Swap.');
+    alert("Permanent lock — exit via veBYND/MEZO pool on Mezo Swap.");
   };
 
   const handleStake = async (amount: string) => {
@@ -127,13 +126,13 @@ export default function TerminalPage() {
       await writeContractAsync({
         address: addrs.VeBYND,
         abi: ERC20_ABI,
-        functionName: 'approve',
+        functionName: "approve",
         args: [addrs.ByNdStaking, parseEther(amount)],
       });
       return writeContractAsync({
         address: addrs.ByNdStaking,
         abi: STAKING_ABI,
-        functionName: 'stake',
+        functionName: "stake",
         args: [parseEther(amount)],
       });
     });
@@ -144,7 +143,7 @@ export default function TerminalPage() {
       writeContractAsync({
         address: addrs.ByNdStaking,
         abi: STAKING_ABI,
-        functionName: 'unstake',
+        functionName: "unstake",
         args: [parseEther(amount)],
       }),
     );
@@ -155,7 +154,7 @@ export default function TerminalPage() {
       writeContractAsync({
         address: addrs.ByNdStaking,
         abi: STAKING_ABI,
-        functionName: 'claimAll',
+        functionName: "claimAll",
         args: [],
       }),
     );
@@ -166,7 +165,7 @@ export default function TerminalPage() {
       writeContractAsync({
         address: addrs.ByNdVoter,
         abi: VOTER_ABI,
-        functionName: 'castVotes',
+        functionName: "castVotes",
         args: [],
       }),
     );
@@ -177,7 +176,7 @@ export default function TerminalPage() {
       writeContractAsync({
         address: addrs.ByNdVoter,
         abi: VOTER_ABI,
-        functionName: 'harvestAndDistribute',
+        functionName: "harvestAndDistribute",
         args: [],
       }),
     );
@@ -196,7 +195,7 @@ export default function TerminalPage() {
       writeContractAsync({
         address: addrs.VeMEZO,
         abi: VEMEZO_ABI,
-        functionName: 'unlockPermanent',
+        functionName: "unlockPermanent",
         args: [BigInt(tokenId)],
       }),
     );
@@ -210,7 +209,7 @@ export default function TerminalPage() {
         const extendHash = await writeContractAsync({
           address: addrs.ByNdVault,
           abi: VAULT_ABI,
-          functionName: 'extendLocks',
+          functionName: "extendLocks",
           args: [],
         });
         await publicClient?.waitForTransactionReceipt({ hash: extendHash });
@@ -220,7 +219,7 @@ export default function TerminalPage() {
         return writeContractAsync({
           address: addrs.ByNdVoter,
           abi: VOTER_ABI,
-          functionName: 'markLocksExtended',
+          functionName: "markLocksExtended",
           args: [],
         });
       });
@@ -247,7 +246,12 @@ export default function TerminalPage() {
         refresh={refresh}
       />
 
-      <StatStrip stats={stats} position={position} mezoEpoch={mezoEpoch} liveCountdown={liveCountdown} />
+      <StatStrip
+        stats={stats}
+        position={position}
+        mezoEpoch={mezoEpoch}
+        liveCountdown={liveCountdown}
+      />
 
       <div className="max-w-7xl mx-auto px-6 py-10">
         {!isConnected ? (
@@ -275,14 +279,14 @@ export default function TerminalPage() {
                 stats={stats}
                 isScanning={isScanning}
                 isLoading={isLoading}
-                onDeposit={() => setActiveModal('deposit')}
-                onWithdraw={() => setActiveModal('withdraw')}
+                onDeposit={() => setActiveModal("deposit")}
+                onWithdraw={() => setActiveModal("withdraw")}
               />
               <StakingTerminal
                 position={position}
                 stats={stats}
-                onStake={() => setActiveModal('stake')}
-                onUnstake={() => setActiveModal('unstake')}
+                onStake={() => setActiveModal("stake")}
+                onUnstake={() => setActiveModal("unstake")}
               />
               <GaugeAllocations gauges={gauges} />
             </div>
@@ -292,7 +296,7 @@ export default function TerminalPage() {
                 position={position}
                 stats={stats}
                 hasRewards={hasRewards}
-                onClaim={() => setActiveModal('claim')}
+                onClaim={() => setActiveModal("claim")}
               />
               <KeeperFunctions
                 epoch={epoch}
@@ -301,10 +305,15 @@ export default function TerminalPage() {
                 extendingLocks={extendingLocks}
                 timeToVoteOpen={timeToVoteOpen}
                 onExtendLocks={handleExtendLocks}
-                onCastVotes={() => setActiveModal('castVotes')}
-                onHarvest={() => setActiveModal('harvest')}
+                onCastVotes={() => setActiveModal("castVotes")}
+                onHarvest={() => setActiveModal("harvest")}
               />
-              <EpochStatus epoch={epoch} stats={stats} mezoEpoch={mezoEpoch} liveCountdown={liveCountdown} />
+              <EpochStatus
+                epoch={epoch}
+                stats={stats}
+                mezoEpoch={mezoEpoch}
+                liveCountdown={liveCountdown}
+              />
             </div>
           </div>
         )}

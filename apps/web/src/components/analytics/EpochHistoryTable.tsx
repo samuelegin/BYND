@@ -1,5 +1,4 @@
-import React from 'react';
-import { Panel } from '@/components/ui';
+import { Panel } from "@/components/ui";
 
 interface EpochHistoryRow {
   epoch: number;
@@ -8,7 +7,11 @@ interface EpochHistoryRow {
   bounty: string;
 }
 
-export function EpochHistoryTable({ epochHistory }: { epochHistory: EpochHistoryRow[] }) {
+export function EpochHistoryTable({
+  epochHistory,
+}: {
+  epochHistory: EpochHistoryRow[];
+}) {
   return (
     <Panel className="p-6">
       <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-acid font-bold mb-6">
@@ -30,7 +33,9 @@ export function EpochHistoryTable({ epochHistory }: { epochHistory: EpochHistory
                 <tr key={i} className="hover:bg-void-soft/50 transition-colors">
                   <td className="py-3 font-black text-silver">#{row.epoch}</td>
                   <td className="py-3 text-silver-dim">{row.votingPower}</td>
-                  <td className="py-3 text-acid font-bold">{row.musdHarvested}</td>
+                  <td className="py-3 text-acid font-bold">
+                    {row.musdHarvested}
+                  </td>
                   <td className="py-3 text-silver-dim">{row.bounty}</td>
                 </tr>
               ))}

@@ -1,10 +1,8 @@
-import React from 'react';
-
 const STATS = [
-  { label: 'Network', value: 'Mezo', delta: 'Bitcoin L2' },
-  { label: 'veBYND Staker APR', value: 'Live', delta: 'Read from chain' },
-  { label: 'Boost Efficiency', value: '98%', delta: 'Target optimisation' },
-  { label: 'Bribe Tokens', value: 'Any', delta: 'Multi-ERC-20 harvest' },
+  { label: "Network", value: "Mezo", delta: "Bitcoin L2" },
+  { label: "veBYND Staker APR", value: "Live", delta: "Read from chain" },
+  { label: "Boost Efficiency", value: "98%", delta: "Target optimisation" },
+  { label: "Bribe Tokens", value: "Any", delta: "Multi-ERC-20 harvest" },
 ];
 
 export function StatsBar() {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { RefreshCw, Zap, Shield, Droplets } from "lucide-react";
 import { SectionHeader, formatTime } from "@/components/ui";
 import { CastVotesModal, HarvestModal } from "@/components/modals";

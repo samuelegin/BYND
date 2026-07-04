@@ -1,6 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useWallet } from '@/hooks/useWallet';
-import { Ticker, Hero, StatsBar, HowItWorks, RevenueStreams, WhyBynd, Cta } from '@/components/home';
+import { useState, useEffect } from "react";
+import { useWallet } from "@/hooks/useWallet";
+import {
+  Ticker,
+  Hero,
+  StatsBar,
+  HowItWorks,
+  RevenueStreams,
+  WhyBynd,
+  Cta,
+} from "@/components/home";
 
 export default function HomePage() {
   const { isConnected, isConnecting, connect } = useWallet();

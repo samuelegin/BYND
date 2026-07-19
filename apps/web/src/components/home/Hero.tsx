@@ -12,7 +12,7 @@ interface HeroProps {
 
 export function Hero({ isConnected, isConnecting, connect }: HeroProps) {
   return (
-    <section className="relative z-[1] mx-auto max-w-[1120px] px-5 pb-10 pt-[104px] max-[960px]:pb-7 max-[960px]:pt-[76px]">
+    <section className="relative z-[1] mx-auto max-w-[1120px] px-5 pb-10 pt-[140px] max-[960px]:pb-7 max-[960px]:pt-[104px]">
       <motion.div
         variants={stagger}
         initial="hidden"

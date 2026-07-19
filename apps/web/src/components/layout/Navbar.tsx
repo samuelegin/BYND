@@ -17,6 +17,7 @@ export function Navbar() {
   const pathname = location.pathname;
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const headerRef = useRef<HTMLElement>(null);
   const capRef = useRef<HTMLDivElement>(null);
   const linksRef = useRef<HTMLDivElement>(null);
   const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
@@ -63,8 +64,19 @@ export function Navbar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setMobileOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [mobileOpen]);
+
   return (
-    <header className="fixed top-5 left-0 right-0 z-50 px-5">
+    <header ref={headerRef} className="fixed top-5 left-0 right-0 z-50 px-5">
       <nav
         ref={capRef}
         className="relative mx-auto flex max-w-[1080px] items-center justify-between gap-3.5 rounded-full border border-white/[.08] bg-[#1a1a1d]/55 py-2 pl-5 pr-2 backdrop-blur-[14px] backdrop-saturate-[1.3] shadow-[inset_0_1px_0_rgba(255,255,255,.06),0_12px_34px_rgba(0,0,0,.45)]"

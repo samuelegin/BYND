@@ -25,14 +25,14 @@ export const StakeModal: React.FC<StakeModalProps> = ({
 
   const checkAndStake = async () => {
     if (!amount || parseFloat(amount) <= 0) return;
-    setStatus({ type: 'loading', message: 'Checking allowance...' });
+    setStatus({ type: 'loading', message: 'Checking allowance…' });
     try {
       const approved = await onCheckAllowance(amount);
       if (!approved) {
-        setStatus({ type: 'loading', message: 'Approving veBYND...' });
+        setStatus({ type: 'loading', message: 'Approving veBYND…' });
         await onApprove(amount);
       }
-      setStatus({ type: 'loading', message: 'Staking veBYND...' });
+      setStatus({ type: 'loading', message: 'Staking veBYND…' });
       await onStake(amount);
       setStatus({ type: 'success', message: 'Staked — MUSD yield now active' });
       setTimeout(onClose, 2000);
@@ -54,9 +54,9 @@ export const StakeModal: React.FC<StakeModalProps> = ({
           max={veByndBalance}
         />
 
-        <div className="p-3 border border-void-border bg-void">
+        <div className="rounded-control p-3 border border-void-border bg-bg">
           <StatRow label="Protocol APR"    value={avgApr || '–'}        accent />
-          <StatRow label="Reward Tokens"   value={`${rewardTokenSymbol || 'MUSD'} + ERC-20 bribes`} />
+          <StatRow label="Reward tokens"   value={`${rewardTokenSymbol || 'MUSD'} + ERC-20 bribes`} />
           <StatRow label="Sources"         value="Gauge bribes + vote rebases" />
           <StatRow label="Unbonding"       value="None" />
         </div>

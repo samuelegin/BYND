@@ -14,9 +14,8 @@ export function App() {
   return (
     <>
       {!isHome && <div className="noise-overlay" />}
-      {!isHome && <div className="scanline" />}
       <Navbar />
-      <main className={clsx(!isHome && 'pt-16')}>
+      <main className={clsx(!isHome && 'pt-28')}>
         <Routes>
           <Route path="/"          element={<HomePage />} />
           <Route path="/terminal"  element={<TerminalPage />} />
@@ -25,8 +24,8 @@ export function App() {
         </Routes>
       </main>
       {!isHome && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-acid px-6 py-2 text-void text-[10px] font-mono tracking-widest text-center uppercase font-bold">
-          Deposit veMEZO → Get liquid veBYND → Stake → Earn MUSD Rewards
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-gold px-6 py-2 text-center text-gold-ink text-sm font-medium">
+          Deposit veMEZO → get liquid veBYND → stake → earn MUSD rewards
         </div>
       )}
       <Footer />

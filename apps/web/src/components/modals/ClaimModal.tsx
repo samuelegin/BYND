@@ -20,7 +20,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
   const [status, setStatus] = useState<TxStatus>({ type: null, message: null });
 
   const handleClaim = async () => {
-    setStatus({ type: 'loading', message: 'Claiming rewards...' });
+    setStatus({ type: 'loading', message: 'Claiming rewards…' });
     try {
       await onClaim();
       setStatus({ type: 'success', message: 'MUSD rewards claimed to wallet' });
@@ -36,20 +36,20 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
   ).toFixed(2);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Claim MUSD Yield" subtitle="MUSD bribes · pro-rata share">
+    <Modal isOpen={isOpen} onClose={onClose} title="Claim MUSD yield" subtitle="MUSD bribes · pro-rata share">
       <div className="space-y-4">
-        <div className="p-6 border border-acid/20 bg-acid/3 space-y-4">
+        <div className="rounded-control p-6 border border-gold/20 bg-gold/5 space-y-4">
           <div>
-            <p className="font-mono text-[8px] uppercase tracking-widest text-silver-dim mb-1">MUSD Rewards</p>
-            <p className="text-3xl font-black text-acid">{parseFloat(claimableMUSD || '0').toFixed(2)}</p>
-            <p className="font-mono text-[7px] text-silver-dim mt-0.5">From MUSD bribes captured each epoch</p>
+            <p className="font-mono text-[11px] uppercase tracking-widest text-white/[.38] mb-1">MUSD rewards</p>
+            <p className="text-3xl font-semibold text-gold">{parseFloat(claimableMUSD || '0').toFixed(2)}</p>
+            <p className="text-xs text-white/60 mt-0.5">From MUSD bribes captured each epoch</p>
           </div>
           <div>
-            <p className="font-mono text-[8px] uppercase tracking-widest text-silver-dim mb-1">MEZO Rewards</p>
-            <p className="text-xl font-bold text-silver">{parseFloat(claimableMEZO || '0').toFixed(4)}</p>
+            <p className="font-mono text-[11px] uppercase tracking-widest text-white/[.38] mb-1">MEZO rewards</p>
+            <p className="text-xl font-semibold text-white/[.87]">{parseFloat(claimableMEZO || '0').toFixed(4)}</p>
           </div>
           <Divider />
-          <StatRow label="Est. Total Value" value={`~$${totalUSD}`} accent />
+          <StatRow label="Est. total value" value={`~$${totalUSD}`} accent />
         </div>
         <TxBlock status={status} />
         <div className="flex gap-3">
@@ -57,7 +57,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
           <Button variant="primary" className="flex-1" onClick={handleClaim}
                   disabled={parseFloat(claimableMUSD) === 0 && parseFloat(claimableMEZO) === 0}
                   isLoading={status.type === 'loading'}>
-            Claim All Rewards
+            Claim all rewards
           </Button>
         </div>
       </div>

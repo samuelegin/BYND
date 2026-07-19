@@ -23,7 +23,7 @@ export const CastVotesModal: React.FC<CastVotesModalProps> = ({
   const [status, setStatus] = useState<TxStatus>({ type: null, message: null });
 
   const handleCast = async () => {
-    setStatus({ type: 'loading', message: 'Casting votes on-chain...' });
+    setStatus({ type: 'loading', message: 'Casting votes on-chain…' });
     try {
       await onCastVotes();
       setStatus({ type: 'success', message: 'Votes cast — veBTC gauges activated' });
@@ -36,27 +36,27 @@ export const CastVotesModal: React.FC<CastVotesModalProps> = ({
   const canVote = timeUntilNextVote === 0 && !epochVoted;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Cast System Votes" subtitle="Permissionless — earn keeper bounty">
+    <Modal isOpen={isOpen} onClose={onClose} title="Cast system votes" subtitle="Permissionless — earn keeper bounty">
       <div className="space-y-4">
         {!canVote && (
-          <div className="p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">
+          <div className="rounded-control p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">
             <AlertTriangle size={14} className="text-orange-400 shrink-0" />
-            <p className="font-mono text-[9px] text-orange-400 uppercase tracking-wider leading-relaxed">
+            <p className="text-sm text-orange-400 leading-relaxed">
               {epochVoted ? 'Votes already cast this epoch.' : `Epoch opens in ${timeUntilNextVote}s.`}
             </p>
           </div>
         )}
 
-        <div className="p-3 border border-void-border bg-void">
-          <StatRow label="Total veMEZO Power" value={totalPower} accent />
-          <StatRow label="Target Gauges"       value={`${gauges.length} veBTC positions`} />
+        <div className="rounded-control p-3 border border-void-border bg-bg">
+          <StatRow label="Total veMEZO power" value={totalPower} accent />
+          <StatRow label="Target gauges"      value={`${gauges.length} veBTC positions`} />
         </div>
 
         <div className="space-y-2">
           {gauges.map((g, i) => (
-            <div key={i} className="flex justify-between items-center p-3 border border-void-border">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-silver">{g.name}</span>
-              <span className="font-mono text-[10px] font-bold text-acid">{(g.weightBps / 100).toFixed(0)}%</span>
+            <div key={i} className="flex justify-between items-center rounded-control p-3 border border-void-border">
+              <span className="text-sm text-white/[.87]">{g.name}</span>
+              <span className="font-mono text-xs font-medium text-gold">{(g.weightBps / 100).toFixed(0)}%</span>
             </div>
           ))}
         </div>
@@ -67,7 +67,7 @@ export const CastVotesModal: React.FC<CastVotesModalProps> = ({
           <Button variant="ghost" className="flex-1" onClick={onClose}>Cancel</Button>
           <Button variant="primary" className="flex-1" onClick={handleCast}
                   disabled={!canVote} isLoading={status.type === 'loading'}>
-            Cast Votes
+            Cast votes
           </Button>
         </div>
       </div>

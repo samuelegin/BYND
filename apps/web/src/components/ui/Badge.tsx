@@ -7,13 +7,13 @@ export const Badge: React.FC<{ children: React.ReactNode; variant?: 'acid' | 'mu
   children, variant = 'muted',
 }) => {
   const variants = {
-    acid:   'bg-acid/10 text-acid border-acid/30',
-    muted:  'bg-void-border text-silver-dim border-void-muted',
+    acid:   'bg-gold/10 text-gold border-gold/30',
+    muted:  'bg-white/[.06] text-white/60 border-white/[.08]',
     red:    'bg-red-500/10 text-red-400 border-red-500/30',
     orange: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
   };
   return (
-    <span className={clsx('inline-flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-widest font-bold px-2 py-1 border', variants[variant])}>
+    <span className={clsx('inline-flex items-center gap-1.5 rounded-full font-mono text-[10px] uppercase tracking-widest font-medium px-2.5 py-1 border', variants[variant])}>
       {children}
     </span>
   );

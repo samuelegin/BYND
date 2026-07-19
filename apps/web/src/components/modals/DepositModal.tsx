@@ -24,7 +24,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
 
   const handleDeposit = async () => {
     if (selected === null) return;
-    setStatus({ type: 'loading', message: 'Locking veMEZO NFT...' });
+    setStatus({ type: 'loading', message: 'Locking veMEZO NFT…' });
     try {
       await onDeposit(selected);
       setStatus({ type: 'success', message: 'Locked — veBYND minted 1:1' });
@@ -37,28 +37,28 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
   const displayIds = tokenIds; // real token IDs only — no mock fallback
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Lock & Mint veBYND" subtitle="Permanent 4-year lock · 1:1 veBYND minted">
+    <Modal isOpen={isOpen} onClose={onClose} title="Lock and mint veBYND" subtitle="Permanent 4-year lock · 1:1 veBYND minted">
       <div className="space-y-4">
 
         {/* Permanent lock warning — static info */}
-        <div className="p-3 border border-acid/20 bg-acid/3 flex gap-2">
-          <Lock size={13} className="text-acid shrink-0 mt-0.5" />
-          <p className="font-mono text-[9px] text-silver-dim uppercase tracking-wider leading-relaxed">
-            <span className="text-acid font-bold">Permanent lock.</span> Your veMEZO NFT cannot be withdrawn.
-            Exit via the <span className="text-silver font-bold">veBYND/MEZO pool</span> on Mezo Swap.
+        <div className="rounded-control p-3 border border-gold/20 bg-gold/5 flex gap-2">
+          <Lock size={14} className="text-gold shrink-0 mt-0.5" />
+          <p className="text-sm text-white/60 leading-relaxed">
+            <span className="text-gold font-medium">Permanent lock.</span> Your veMEZO NFT cannot be withdrawn.
+            Exit via the <span className="text-white/[.87] font-medium">veBYND/MEZO pool</span> on Mezo Swap.
           </p>
         </div>
 
         {/* Per-token warning + one-click unlock when a permanently locked NFT is selected */}
         {selected !== null && permanentIds.includes(selected) && (
-          <div className="p-3 border border-yellow-400/40 bg-yellow-400/5 space-y-2">
+          <div className="rounded-control p-3 border border-yellow-400/30 bg-yellow-400/5 space-y-2">
             <div className="flex gap-2">
-              <AlertTriangle size={13} className="text-yellow-400 shrink-0 mt-0.5" />
+              <AlertTriangle size={14} className="text-yellow-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="font-mono text-[9px] text-yellow-300 uppercase tracking-wider font-bold">
+                <p className="text-sm text-yellow-300 font-medium">
                   veMEZO #{selected} is permanently locked
                 </p>
-                <p className="font-mono text-[8px] text-silver-dim leading-relaxed">
+                <p className="text-xs text-white/60 leading-relaxed">
                   The vault requires a time-based lock. Click below to convert it — this is a one-time
                   wallet transaction. The vault will immediately re-lock it to 4 years on your first deposit.
                 </p>
@@ -66,56 +66,57 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
             </div>
             <Button
               variant="outline"
-              className="w-full border-yellow-400/40 text-yellow-300 hover:bg-yellow-400/10"
+              fullWidth
+              className="border-yellow-400/30 text-yellow-300 hover:bg-yellow-400/10"
               onClick={async () => {
-                setStatus({ type: 'loading', message: 'Converting to time-based lock...' });
+                setStatus({ type: 'loading', message: 'Converting to time-based lock…' });
                 try {
                   await onUnlockPermanent(selected);
-                  setStatus({ type: 'success', message: 'Done — you can now deposit. Click Lock & Mint.' });
+                  setStatus({ type: 'success', message: 'Done — you can now deposit. Click Lock and mint.' });
                 } catch (e: any) {
                   setStatus({ type: 'error', message: e.message || 'Unlock failed' });
                 }
               }}
               isLoading={status.type === 'loading'}
             >
-              Unlock Permanent Lock
+              Unlock permanent lock
             </Button>
           </div>
         )}
 
         <div className="space-y-2">
           {displayIds.length === 0 ? (
-            <div className="p-6 border border-void-border text-center">
-              <p className="font-mono text-[9px] uppercase tracking-widest text-silver-dim">No veMEZO NFTs in wallet</p>
+            <div className="rounded-control p-6 border border-void-border text-center">
+              <p className="text-sm text-white/60">No veMEZO NFTs in wallet</p>
             </div>
           ) : displayIds.map(id => (
             <button
               key={id}
               onClick={() => setSelected(id)}
               className={clsx(
-                'w-full flex items-center justify-between p-4 border transition-all duration-200',
-                selected === id ? 'border-acid/60 bg-acid/5' : 'border-void-border hover:border-void-muted'
+                'w-full flex items-center justify-between rounded-control p-4 border transition-all duration-200',
+                selected === id ? 'border-gold/50 bg-gold/5' : 'border-void-border hover:border-white/[.12]'
               )}
             >
               <div className="flex items-center gap-3">
                 <div className={clsx(
-                  'w-4 h-4 border transition-colors',
-                  selected === id ? 'border-acid bg-acid' : 'border-void-muted'
+                  'w-4 h-4 rounded-full border transition-colors',
+                  selected === id ? 'border-gold bg-gold' : 'border-white/[.38]'
                 )} />
                 <div className="text-left">
-                  <span className="font-mono text-[10px] font-black text-silver uppercase">veMEZO #{id}</span>
-                  <p className="font-mono text-[8px] text-silver-dim">{lockedAmounts[id] ? `~${parseFloat(lockedAmounts[id]).toLocaleString()} MEZO locked · extended to 4yr` : 'Loading...'}</p>
+                  <span className="text-sm font-medium text-white/[.87]">veMEZO #{id}</span>
+                  <p className="text-xs text-white/60">{lockedAmounts[id] ? `~${parseFloat(lockedAmounts[id]).toLocaleString()} MEZO locked · extended to 4yr` : 'Loading…'}</p>
                 </div>
               </div>
-              <span className="font-mono text-xs font-bold text-acid">{lockedAmounts[id] ? `${parseFloat(lockedAmounts[id]).toLocaleString()} veBYND` : '...'}</span>
+              <span className="font-mono text-xs font-medium text-gold">{lockedAmounts[id] ? `${parseFloat(lockedAmounts[id]).toLocaleString()} veBYND` : '…'}</span>
             </button>
           ))}
         </div>
 
-        <div className="p-3 border border-void-border bg-void">
-          <StatRow label="You Receive"    value={selected !== null && lockedAmounts[selected] ? `${parseFloat(lockedAmounts[selected]).toLocaleString()} veBYND` : '–'} accent={!!selected} />
-          <StatRow label="Lock Duration"  value="4 Years (max, permanent)" />
-          <StatRow label="Protocol Fee"   value="None (on deposit)" />
+        <div className="rounded-control p-3 border border-void-border bg-bg">
+          <StatRow label="You receive"    value={selected !== null && lockedAmounts[selected] ? `${parseFloat(lockedAmounts[selected]).toLocaleString()} veBYND` : '–'} accent={!!selected} />
+          <StatRow label="Lock duration"  value="4 years (max, permanent)" />
+          <StatRow label="Protocol fee"   value="None (on deposit)" />
         </div>
 
         <TxBlock status={status} />
@@ -125,7 +126,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
           <Button variant="primary" className="flex-1" onClick={handleDeposit}
                   disabled={selected === null || (selected !== null && permanentIds.includes(selected))}
                   isLoading={status.type === 'loading'}>
-            Lock & Mint veBYND
+            Lock and mint veBYND
           </Button>
         </div>
       </div>

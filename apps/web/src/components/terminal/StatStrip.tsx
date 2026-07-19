@@ -18,27 +18,27 @@ export function StatStrip({ stats, position, mezoEpoch, liveCountdown }: StatStr
       sub: `${formatTime(liveCountdown)} left`,
     },
     {
-      label: 'Your Staked',
+      label: 'Your staked',
       value: `${parseFloat(position.stakedBalance || '0').toFixed(0)} veBYND`,
       sub: 'Earning MUSD',
     },
     {
-      label: 'Boost Efficiency',
+      label: 'Boost efficiency',
       value: `${stats.boostEfficiency}%`,
       sub: 'Target optimisation',
     },
   ];
 
   return (
-    <div className="border-b border-void-border">
-      <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 divide-x divide-void-border">
+    <div className="max-w-[1120px] mx-auto px-5 mt-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-void-border rounded-card border border-void-border bg-void-soft overflow-hidden">
         {items.map((s, i) => (
           <div key={i} className="px-6 py-5">
-            <p className="font-mono text-[8px] uppercase tracking-widest text-silver-dim font-bold mb-2">
+            <p className="text-[13px] text-white/[.38] mb-1.5">
               {s.label}
             </p>
-            <p className="font-mono text-xl font-black text-silver">{s.value}</p>
-            <p className="font-mono text-[8px] text-acid mt-1">{s.sub}</p>
+            <p className="font-mono text-xl font-medium text-gold">{s.value}</p>
+            <p className="text-xs text-white/60 mt-1">{s.sub}</p>
           </div>
         ))}
       </div>

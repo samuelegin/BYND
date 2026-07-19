@@ -12,18 +12,18 @@ interface EpochStatusProps {
 export function EpochStatus({ epoch, stats, mezoEpoch, liveCountdown }: EpochStatusProps) {
   return (
     <Panel className="p-6">
-      <p className="font-mono text-[9px] uppercase tracking-widest text-acid font-bold mb-4">
-        Epoch Status
+      <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38] mb-4">
+        Epoch status
       </p>
-      <StatRow label="Current Epoch" value={`#${mezoEpoch}`} />
-      <StatRow label="Time Remaining" value={formatTime(liveCountdown)} />
+      <StatRow label="Current epoch" value={`#${mezoEpoch}`} />
+      <StatRow label="Time remaining" value={formatTime(liveCountdown)} />
       <StatRow
-        label="Locks Extended"
+        label="Locks extended"
         value={epoch.epochLocksExtended ? '✓ Yes' : 'No'}
         accent={epoch.epochLocksExtended}
       />
       <StatRow
-        label="Votes Cast"
+        label="Votes cast"
         value={epoch.epochVoted ? '✓ Yes' : 'No'}
         accent={epoch.epochVoted}
       />
@@ -32,7 +32,7 @@ export function EpochStatus({ epoch, stats, mezoEpoch, liveCountdown }: EpochSta
         value={epoch.epochHarvested ? '✓ Yes' : 'No'}
         accent={epoch.epochHarvested}
       />
-      <StatRow label="Keeper Bounty" value={`${stats.bountyBps / 100}% MUSD`} />
+      <StatRow label="Keeper bounty" value={`${stats.bountyBps / 100}% MUSD`} />
     </Panel>
   );
 }

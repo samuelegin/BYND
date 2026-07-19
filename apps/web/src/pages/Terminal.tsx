@@ -253,22 +253,22 @@ export default function TerminalPage() {
         liveCountdown={liveCountdown}
       />
 
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="max-w-[1120px] mx-auto px-5 py-8">
         {!isConnected ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-6 text-center">
-            <div className="w-16 h-16 border border-void-border flex items-center justify-center">
-              <Lock size={24} className="text-silver-dim" />
+          <div className="flex flex-col items-center justify-center py-14 space-y-6 text-center">
+            <div className="w-16 h-16 rounded-full border border-void-border flex items-center justify-center">
+              <Lock size={24} className="text-white/60" />
             </div>
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-widest text-silver-dim mb-2">
-                Access Required
+              <p className="font-mono text-[11px] uppercase tracking-widest text-white/[.38] mb-2">
+                Access required
               </p>
-              <p className="text-silver-dim text-sm max-w-sm">
+              <p className="text-white/60 text-sm max-w-sm">
                 Connect your wallet or Mezo Passport to access the terminal.
               </p>
             </div>
             <Button variant="primary" onClick={connect}>
-              Connect Wallet
+              Connect wallet
             </Button>
           </div>
         ) : (

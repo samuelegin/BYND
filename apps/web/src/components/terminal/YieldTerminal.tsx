@@ -12,26 +12,25 @@ interface YieldTerminalProps {
 
 export function YieldTerminal({ position, stats, hasRewards, onClaim }: YieldTerminalProps) {
   return (
-    <div className="bg-void-soft border border-void-border clip-corner relative overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-acid/40 to-transparent" />
-      <div className="absolute bottom-0 right-0 w-32 h-32 bg-acid/3 rounded-full blur-3xl pointer-events-none" />
+    <div className="rounded-card bg-void-soft border border-void-border relative overflow-hidden">
+      <div className="absolute bottom-0 right-0 w-32 h-32 bg-gold/5 rounded-full blur-3xl pointer-events-none" />
       <div className="p-6 relative">
         <div className="flex items-center justify-between mb-6">
-          <p className="font-mono text-[9px] uppercase tracking-widest text-silver-dim font-bold">
-            Yield Terminal
+          <p className="font-mono text-[11px] uppercase tracking-widest text-white/[.38]">
+            Yield terminal
           </p>
-          <Gift size={16} className="text-void-muted" />
+          <Gift size={16} className="text-white/[.38]" />
         </div>
 
         <div className="space-y-4 mb-6">
           <div>
-            <p className="font-mono text-[8px] uppercase tracking-widest text-silver-dim mb-1">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-white/[.38] mb-1">
               Claimable {stats.rewardTokenSymbol}
             </p>
-            <p className="text-4xl font-black text-acid leading-none">
+            <p className="text-4xl font-semibold text-gold leading-none">
               {parseFloat(position.claimableMUSD || '0').toFixed(2)}
             </p>
-            <p className="font-mono text-[7px] text-silver-dim mt-1">
+            <p className="text-xs text-white/60 mt-1">
               {parseFloat(position.stakedBalance || '0') > 0
                 ? parseFloat(position.claimableMUSD || '0') > 0
                   ? 'MUSD bribes from gauge voting — ready to claim'
@@ -40,17 +39,17 @@ export function YieldTerminal({ position, stats, hasRewards, onClaim }: YieldTer
             </p>
           </div>
           <div>
-            <p className="font-mono text-[8px] uppercase tracking-widest text-silver-dim mb-1">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-white/[.38] mb-1">
               Claimable MEZO
             </p>
-            <p className="text-2xl font-black text-silver leading-none">
+            <p className="text-2xl font-semibold text-white/[.87] leading-none">
               {parseFloat(position.claimableMEZO || '0').toFixed(4)}
             </p>
           </div>
         </div>
 
         <Button variant="primary" fullWidth onClick={onClaim} disabled={!hasRewards}>
-          Claim MUSD Yield
+          Claim MUSD yield
         </Button>
       </div>
     </div>

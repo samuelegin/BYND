@@ -19,24 +19,24 @@ export function KeeperFunctions({
 }: KeeperFunctionsProps) {
   return (
     <Panel className="p-6">
-      <p className="font-mono text-[9px] uppercase tracking-widest text-acid font-bold mb-1">
-        Keeper Functions
+      <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38] mb-1">
+        Keeper functions
       </p>
-      <p className="font-mono text-[8px] text-silver-dim mb-5 uppercase tracking-wider">
+      <p className="text-sm text-white/60 mb-5">
         Permissionless. Earn bounties each epoch.
       </p>
 
       <div className="space-y-2">
         {/* extendLocks */}
-        <div className={`border p-3 space-y-2 transition-colors ${canExtend ? 'border-acid/40 bg-acid/3' : 'border-void-border'}`}>
+        <div className={`rounded-control border p-3 space-y-2 transition-colors ${canExtend ? 'border-gold/30 bg-gold/5' : 'border-void-border'}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <Shield size={11} className={canExtend ? 'text-acid shrink-0' : 'text-silver-dim shrink-0'} />
+              <Shield size={13} className={canExtend ? 'text-gold shrink-0' : 'text-white/60 shrink-0'} />
               <div className="min-w-0">
-                <p className="font-mono text-[8px] uppercase font-black text-silver truncate">
-                  Protocol Maintenance
+                <p className="text-sm font-medium text-white/[.87] truncate">
+                  Protocol maintenance
                 </p>
-                <p className="font-mono text-[7px] text-silver-dim">
+                <p className="text-xs text-white/60">
                   Reset all veMEZO to 4-yr max
                 </p>
               </div>
@@ -57,23 +57,23 @@ export function KeeperFunctions({
             disabled={!canExtend || extendingLocks}
             isLoading={extendingLocks}
           >
-            extendLocks()
+            <span className="font-mono">extendLocks()</span>
           </Button>
         </div>
 
         {/* castVotes */}
-        <div className={`border p-3 space-y-2 transition-colors ${!epoch.epochVoted && timeToVoteOpen === 0 ? 'border-acid/40 bg-acid/3' : 'border-void-border'}`}>
+        <div className={`rounded-control border p-3 space-y-2 transition-colors ${!epoch.epochVoted && timeToVoteOpen === 0 ? 'border-gold/30 bg-gold/5' : 'border-void-border'}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <RefreshCw
-                size={11}
-                className={`text-acid shrink-0 ${timeToVoteOpen === 0 && !epoch.epochVoted ? 'animate-spin' : ''}`}
+                size={13}
+                className={`text-gold shrink-0 ${timeToVoteOpen === 0 && !epoch.epochVoted ? 'animate-spin' : ''}`}
               />
               <div className="min-w-0">
-                <p className="font-mono text-[8px] uppercase font-black text-silver truncate">
-                  Cast System Votes
+                <p className="text-sm font-medium text-white/[.87] truncate">
+                  Cast system votes
                 </p>
-                <p className="font-mono text-[7px] text-silver-dim">
+                <p className="text-xs text-white/60">
                   {epoch.epochVoted
                     ? 'Voted this epoch'
                     : timeToVoteOpen > 0
@@ -91,20 +91,20 @@ export function KeeperFunctions({
             onClick={onCastVotes}
             disabled={epoch.epochVoted || timeToVoteOpen > 0}
           >
-            castVotes()
+            <span className="font-mono">castVotes()</span>
           </Button>
         </div>
 
         {/* harvestAndDistribute */}
-        <div className={`border p-3 space-y-2 transition-colors ${epoch.epochVoted && !epoch.epochHarvested ? 'border-acid/40 bg-acid/3' : 'border-void-border'}`}>
+        <div className={`rounded-control border p-3 space-y-2 transition-colors ${epoch.epochVoted && !epoch.epochHarvested ? 'border-gold/30 bg-gold/5' : 'border-void-border'}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <Zap size={11} className="text-acid shrink-0" />
+              <Zap size={13} className="text-gold shrink-0" />
               <div className="min-w-0">
-                <p className="font-mono text-[8px] uppercase font-black text-silver truncate">
-                  Harvest & Distribute
+                <p className="text-sm font-medium text-white/[.87] truncate">
+                  Harvest and distribute
                 </p>
-                <p className="font-mono text-[7px] text-silver-dim">
+                <p className="text-xs text-white/60">
                   Earn {stats.bountyBps / 100}% on harvest
                 </p>
               </div>
@@ -118,7 +118,7 @@ export function KeeperFunctions({
             onClick={onHarvest}
             disabled={!epoch.epochVoted || epoch.epochHarvested}
           >
-            harvestAndDistribute()
+            <span className="font-mono">harvestAndDistribute()</span>
           </Button>
         </div>
       </div>

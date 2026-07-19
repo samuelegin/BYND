@@ -24,7 +24,7 @@ export const HarvestModal: React.FC<HarvestModalProps> = ({
   const bounty = (parseFloat(pendingIncentives.replace(/[$,]/g, '')) * bountyBps / 10000).toFixed(2);
 
   const handleHarvest = async () => {
-    setStatus({ type: 'loading', message: 'Harvesting MUSD from gauges...' });
+    setStatus({ type: 'loading', message: 'Harvesting MUSD from gauges…' });
     try {
       await onHarvest();
       setStatus({ type: 'success', message: `Harvested — your bounty: ${bounty} MUSD` });
@@ -37,25 +37,25 @@ export const HarvestModal: React.FC<HarvestModalProps> = ({
   const canHarvest = epochVoted && !epochHarvested;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Harvest & Distribute" subtitle="Claim keeper bounty · Forward MUSD to stakers">
+    <Modal isOpen={isOpen} onClose={onClose} title="Harvest and distribute" subtitle="Claim keeper bounty · forward MUSD to stakers">
       <div className="space-y-4">
         {!epochVoted && (
-          <div className="p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">
+          <div className="rounded-control p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">
             <AlertTriangle size={14} className="text-orange-400 shrink-0" />
-            <p className="font-mono text-[9px] text-orange-400 uppercase tracking-wider">castVotes() must be called before harvesting.</p>
+            <p className="text-sm text-orange-400">castVotes() must be called before harvesting.</p>
           </div>
         )}
         {epochHarvested && (
-          <div className="p-3 border border-void-border flex gap-2">
-            <CheckCircle2 size={14} className="text-acid shrink-0" />
-            <p className="font-mono text-[9px] text-acid uppercase tracking-wider">Already harvested this epoch.</p>
+          <div className="rounded-control p-3 border border-void-border flex gap-2">
+            <CheckCircle2 size={14} className="text-gold shrink-0" />
+            <p className="text-sm text-gold">Already harvested this epoch.</p>
           </div>
         )}
 
-        <div className="p-4 border border-void-border bg-void space-y-1">
-          <StatRow label="Pending Incentives" value={pendingIncentives}   accent />
-          <StatRow label="Your Keeper Bounty" value={`~${bounty} MUSD`} accent />
-          <StatRow label="Bounty Rate"        value={`${bountyBps / 100}% of harvest`} />
+        <div className="rounded-control p-4 border border-void-border bg-bg space-y-1">
+          <StatRow label="Pending incentives" value={pendingIncentives}   accent />
+          <StatRow label="Your keeper bounty" value={`~${bounty} MUSD`} accent />
+          <StatRow label="Bounty rate"        value={`${bountyBps / 100}% of harvest`} />
           <StatRow label="Remainder"          value="→ veBYND stakers (pro-rata)" />
         </div>
 
@@ -65,7 +65,7 @@ export const HarvestModal: React.FC<HarvestModalProps> = ({
           <Button variant="ghost" className="flex-1" onClick={onClose}>Cancel</Button>
           <Button variant="primary" className="flex-1" onClick={handleHarvest}
                   disabled={!canHarvest} isLoading={status.type === 'loading'}>
-            Harvest Now
+            Harvest now
           </Button>
         </div>
       </div>

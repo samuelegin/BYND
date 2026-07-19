@@ -18,7 +18,7 @@ export const UnstakeModal: React.FC<UnstakeModalProps> = ({ isOpen, onClose, sta
   const [status, setStatus] = useState<TxStatus>({ type: null, message: null });
 
   const handleUnstake = async () => {
-    setStatus({ type: 'loading', message: 'Unstaking veBYND...' });
+    setStatus({ type: 'loading', message: 'Unstaking veBYND…' });
     try {
       await onUnstake(amount);
       setStatus({ type: 'success', message: 'Unstaked — veBYND returned to wallet' });
@@ -40,8 +40,8 @@ export const UnstakeModal: React.FC<UnstakeModalProps> = ({ isOpen, onClose, sta
           placeholder="0.00"
           max={stakedBalance}
         />
-        <p className="font-mono text-[9px] text-silver-dim uppercase tracking-wider leading-relaxed">
-          After unstaking, sell veBYND on the <span className="text-acid">veBYND/MEZO pool</span> on Mezo Swap for exit liquidity.
+        <p className="text-sm text-white/60 leading-relaxed">
+          After unstaking, sell veBYND on the <span className="text-gold">veBYND/MEZO pool</span> on Mezo Swap for exit liquidity.
         </p>
         <TxBlock status={status} />
         <div className="flex gap-3">

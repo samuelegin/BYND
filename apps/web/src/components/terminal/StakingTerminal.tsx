@@ -15,11 +15,11 @@ export function StakingTerminal({ position, stats, onStake, onUnstake }: Staking
     <Panel className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-acid font-bold">
-            Staking Terminal
+          <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38]">
+            Staking terminal
           </p>
-          <p className="font-mono text-[8px] text-silver-dim mt-0.5 uppercase tracking-widest">
-            Step 02 — Stake veBYND · Activate MUSD Yield
+          <p className="text-sm text-white/60 mt-1">
+            Step 02 — stake veBYND · activate MUSD yield
           </p>
         </div>
         <Badge variant={parseFloat(position.stakedBalance) > 0 ? 'acid' : 'muted'}>
@@ -30,27 +30,27 @@ export function StakingTerminal({ position, stats, onStake, onUnstake }: Staking
       <div className="grid sm:grid-cols-3 gap-6">
         <div className="sm:col-span-1 space-y-4">
           <div>
-            <p className="font-mono text-[8px] text-silver-dim uppercase tracking-widest mb-1">
+            <p className="font-mono text-[11px] text-white/[.38] uppercase tracking-widest mb-1">
               Wallet (unstaked)
             </p>
-            <p className="text-2xl font-black text-silver">
+            <p className="text-2xl font-semibold text-white/[.87]">
               {parseFloat(position.veByndBalance || '0').toFixed(0)}
-              <span className="text-xs text-silver-dim ml-1">veBYND</span>
+              <span className="text-xs text-white/60 ml-1">veBYND</span>
             </p>
           </div>
           <div>
-            <p className="font-mono text-[8px] text-silver-dim uppercase tracking-widest mb-1">
+            <p className="font-mono text-[11px] text-white/[.38] uppercase tracking-widest mb-1">
               Staked
             </p>
-            <p className="text-2xl font-black text-acid">
+            <p className="text-2xl font-semibold text-gold">
               {parseFloat(position.stakedBalance || '0').toFixed(0)}
-              <span className="text-xs text-silver-dim ml-1">veBYND</span>
+              <span className="text-xs text-white/60 ml-1">veBYND</span>
             </p>
           </div>
         </div>
         <div className="sm:col-span-2 flex flex-col justify-end gap-3">
           <Button variant="primary" fullWidth onClick={onStake}>
-            <TrendingUp size={12} /> Stake veBYND
+            <TrendingUp size={14} /> Stake veBYND
           </Button>
           <Button variant="ghost" fullWidth onClick={onUnstake}>
             Unstake

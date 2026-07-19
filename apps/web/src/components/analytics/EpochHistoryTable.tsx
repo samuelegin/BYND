@@ -14,37 +14,37 @@ export function EpochHistoryTable({
 }) {
   return (
     <Panel className="p-6">
-      <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-acid font-bold mb-6">
-        Epoch Registry — Historical Performance
+      <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38] mb-6">
+        Epoch registry — historical performance
       </p>
       {epochHistory.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full font-mono text-[10px]">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-void-border text-silver-dim uppercase tracking-widest">
-                <th className="py-3 text-left font-black">Epoch</th>
-                <th className="py-3 text-left font-black">Power Used</th>
-                <th className="py-3 text-left font-black">MUSD Harvested</th>
-                <th className="py-3 text-left font-black">Keeper Bounty</th>
+              <tr className="border-b border-void-border text-white/[.38]">
+                <th className="py-3 text-left text-[11px] font-normal uppercase tracking-widest">Epoch</th>
+                <th className="py-3 text-left text-[11px] font-normal uppercase tracking-widest">Power used</th>
+                <th className="py-3 text-left text-[11px] font-normal uppercase tracking-widest">MUSD harvested</th>
+                <th className="py-3 text-left text-[11px] font-normal uppercase tracking-widest">Keeper bounty</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-void-border/50">
+            <tbody className="divide-y divide-void-border">
               {epochHistory.map((row, i) => (
-                <tr key={i} className="hover:bg-void-soft/50 transition-colors">
-                  <td className="py-3 font-black text-silver">#{row.epoch}</td>
-                  <td className="py-3 text-silver-dim">{row.votingPower}</td>
-                  <td className="py-3 text-acid font-bold">
+                <tr key={i} className="hover:bg-surface-2 transition-colors">
+                  <td className="py-3 font-mono font-medium text-white/[.87]">#{row.epoch}</td>
+                  <td className="py-3 font-mono text-white/60">{row.votingPower}</td>
+                  <td className="py-3 font-mono text-gold font-medium">
                     {row.musdHarvested}
                   </td>
-                  <td className="py-3 text-silver-dim">{row.bounty}</td>
+                  <td className="py-3 font-mono text-white/60">{row.bounty}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       ) : (
-        <div className="border border-void-border p-8 text-center">
-          <p className="font-mono text-[9px] uppercase tracking-widest text-silver-dim">
+        <div className="rounded-control border border-void-border p-8 text-center">
+          <p className="text-sm text-white/60">
             Epoch history appears here after the first harvest cycle
           </p>
         </div>

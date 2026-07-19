@@ -25,17 +25,15 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-void">
-      <div className="border-b border-void-border bg-void-soft">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <SectionHeader
-            label="Protocol"
-            title="Analytics"
-            subtitle={`Live protocol metrics, gauge allocations, and epoch history. Reading from ${networkName}.`}
-          />
-        </div>
+      <div className="max-w-[1120px] mx-auto px-5 pt-6">
+        <SectionHeader
+          label="Protocol"
+          title="Analytics"
+          subtitle={`Live protocol metrics, gauge allocations, and epoch history. Reading from ${networkName}.`}
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-10 space-y-10">
+      <div className="max-w-[1120px] mx-auto px-5 py-8 space-y-6">
         <KpiStrip
           stats={stats}
           stakerRatio={stakerRatio}
@@ -48,8 +46,8 @@ export default function AnalyticsPage() {
           stakerRatio={stakerRatio}
         />
 
-        <div className="grid lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-7 space-y-8">
+        <div className="grid lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-7 space-y-6">
             <GovernanceDynamics epoch={epoch} stats={stats} gauges={gauges} />
             <EpochHistoryTable epochHistory={epochHistory} />
           </div>

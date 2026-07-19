@@ -27,31 +27,31 @@ export function KpiStrip({
       sub: "Total MEZO locked in vault",
     },
     {
-      label: "veBYND Supply",
+      label: "veBYND supply",
       value: stats.veByndSupply,
       icon: Lock,
       sub: "Minted 1:1 with deposits",
     },
     {
-      label: "Total Staked",
+      label: "Total staked",
       value: stats.totalStaked,
       icon: TrendingUp,
       sub: "Earning MUSD rewards",
     },
     {
-      label: "Staked Ratio",
+      label: "Staked ratio",
       value: veByndSupplyNum > 0 ? `${stakerRatio}%` : "–",
       icon: Users,
       sub: "veBYND staked vs supply",
     },
     {
-      label: "veMEZO Pooled",
+      label: "veMEZO pooled",
       value: stats.totalVotingPower,
       icon: BarChart3,
       sub: "Aggregate voting power",
     },
     {
-      label: "Boost Efficiency",
+      label: "Boost efficiency",
       value: `Up to ${stats.boostEfficiency}%`,
       icon: Zap,
       sub: "Target optimisation",
@@ -59,30 +59,19 @@ export function KpiStrip({
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-void-border border border-void-border">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-x divide-y divide-void-border lg:divide-y-0 rounded-card border border-void-border bg-void-soft overflow-hidden">
       {cards.map((c, i) => {
         const Icon = c.icon;
-        const isBoost = c.label === "Boost Efficiency";
         return (
-          <div
-            key={i}
-            className={`bg-void-soft p-4 lg:p-5 min-w-0 ${isBoost ? "border border-acid/20" : ""}`}
-          >
-            <div className="flex items-center gap-1.5 mb-3 text-silver-dim">
-              <Icon
-                size={11}
-                className={`shrink-0 ${isBoost ? "text-acid" : ""}`}
-              />
-              <p className="font-mono text-[7px] uppercase tracking-widest font-bold truncate">
-                {c.label}
-              </p>
+          <div key={i} className="p-4 lg:p-5 min-w-0">
+            <div className="flex items-center gap-1.5 mb-2.5 text-white/[.38]">
+              <Icon size={12} className="shrink-0" />
+              <p className="text-[11px] truncate">{c.label}</p>
             </div>
-            <p
-              className={`text-xl lg:text-2xl font-black truncate ${isBoost ? "text-acid" : "text-silver"}`}
-            >
+            <p className="font-mono text-xl font-medium text-gold truncate">
               {c.value}
             </p>
-            <p className="font-mono text-[7px] text-silver-dim mt-1 truncate">
+            <p className="text-[11px] text-white/60 mt-1 truncate">
               {c.sub}
             </p>
           </div>

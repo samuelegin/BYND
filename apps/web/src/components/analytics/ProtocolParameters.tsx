@@ -9,26 +9,26 @@ interface ProtocolParametersProps {
 export function ProtocolParameters({ stats, gauges }: ProtocolParametersProps) {
   return (
     <Panel className="p-6">
-      <p className="font-mono text-[9px] uppercase tracking-widest text-acid font-bold mb-5">
-        Protocol Parameters
+      <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38] mb-5">
+        Protocol parameters
       </p>
-      <StatRow label="Epoch Duration" value="7 Days" />
+      <StatRow label="Epoch duration" value="7 days" />
       <StatRow
-        label="Keeper Bounty"
-        value={`${stats.bountyBps} BPS (${stats.bountyBps / 100}%)`}
+        label="Keeper bounty"
+        value={`${stats.bountyBps} bps (${stats.bountyBps / 100}%)`}
       />
-      <StatRow label="Protocol Fee" value="10%" />
+      <StatRow label="Protocol fee" value="10%" />
       <StatRow
-        label="Target Boost"
+        label="Target boost"
         value={`Up to ${stats.boostEfficiency}%`}
         accent
       />
       <StatRow
-        label="Gauge Count"
+        label="Gauge count"
         value={gauges.length > 0 ? `${gauges.length} active` : "–"}
       />
-      <StatRow label="veBYND Supply" value={stats.veByndSupply} />
-      <StatRow label="Total Staked" value={stats.totalStaked} />
+      <StatRow label="veBYND supply" value={stats.veByndSupply} />
+      <StatRow label="Total staked" value={stats.totalStaked} />
     </Panel>
   );
 }

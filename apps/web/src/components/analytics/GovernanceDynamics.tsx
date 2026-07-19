@@ -9,7 +9,7 @@ interface GovernanceDynamicsProps {
   gauges: GaugeAllocation[];
 }
 
-const GAUGE_COLORS = ["#C8FF00", "#7ACC00", "#3D7A00"];
+const GAUGE_COLORS = ["#E5B567", "#B78A3F", "#8C6A30"];
 
 export function GovernanceDynamics({
   epoch,
@@ -28,48 +28,48 @@ export function GovernanceDynamics({
     <Panel className="p-6">
       <div className="flex items-start justify-between mb-8">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-acid font-bold mb-1">
-            Governance Dynamics
+          <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38] mb-1">
+            Governance dynamics
           </p>
-          <p className="font-mono text-[8px] text-silver-dim uppercase tracking-widest">
-            veBTC Gauge Allocation · Boosted Positions
+          <p className="text-sm text-white/60">
+            veBTC gauge allocation · boosted positions
           </p>
         </div>
         <div className="text-right">
           <div className="flex items-center gap-2 justify-end mb-1">
             <LiveDot />
-            <span className="font-mono text-[9px] text-acid font-bold uppercase">
-              {epoch.currentEpoch > 0 ? "Active" : "Awaiting Deployment"}
+            <span className="text-sm font-medium text-gold">
+              {epoch.currentEpoch > 0 ? "Active" : "Awaiting deployment"}
             </span>
           </div>
-          <p className="font-mono text-[8px] text-silver-dim">
+          <p className="text-xs text-white/60">
             {epoch.currentEpoch > 0 ? `Epoch #${epoch.currentEpoch}` : "–"}
           </p>
         </div>
       </div>
 
       <div className="mb-6">
-        <p className="font-mono text-[8px] text-silver-dim uppercase tracking-widest mb-1">
-          Aggregate veMEZO Power
+        <p className="text-[13px] text-white/[.38] mb-1">
+          Aggregate veMEZO power
         </p>
-        <p className="text-4xl font-black text-silver">
+        <p className="font-mono text-4xl font-medium text-gold">
           {stats.totalVotingPower}
         </p>
-        <p className="font-mono text-[8px] text-silver-dim mt-1">
+        <p className="text-xs text-white/60 mt-1">
           Grows with each deposit
         </p>
       </div>
 
       {gauges.length > 0 ? (
         <>
-          <div className="mb-6 h-3 bg-void-border flex overflow-hidden">
+          <div className="mb-6 h-2 rounded-full bg-void-border flex overflow-hidden">
             {gauges.map((g, i) => (
               <div
                 key={i}
                 className="h-full transition-all duration-700"
                 style={{
                   width: `${g.weightBps / 100}%`,
-                  backgroundColor: GAUGE_COLORS[i] || "#C8FF00",
+                  backgroundColor: GAUGE_COLORS[i] || "#E5B567",
                   marginRight: i < gauges.length - 1 ? "1px" : 0,
                 }}
               />
@@ -79,54 +79,54 @@ export function GovernanceDynamics({
             {gauges.map((g, i) => (
               <div
                 key={i}
-                className="border border-void-border p-4 flex items-center gap-4 group hover:border-acid/20 transition-colors"
+                className="rounded-control border border-void-border p-4 flex items-center gap-4 hover:border-white/[.12] transition-colors"
               >
                 <div
-                  className="w-10 h-10 flex items-center justify-center font-mono text-[9px] font-black text-void shrink-0"
-                  style={{ backgroundColor: GAUGE_COLORS[i] || "#C8FF00" }}
+                  className="w-10 h-10 rounded-control flex items-center justify-center font-mono text-[11px] font-medium text-gold-ink shrink-0"
+                  style={{ backgroundColor: GAUGE_COLORS[i] || "#E5B567" }}
                 >
                   {(g.weightBps / 100).toFixed(0)}%
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="font-mono text-[10px] font-black text-silver uppercase">
+                    <span className="text-sm font-medium text-white/[.87]">
                       {g.name}
                     </span>
-                    <span className="font-mono text-[9px] text-acid font-bold">
+                    <span className="font-mono text-xs font-medium text-gold">
                       APR {g.apr}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-[8px] text-silver-dim truncate">
+                    <span className="font-mono text-xs text-white/60 truncate">
                       {g.gauge}
                     </span>
                     <button
                       onClick={() => copy(g.gauge)}
-                      className="text-void-muted hover:text-acid transition-colors shrink-0"
+                      className="text-white/[.38] hover:text-gold transition-colors shrink-0"
                     >
-                      <Copy size={10} />
+                      <Copy size={12} />
                     </button>
                     <a
                       href={`https://explorer.test.mezo.org/address/${g.gauge}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-void-muted hover:text-acid transition-colors shrink-0"
+                      className="text-white/[.38] hover:text-gold transition-colors shrink-0"
                     >
-                      <ExternalLink size={10} />
+                      <ExternalLink size={12} />
                     </a>
                   </div>
                   {g.boostedVeBTC && g.boostedVeBTC !== "–" && (
-                    <p className="font-mono text-[7px] text-acid mt-1">
+                    <p className="text-xs text-gold mt-1">
                       ↳ {parseInt(g.boostedVeBTC).toLocaleString()} veBTC
                       positions boosted
                     </p>
                   )}
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-mono text-[8px] text-silver-dim uppercase tracking-widest">
+                  <p className="text-[11px] text-white/[.38]">
                     Pending MUSD
                   </p>
-                  <p className="font-mono text-[10px] font-bold text-silver">
+                  <p className="font-mono text-sm font-medium text-white/[.87]">
                     {g.pendingMUSD}
                   </p>
                 </div>
@@ -135,8 +135,8 @@ export function GovernanceDynamics({
           </div>
         </>
       ) : (
-        <div className="border border-void-border p-8 text-center">
-          <p className="font-mono text-[9px] uppercase tracking-widest text-silver-dim">
+        <div className="rounded-control border border-void-border p-8 text-center">
+          <p className="text-sm text-white/60">
             Gauges populate once contracts are deployed and first epoch votes
             are cast
           </p>

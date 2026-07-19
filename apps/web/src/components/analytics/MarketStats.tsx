@@ -14,36 +14,36 @@ export function MarketStats({
   stakerRatio,
 }: MarketStatsProps) {
   return (
-    <div className="grid md:grid-cols-3 gap-6">
-      <div className="border border-acid/20 bg-acid/3 clip-corner p-6">
-        <p className="font-mono text-[9px] uppercase tracking-widest text-acid font-bold mb-2">
-          veBYND / veMEZO Ratio
+    <div className="grid md:grid-cols-3 gap-5">
+      <div className="rounded-card border border-gold/20 bg-gold/5 p-6">
+        <p className="text-[13px] text-white/[.38] mb-2">
+          veBYND / veMEZO ratio
         </p>
-        <p className="text-4xl font-black text-silver">
+        <p className="font-mono text-3xl font-medium text-gold">
           {veByndSupplyNum > 0
             ? (veByndSupplyNum / veByndSupplyNum).toFixed(4)
             : "1:1"}
         </p>
-        <p className="font-mono text-[8px] text-silver-dim mt-1">
+        <p className="text-xs text-white/60 mt-1">
           Mint rate is always 1:1 on deposit
         </p>
       </div>
-      <div className="border border-void-border p-6 clip-corner">
-        <p className="font-mono text-[9px] uppercase tracking-widest text-silver-dim font-bold mb-2">
-          Staked / Supply
+      <div className="rounded-card border border-void-border bg-void-soft p-6">
+        <p className="text-[13px] text-white/[.38] mb-2">
+          Staked / supply
         </p>
-        <p className="text-4xl font-black text-silver">{stakerRatio}%</p>
-        <p className="font-mono text-[8px] text-acid mt-1">
+        <p className="font-mono text-3xl font-medium text-gold">{stakerRatio}%</p>
+        <p className="text-xs text-white/60 mt-1">
           {totalStakedNum.toLocaleString()} of{" "}
           {veByndSupplyNum.toLocaleString()} veBYND staked
         </p>
       </div>
-      <div className="border border-void-border p-6 clip-corner">
-        <p className="font-mono text-[9px] uppercase tracking-widest text-silver-dim font-bold mb-2">
-          Avg. Staker APR
+      <div className="rounded-card border border-void-border bg-void-soft p-6">
+        <p className="text-[13px] text-white/[.38] mb-2">
+          Avg. staker APR
         </p>
-        <p className="text-4xl font-black text-silver">{stats.avgApr}</p>
-        <p className="font-mono text-[8px] text-acid mt-1">
+        <p className="font-mono text-3xl font-medium text-gold">{stats.avgApr}</p>
+        <p className="text-xs text-white/60 mt-1">
           MUSD bribes distributed to stakers
         </p>
       </div>

@@ -19,8 +19,8 @@ export type KeeperStepDef = {
 export function EpochFlowSteps({ steps }: { steps: KeeperStepDef[] }) {
   return (
     <Panel className="p-6">
-      <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-acid font-bold mb-6">
-        Epoch Flow — Call Order
+      <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38] mb-6">
+        Epoch flow — call order
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
@@ -30,30 +30,24 @@ export function EpochFlowSteps({ steps }: { steps: KeeperStepDef[] }) {
           return (
             <div
               key={s.id}
-              className={`border p-5 space-y-4 transition-colors ${active ? "border-acid/50 bg-acid/3" : "border-void-border"}`}
+              className={`rounded-control border p-5 space-y-4 transition-colors ${active ? "border-gold/30 bg-gold/5" : "border-void-border"}`}
             >
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div
-                    className={`p-2 border ${active ? "border-acid/50 bg-acid/10" : "border-void-border"}`}
-                  >
-                    <Icon
-                      size={14}
-                      className={`${active ? "text-acid" : "text-silver-dim"} transition-colors ${s.id === "castVotes" && active ? "animate-spin" : ""}`}
-                    />
-                  </div>
-                  <Badge variant={s.badgeVariant}>{s.badge}</Badge>
+              <div className="flex items-center justify-between">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gold/10 font-mono text-xs font-medium text-gold">
+                  {s.step}
                 </div>
-                <div>
-                  <p className="font-mono text-[9px] uppercase font-black text-silver">
-                    {s.label}
-                  </p>
-                  <p className="font-mono text-[7px] text-silver-dim mt-0.5">
-                    Step {s.step}
-                  </p>
-                </div>
+                <Badge variant={s.badgeVariant}>{s.badge}</Badge>
               </div>
-              <p className="font-mono text-[8px] text-silver-dim leading-relaxed">
+              <div className="flex items-center gap-2">
+                <Icon
+                  size={13}
+                  className={`${active ? "text-gold" : "text-white/60"} transition-colors shrink-0 ${s.id === "castVotes" && active ? "animate-spin" : ""}`}
+                />
+                <p className="font-mono text-[13px] font-medium text-white/[.87]">
+                  {s.label}
+                </p>
+              </div>
+              <p className="text-xs text-white/60 leading-relaxed">
                 {s.description}
               </p>
               <Button
@@ -64,7 +58,7 @@ export function EpochFlowSteps({ steps }: { steps: KeeperStepDef[] }) {
                 disabled={(!s.can && !s.done) || s.isLoading}
                 isLoading={s.isLoading}
               >
-                {s.label}
+                <span className="font-mono">{s.label}</span>
               </Button>
             </div>
           );

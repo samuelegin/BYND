@@ -195,17 +195,15 @@ export default function KeeperPage() {
 
   return (
     <div className="min-h-screen bg-void">
-      <div className="border-b border-void-border bg-void-soft">
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <SectionHeader
-            label="Keeper"
-            title="Keeper Dashboard"
-            subtitle="Epoch-gated keeper functions. Call in order each epoch. Earn bounties (paid in whatever token was harvested) by triggering harvestAndDistribute."
-          />
-        </div>
+      <div className="max-w-[1120px] mx-auto px-5 pt-6">
+        <SectionHeader
+          label="Keeper"
+          title="Keeper dashboard"
+          subtitle="Epoch-gated keeper functions. Call in order each epoch. Earn bounties (paid in whatever token was harvested) by triggering harvestAndDistribute."
+        />
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
+      <div className="max-w-[1120px] mx-auto px-5 py-8 space-y-6">
         <BountyHero
           estimatedBounty={estimatedBounty}
           rewardTokenSymbol={stats.rewardTokenSymbol}

@@ -16,10 +16,10 @@ export function StatusOverview({
   bountyBps,
 }: StatusOverviewProps) {
   const items = [
-    { label: "Current Epoch", value: `#${mezoEpoch}` },
-    { label: "Time Remaining", value: formatTime(liveCountdown) },
+    { label: "Current epoch", value: `#${mezoEpoch}` },
+    { label: "Time remaining", value: formatTime(liveCountdown) },
     {
-      label: "Pending Rewards",
+      label: "Pending rewards",
       value:
         pendingIncentives === "–"
           ? "–"
@@ -29,17 +29,15 @@ export function StatusOverview({
             " " +
             rewardTokenSymbol,
     },
-    { label: "Keeper Bounty", value: `${bountyBps / 100}% of harvest` },
+    { label: "Keeper bounty", value: `${bountyBps / 100}% of harvest` },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-void-border border border-void-border">
+    <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-void-border rounded-card border border-void-border bg-void-soft overflow-hidden">
       {items.map((s, i) => (
-        <div key={i} className="bg-void-soft p-6">
-          <p className="font-mono text-[8px] uppercase tracking-widest text-silver-dim font-bold mb-2">
-            {s.label}
-          </p>
-          <p className="font-mono text-xl font-black text-silver">{s.value}</p>
+        <div key={i} className="p-6">
+          <p className="text-[13px] text-white/[.38] mb-1.5">{s.label}</p>
+          <p className="font-mono text-xl font-medium text-gold">{s.value}</p>
         </div>
       ))}
     </div>

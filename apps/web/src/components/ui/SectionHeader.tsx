@@ -7,9 +7,9 @@ export const SectionHeader: React.FC<{
   title: string;
   subtitle?: string;
 }> = ({ label, title, subtitle }) => (
-  <div className="space-y-2">
-    <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-acid font-bold">{label}</span>
-    <h2 className="text-3xl md:text-4xl font-black text-silver leading-none">{title}</h2>
-    {subtitle && <p className="text-silver-dim text-sm leading-relaxed max-w-lg">{subtitle}</p>}
+  <div className="space-y-3">
+    <span className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38]">{label}</span>
+    <h2 className="text-[clamp(28px,4vw,36px)] font-semibold text-white/[.87] leading-tight">{title}</h2>
+    {subtitle && <p className="text-[15px] text-white/60 leading-relaxed max-w-lg">{subtitle}</p>}
   </div>
 );

@@ -12,17 +12,16 @@ export function BountyHero({
   pendingIncentives,
 }: BountyHeroProps) {
   return (
-    <div className="border border-acid/30 bg-acid/3 clip-corner p-8 text-center relative overflow-hidden">
+    <div className="rounded-panel border border-gold/20 bg-gold/5 p-8 text-center relative overflow-hidden">
       <div className="absolute inset-0 grid-bg opacity-30" />
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-acid/60 to-transparent" />
       <div className="relative">
-        <p className="font-mono text-[9px] uppercase tracking-[0.4em] text-acid font-bold mb-2">
-          Available Keeper Bounty This Epoch
+        <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38] mb-2">
+          Available keeper bounty this epoch
         </p>
-        <p className="text-[64px] font-black text-acid leading-none">
+        <p className="text-[56px] font-semibold text-gold leading-none">
           ~${estimatedBounty}
         </p>
-        <p className="font-mono text-[10px] text-silver-dim mt-2 uppercase tracking-widest">
+        <p className="text-sm text-white/60 mt-2">
           {rewardTokenSymbol} · {bountyBps / 100}% of{" "}
           {pendingIncentives === "–"
             ? "–"

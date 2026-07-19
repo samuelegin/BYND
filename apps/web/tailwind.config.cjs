@@ -4,20 +4,31 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-syne)', 'sans-serif'],
-        mono: ['var(--font-geist-mono)', 'monospace'],
-        display: ['var(--font-syne)', 'sans-serif'],
+        sans: ['var(--font-display)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
       },
       colors: {
-        acid: '#C8FF00',
-        'acid-dim': '#9FCC00',
-        void: '#0A0A0A',
-        'void-soft': '#111111',
-        'void-mid': '#1A1A1A',
-        'void-border': '#2A2A2A',
-        'void-muted': '#3A3A3A',
-        silver: '#E8E8E8',
-        'silver-dim': '#A0A0A0',
+        bg: '#121212',
+        surface: { 1: '#1C1C1E', 2: '#242426' },
+        gold: { DEFAULT: '#E5B567', bright: '#F0C983', deep: '#B78A3F', ink: '#2A1E08' },
+
+        /* legacy tokens kept so existing (not-yet-redesigned) pages keep
+           working — remapped to the new dark/gold palette */
+        acid: '#E5B567',
+        'acid-dim': '#B78A3F',
+        void: '#121212',
+        'void-soft': '#1C1C1E',
+        'void-mid': '#242426',
+        'void-border': 'rgba(255,255,255,.08)',
+        'void-muted': 'rgba(255,255,255,.38)',
+        silver: 'rgba(255,255,255,.87)',
+        'silver-dim': 'rgba(255,255,255,.60)',
+      },
+      borderRadius: {
+        control: '12px',
+        card: '18px',
+        panel: '20px',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -48,12 +59,12 @@ module.exports = {
           '100%': { opacity: 1 },
         },
         glowPulse: {
-          '0%, 100%': { boxShadow: '0 0 20px rgba(200, 255, 0, 0.3)' },
-          '50%': { boxShadow: '0 0 40px rgba(200, 255, 0, 0.6)' },
+          '0%, 100%': { boxShadow: '0 0 20px rgba(229, 181, 103, 0.3)' },
+          '50%': { boxShadow: '0 0 40px rgba(229, 181, 103, 0.6)' },
         },
       },
       backgroundImage: {
-        'grid-pattern': "linear-gradient(rgba(200,255,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(200,255,0,0.03) 1px, transparent 1px)",
+        'grid-pattern': "linear-gradient(rgba(229,181,103,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(229,181,103,0.03) 1px, transparent 1px)",
         'scanlines': "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)",
       },
       backgroundSize: {

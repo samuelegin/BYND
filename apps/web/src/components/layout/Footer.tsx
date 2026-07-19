@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom";
-import { Github, MessageCircle, Send, Twitter } from "lucide-react";
 import { Logo } from "@/components/ui";
+import { DiscordIcon, TelegramIcon, XIcon } from "@/components/ui/BrandIcons";
 
 const FOOT_LINKS = [
   { label: "Terminal", href: "/terminal" },
@@ -12,10 +12,9 @@ const FOOT_LINKS = [
 ];
 
 const SOCIALS = [
-  { icon: Github, href: "https://github.com", label: "GitHub" },
-  { icon: Twitter, href: "https://twitter.com", label: "Twitter" },
-  { icon: Send, href: "https://t.me", label: "Telegram" },
-  { icon: MessageCircle, href: "https://discord.com", label: "Discord" },
+  { icon: XIcon, href: "https://x.com", label: "X" },
+  { icon: TelegramIcon, href: "https://t.me", label: "Telegram" },
+  { icon: DiscordIcon, href: "https://discord.com", label: "Discord" },
 ];
 
 export function Footer() {

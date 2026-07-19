@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 430" role="img" aria-labelledby="rv-t rv-d">
+  <title id="rv-t">Bynd routing engine</title>
+  <desc id="rv-d">Fragmented locked veMEZO converges into an aggregated boost block, which routes to the highest-yielding gauges and mints liquid veBYND. Designed for dark backgrounds.</desc>
+  <defs>
+    <linearGradient id="coreFork" gradientUnits="userSpaceOnUse" x1="258" y1="200" x2="258" y2="150">
+      <stop offset="0" stop-color="#B78A3F"/><stop offset="1" stop-color="#F4D293"/>
+    </linearGradient>
+    <style>
+      .rv-cap{font-family:'IBM Plex Mono',monospace;font-size:11px;fill:rgba(255,255,255,.38);letter-spacing:.08em}
+      .rv-core{font-family:'IBM Plex Mono',monospace;font-size:11px;fill:#E5B567;letter-spacing:.03em}
+      .rv-apy{font-family:'IBM Plex Mono',monospace;font-size:14px;fill:#E5B567;font-weight:500}
+      .rv-mint{font-family:'IBM Plex Mono',monospace;font-size:15px;fill:#2a1e08;font-weight:600;letter-spacing:.02em}
+      .frag rect{fill:#242426;stroke:rgba(255,255,255,.14);stroke-width:1;stroke-dasharray:3 3}
+      .gauge rect{fill:#242426;stroke:rgba(255,255,255,.10);stroke-width:1}
+      .flow{stroke-dasharray:5 12;stroke-linecap:round;animation:flow 1.15s linear infinite}
+      .flow.f2{animation-delay:.22s}.flow.f3{animation-delay:.44s}.flow.f4{animation-delay:.66s}
+      @keyframes flow{to{stroke-dashoffset:-34}}
+      @media (prefers-reduced-motion:reduce){.flow{animation:none}}
+    </style>
+  </defs>
+
+  <text x="66" y="40" class="rv-cap" text-anchor="middle">veMEZO</text>
+  <text x="442" y="52" class="rv-cap" text-anchor="middle">gauges</text>
+
+  <g fill="none" stroke="#E5B567" stroke-width="1.4" opacity=".5">
+    <path class="flow"    d="M92,78  C150,78  150,180 200,180"/>
+    <path class="flow f2" d="M92,148 C150,148 160,180 200,180"/>
+    <path class="flow f3" d="M92,218 C150,218 160,180 200,180"/>
+    <path class="flow f4" d="M92,288 C150,288 150,180 200,180"/>
+  </g>
+
+  <g class="frag">
+    <rect x="46" y="64"  width="40" height="28" rx="8"/>
+    <rect x="46" y="134" width="40" height="28" rx="8"/>
+    <rect x="46" y="204" width="40" height="28" rx="8"/>
+    <rect x="46" y="274" width="40" height="28" rx="8"/>
+  </g>
+
+  <g fill="none" stroke="#E5B567" stroke-width="1.7" opacity=".7">
+    <path class="flow"    d="M316,180 C360,180 360,96  396,96"/>
+    <path class="flow f2" d="M316,180 L396,180"/>
+    <path class="flow f3" d="M316,180 C360,180 360,264 396,264"/>
+  </g>
+  <path class="flow f2" d="M258,226 L258,344" fill="none" stroke="#E5B567" stroke-width="1.7" opacity=".7"/>
+
+  <rect x="200" y="134" width="116" height="92" rx="18" fill="#242426" stroke="#E5B567" stroke-opacity=".4"/>
+  <g fill="none" stroke="url(#coreFork)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M258,198 L258,176"/><path d="M258,176 L244,158"/><path d="M258,176 L272,158"/>
+  </g>
+  <circle cx="244" cy="158" r="3.2" fill="#F4D293"/><circle cx="272" cy="158" r="3.2" fill="#F4D293"/>
+  <text x="258" y="216" class="rv-core" text-anchor="middle">boost block</text>
+
+  <g class="gauge">
+    <rect x="396" y="76"  width="92" height="40" rx="12"/>
+    <rect x="396" y="160" width="92" height="40" rx="12"/>
+    <rect x="396" y="244" width="92" height="40" rx="12"/>
+  </g>
+  <text x="442" y="101" class="rv-apy" text-anchor="middle">31.4%</text>
+  <text x="442" y="185" class="rv-apy" text-anchor="middle">24.8%</text>
+  <text x="442" y="269" class="rv-apy" text-anchor="middle">18.2%</text>
+
+  <rect x="198" y="344" width="120" height="42" rx="13" fill="#E5B567"/>
+  <text x="258" y="370" class="rv-mint" text-anchor="middle">veBYND</text>
+</svg>

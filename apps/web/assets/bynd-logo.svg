@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 178" fill="none" role="img" aria-label="bynd">
+  <!-- Wordmark (b, n, d) uses currentColor so it adapts:
+       set color:#EDEDED on dark, color:#121212 on light. The gold y is fixed. -->
+  <defs>
+    <linearGradient id="byndGold" gradientUnits="userSpaceOnUse" x1="150" y1="165" x2="150" y2="44">
+      <stop offset="0" stop-color="#A9803A"/>
+      <stop offset="0.45" stop-color="#E5B567"/>
+      <stop offset="1" stop-color="#F4D293"/>
+    </linearGradient>
+  </defs>
+  <g stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M34 14V110"/>
+    <circle cx="64" cy="80" r="30"/>
+    <path d="M214 110V64 Q214 50 235 50 Q256 50 256 64 V110"/>
+    <circle cx="300" cy="80" r="30"/>
+    <path d="M330 14V110"/>
+  </g>
+  <g stroke="url(#byndGold)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M150 165V92"/>
+    <path d="M150 92 122 50"/>
+    <path d="M150 92 178 50"/>
+  </g>
+  <circle cx="122" cy="50" r="7" fill="#F4D293"/>
+  <circle cx="178" cy="50" r="7" fill="#F4D293"/>
+</svg>

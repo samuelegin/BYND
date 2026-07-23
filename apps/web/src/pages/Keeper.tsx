@@ -56,14 +56,26 @@ export default function KeeperPage() {
   const handleClaimRebases = async () => {
     setClaimingRebases(true);
     try {
-      await withTx(() =>
-        writeContractAsync({
+      await withTx(async () => {
+        // claimRebases() takes a batch of tokenIds (max 200/call) — fetch
+        // every NFT the vault holds and pass it in. See VAULT_ABI comment.
+        const tokenIds = (await publicClient?.readContract({
+          address: addrs.ByNdVault,
+          abi: VAULT_ABI,
+          functionName: "getAllTokenIds",
+        })) as readonly bigint[] | undefined;
+
+        if (!tokenIds || tokenIds.length === 0) {
+          throw new Error("No deposited veMEZO NFTs to claim rebases for.");
+        }
+
+        return writeContractAsync({
           address: addrs.ByNdVault,
           abi: VAULT_ABI,
           functionName: "claimRebases",
-          args: [],
-        }),
-      );
+          args: [tokenIds.slice(0, 200) as bigint[]],
+        });
+      });
     } finally {
       setClaimingRebases(false);
     }
@@ -73,12 +85,27 @@ export default function KeeperPage() {
     setExtendingLocks(true);
     try {
       await withTx(async () => {
+        // extendLocks() takes a batch of tokenIds (max 200/call) — use the
+        // contract's own paging helper to fetch exactly the ones that still
+        // need extending. See VAULT_ABI comment.
+        const result = (await publicClient?.readContract({
+          address: addrs.ByNdVault,
+          abi: VAULT_ABI,
+          functionName: "tokensNeedingExtend",
+          args: [0n, 200n],
+        })) as readonly [readonly bigint[], bigint] | undefined;
+
+        const tokenIds = result?.[0];
+        if (!tokenIds || tokenIds.length === 0) {
+          throw new Error("No locks currently need extending.");
+        }
+
         // Step 1: re-lock all NFTs to 4-year max on the Vault
         const extendHash = await writeContractAsync({
           address: addrs.ByNdVault,
           abi: VAULT_ABI,
           functionName: "extendLocks",
-          args: [],
+          args: [tokenIds as bigint[]],
         });
         await publicClient?.waitForTransactionReceipt({ hash: extendHash });
 

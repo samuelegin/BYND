@@ -28,13 +28,23 @@ export const EMPTY_EPOCH_HISTORY: EpochHistoryEntry[] = [];
 
 export const VAULT_ABI = [
   { name: 'deposit',             type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [] },
-  { name: 'extendLocks',         type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  { name: 'claimRebases',        type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [{ name: 'totalClaimed', type: 'uint256' }] },
+  // extendLocks/claimRebases are batched: the deployed contract requires a
+  // uint256[] tokenIds argument (capped at MAX_BATCH=200 per call) — calling
+  // with no args encodes the wrong selector entirely (extendLocks() instead
+  // of extendLocks(uint256[])), which is why MetaMask couldn't estimate gas.
+  { name: 'extendLocks',         type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenIds', type: 'uint256[]' }], outputs: [] },
+  { name: 'claimRebases',        type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenIds', type: 'uint256[]' }], outputs: [{ name: 'totalClaimed', type: 'uint256' }] },
   { name: 'totalVotingPower',    type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'totalLockedMEZO',     type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'totalPendingRebase',  type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'totalDeposited',      type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'getUserTokens',       type: 'function', stateMutability: 'view',       inputs: [{ name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint256[]' }] },
+  { name: 'getAllTokenIds',      type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256[]' }] },
+  {
+    name: 'tokensNeedingExtend', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'offset', type: 'uint256' }, { name: 'limit', type: 'uint256' }],
+    outputs: [{ name: 'pending', type: 'uint256[]' }, { name: 'nextOffset', type: 'uint256' }],
+  },
   { name: 'lastExtendTimestamp', type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
 ] as const;
 

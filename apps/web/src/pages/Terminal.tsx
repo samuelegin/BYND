@@ -45,24 +45,18 @@ export default function TerminalPage() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [extendingLocks, setExtendingLocks] = useState(false);
 
-  // Live ticking countdown, seeded from the real on-chain value
-  // (epoch.timeUntilNextVote — ultimately read from ByNdVoter's own
-  // timeUntilNextVote(), the same value optimiseAndVote() enforces).
-  // We tick it down client-side for a smooth per-second display between
-  // the hook's ~15s polling intervals, and resync whenever a fresh value
-  // arrives from chain. This used to be computed locally from a hardcoded
-  // Mon–Sun calendar clock, completely disconnected from the contract —
-  // which meant the "Cast system votes" button could enable/disable at the
-  // wrong times, or transactions could revert even when the button showed
-  // enabled.
+  // NOTE: optimiseAndVote() has no on-chain time window (see ByNdVoter.sol's
+  // own doc comment: "Callable anytime — no time window"). ByNdVoter also has
+  // no timeUntilNextVote() function, so this countdown is a purely
+  // client-side/cosmetic display and no longer gates the "Cast system votes"
+  // button — that's gated solely on epoch.epochVoted now.
   const [liveCountdown, setLiveCountdown] = useState<number>(epoch.timeUntilNextVote);
   useEffect(() => {
     setLiveCountdown(epoch.timeUntilNextVote);
   }, [epoch.timeUntilNextVote]);
 
-  // Separate ticking countdown for the full epoch (vote window is just the
-  // last 4 hours of this) — used for the "Time remaining" / epoch-card
-  // display, distinct from the vote-window countdown above.
+  // Ticking countdown for the full epoch, used for the "Time remaining" /
+  // epoch-card display.
   const [epochCountdown, setEpochCountdown] = useState<number>(epoch.epochEndsIn);
   useEffect(() => {
     setEpochCountdown(epoch.epochEndsIn);
@@ -80,8 +74,7 @@ export default function TerminalPage() {
   // was previously our contract's internal counter, which only increments
   // once per harvest cycle and showed a misleading "#1".
   const mezoEpoch = epoch.displayEpoch;
-  // The vote window is whatever the contract enforces — timeToVoteOpen hits 0
-  // exactly when optimiseAndVote() will actually accept a transaction.
+  // Cosmetic countdown only — does not gate optimiseAndVote() (see NOTE above).
   const timeToVoteOpen = liveCountdown;
 
   const addrs = getAddresses(chainId ?? MATSNET_CHAIN_ID);
@@ -247,22 +240,15 @@ export default function TerminalPage() {
           throw new Error("No locks currently need extending.");
         }
 
-        // Step 1: re-lock all NFTs to 4-year max on the Vault
-        const extendHash = await writeContractAsync({
+        // ByNdVault.extendLocks() already calls voter.markLocksExtended()
+        // internally as msg.sender == vault — a separate frontend call to
+        // markLocksExtended() would always revert, since ByNdVoter requires
+        // msg.sender == vault and a user's wallet is never that address.
+        return writeContractAsync({
           address: addrs.ByNdVault,
           abi: VAULT_ABI,
           functionName: "extendLocks",
           args: [tokenIds as bigint[]],
-        });
-        await publicClient?.waitForTransactionReceipt({ hash: extendHash });
-
-        // Step 2: mark locks extended for this epoch on the Voter so
-        // epochLocksExtended flips to true and the button disables.
-        return writeContractAsync({
-          address: addrs.ByNdVoter,
-          abi: VOTER_ABI,
-          functionName: "markLocksExtended",
-          args: [],
         });
       });
     } finally {

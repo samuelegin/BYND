@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { Button, StatRow, formatTime } from '@/components/ui';
+import { Button, StatRow } from '@/components/ui';
 import type { TxStatus } from '@/types';
 import { Modal } from './Modal';
 import { TxBlock } from './TxBlock';
@@ -33,7 +33,10 @@ export const CastVotesModal: React.FC<CastVotesModalProps> = ({
     }
   };
 
-  const canVote = timeUntilNextVote === 0 && !epochVoted;
+  // optimiseAndVote() on-chain is callable anytime — there's no time window
+  // (confirmed in ByNdVoter.sol's own doc comment). The only gate is
+  // epochVoted, which flips true the first time it's called each epoch.
+  const canVote = !epochVoted;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Cast system votes" subtitle="Permissionless — earn keeper bounty">
@@ -42,7 +45,7 @@ export const CastVotesModal: React.FC<CastVotesModalProps> = ({
           <div className="rounded-control p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">
             <AlertTriangle size={14} className="text-orange-400 shrink-0" />
             <p className="text-sm text-orange-400 leading-relaxed">
-              {epochVoted ? 'Votes already cast this epoch.' : `Vote window opens in ${formatTime(timeUntilNextVote)}.`}
+              Votes already cast this epoch.
             </p>
           </div>
         )}

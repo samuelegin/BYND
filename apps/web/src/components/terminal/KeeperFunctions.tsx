@@ -66,23 +66,19 @@ export function KeeperFunctions({
         </div>
 
         {/* castVotes */}
-        <div className={`rounded-control border p-3 space-y-2 transition-colors ${!epoch.epochVoted && timeToVoteOpen === 0 ? 'border-gold/30 bg-gold/5' : 'border-void-border'}`}>
+        <div className={`rounded-control border p-3 space-y-2 transition-colors ${!epoch.epochVoted ? 'border-gold/30 bg-gold/5' : 'border-void-border'}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <RefreshCw
                 size={13}
-                className={`text-gold shrink-0 ${timeToVoteOpen === 0 && !epoch.epochVoted ? 'animate-spin' : ''}`}
+                className={`text-gold shrink-0 ${!epoch.epochVoted ? 'animate-spin' : ''}`}
               />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white/[.87] truncate">
                   Cast system votes
                 </p>
                 <p className="text-xs text-white/60">
-                  {epoch.epochVoted
-                    ? 'Voted this epoch'
-                    : timeToVoteOpen > 0
-                      ? `Opens in ${formatTime(timeToVoteOpen)}`
-                      : 'Open now — 4h window'}
+                  {epoch.epochVoted ? 'Voted this epoch' : 'Callable anytime — no time window'}
                 </p>
               </div>
             </div>
@@ -93,7 +89,7 @@ export function KeeperFunctions({
             size="sm"
             fullWidth
             onClick={onCastVotes}
-            disabled={epoch.epochVoted || timeToVoteOpen > 0}
+            disabled={epoch.epochVoted}
           >
             <span className="font-mono">optimiseAndVote()</span>
           </Button>

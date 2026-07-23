@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RefreshCw, Zap, Shield, Droplets } from "lucide-react";
-import { SectionHeader, formatTime } from "@/components/ui";
+import { SectionHeader } from "@/components/ui";
 import { CastVotesModal, HarvestModal } from "@/components/modals";
 import {
   BountyHero,
@@ -100,22 +100,15 @@ export default function KeeperPage() {
           throw new Error("No locks currently need extending.");
         }
 
-        // Step 1: re-lock all NFTs to 4-year max on the Vault
-        const extendHash = await writeContractAsync({
+        // ByNdVault.extendLocks() already calls voter.markLocksExtended()
+        // internally as msg.sender == vault — a separate frontend call to
+        // markLocksExtended() would always revert, since ByNdVoter requires
+        // msg.sender == vault and a user's wallet is never that address.
+        return writeContractAsync({
           address: addrs.ByNdVault,
           abi: VAULT_ABI,
           functionName: "extendLocks",
           args: [tokenIds as bigint[]],
-        });
-        await publicClient?.waitForTransactionReceipt({ hash: extendHash });
-
-        // Step 2: mark locks extended for this epoch on the Voter so
-        // epochLocksExtended flips to true and the button disables.
-        return writeContractAsync({
-          address: addrs.ByNdVoter,
-          abi: VOTER_ABI,
-          functionName: "markLocksExtended",
-          args: [],
         });
       });
     } finally {
@@ -157,8 +150,9 @@ export default function KeeperPage() {
 
   const canClaimRebases = true;
   const canExtend = !epoch.epochLocksExtended;
-  // Vote window opens 4h before Matsnet epoch ends
-  const canVote = !epoch.epochVoted && timeToVoteOpen === 0;
+  // optimiseAndVote() is callable anytime on-chain — no time window (see
+  // ByNdVoter.sol's own doc comment). The only gate is epochVoted.
+  const canVote = !epoch.epochVoted;
   const canHarvest = epoch.epochVoted && !epoch.epochHarvested;
 
   const steps: KeeperStepDef[] = [
@@ -209,7 +203,8 @@ export default function KeeperPage() {
       can: canVote,
       done: epoch.epochVoted,
       isLoading: false,
-      description: `Aggregates all veMEZO power and casts votes toward highest-bribe veBTC gauges (falls back to auto-selecting the best live gauge if none are configured). Vote window opens 4h before epoch end${timeToVoteOpen > 0 ? " — opens in " + formatTime(timeToVoteOpen) : " — open now"}.`,
+      description:
+        "Aggregates all veMEZO power and casts votes toward highest-bribe veBTC gauges (falls back to auto-selecting the best live gauge if none are configured). Callable anytime — no time window; first keeper to call it each epoch locks in the vote.",
       onClick: () => setActiveModal("castVotes"),
       badge: epoch.epochVoted ? "Done" : canVote ? "Ready" : "Waiting",
       badgeVariant: (epoch.epochVoted

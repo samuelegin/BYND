@@ -144,12 +144,18 @@ export default function TerminalPage() {
 
   const handleStake = async (amount: string) => {
     await withTx(async () => {
-      await writeContractAsync({
+      // Wait for the approval to be mined before staking — on Matsnet block
+      // times are slow, so calling stake() before the approval lands causes
+      // ByNdStaking's transferFrom to revert (allowance still 0 on-chain).
+      // Same pattern as handleDeposit's approve/deposit sequencing above.
+      const approveHash = await writeContractAsync({
         address: addrs.VeBYND,
         abi: ERC20_ABI,
         functionName: "approve",
         args: [addrs.ByNdStaking, parseEther(amount)],
       });
+      await publicClient?.waitForTransactionReceipt({ hash: approveHash });
+
       return writeContractAsync({
         address: addrs.ByNdStaking,
         abi: STAKING_ABI,

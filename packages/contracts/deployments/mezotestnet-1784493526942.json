@@ -1,0 +1,18 @@
+{
+  "network": "mezotestnet",
+  "chainId": "31611",
+  "deployer": "0x73a7ec8628Be276eC8799DECE3067798613950C2",
+  "timestamp": "2026-07-19T20:38:46.938Z",
+  "contracts": {
+    "VeBYND": "0x72fC472Ad9Cad68f67391a6d967B7d43f9777E60",
+    "ByNdVault": "0x2b95660702855507c93D0CAFbbDA9745Fb099001",
+    "ByNdStaking": "0xe17939aC1A8edf8AADBBf65b5586B4fC95319595",
+    "ByNdVoter": "0x994A3990d7fc3E6395f491A98aA4F8c45d0E777F"
+  },
+  "externalAddresses": {
+    "veMEZO": "0xaCE816CA2bcc9b12C59799dcC5A959Fb9b98111b",
+    "boostVoter": "0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1",
+    "rewardsDistributor": "0x2962E8817ae716019F759d098e2caE658bDcAd04",
+    "treasury": "0x73a7ec8628Be276eC8799DECE3067798613950C2"
+  }
+}

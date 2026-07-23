@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" fill="none" role="img" aria-label="Bynd">
+  <defs>
+    <linearGradient id="byndGold" gradientUnits="userSpaceOnUse" x1="60" y1="132" x2="60" y2="28">
+      <stop offset="0" stop-color="#A9803A"/>
+      <stop offset="0.45" stop-color="#E5B567"/>
+      <stop offset="1" stop-color="#F4D293"/>
+    </linearGradient>
+  </defs>
+  <g stroke="url(#byndGold)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M60 132V64"/>
+    <path d="M60 64 34 28"/>
+    <path d="M60 64 86 28"/>
+  </g>
+  <circle cx="34" cy="28" r="6.5" fill="#F4D293"/>
+  <circle cx="86" cy="28" r="6.5" fill="#F4D293"/>
+</svg>

@@ -221,7 +221,7 @@ export default function KeeperPage() {
       can: canHarvest,
       done: epoch.epochHarvested,
       isLoading: false,
-      description: `Collects bribes from all gauges — any token. Your ${stats.bountyBps / 100}% bounty: ~$${estimatedBounty} MUSD.`,
+      description: "Collects bribes from all gauges — any token.",
       onClick: () => setActiveModal("harvest"),
       badge: epoch.epochHarvested ? "Done" : canHarvest ? "Ready" : "Locked",
       badgeVariant: (epoch.epochHarvested

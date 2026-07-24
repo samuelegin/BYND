@@ -16,9 +16,9 @@ import iconCoinStackWebp from '@/assets/illustrations/icons/icon-coin-stack.webp
 import iconCoinStackPng from '@/assets/illustrations/icons/icon-coin-stack.png';
 
 const STREAM_ICON: Record<string, { webp: string; png: string; w: number; h: number }> = {
-  'Boosted emissions': { webp: iconTreeWebp, png: iconTreePng, w: 240, h: 214 },
-  'Vote bribes': { webp: iconCoinBagWebp, png: iconCoinBagPng, w: 230, h: 240 },
-  'Protocol fees': { webp: iconCoinStackWebp, png: iconCoinStackPng, w: 240, h: 217 },
+  'Bigger rewards, together': { webp: iconTreeWebp, png: iconTreePng, w: 240, h: 214 },
+  'Paid to vote': { webp: iconCoinBagWebp, png: iconCoinBagPng, w: 230, h: 240 },
+  'A share of the fees': { webp: iconCoinStackWebp, png: iconCoinStackPng, w: 240, h: 217 },
 };
 
 export function RevenueStreams() {
@@ -73,14 +73,16 @@ export function RevenueStreams() {
               className="overflow-hidden rounded-panel border border-white/[.08] bg-surface-1 transition-[transform,border-color] duration-[.25s] hover:-translate-y-[3px] hover:border-white/[.12]"
             >
               <div className="flex h-[104px] items-center justify-center border-b border-white/[.08] bg-gold/[.07]">
-                <PixelArt
-                  webp={icon.webp}
-                  png={icon.png}
-                  width={icon.w}
-                  height={icon.h}
-                  alt=""
-                  className="h-[52px] w-auto"
-                />
+                {icon && (
+                  <PixelArt
+                    webp={icon.webp}
+                    png={icon.png}
+                    width={icon.w}
+                    height={icon.h}
+                    alt=""
+                    className="h-[52px] w-auto"
+                  />
+                )}
               </div>
               <div className="p-[26px_26px_28px]">
                 <h3 className="text-[18px] font-semibold text-white/[.87]">{r.title}</h3>

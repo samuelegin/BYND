@@ -1,6 +1,8 @@
 import React from 'react';
-import { Panel } from '@/components/ui';
+import { Panel, PixelArt } from '@/components/ui';
 import type { GaugeAllocation } from '@/types';
+import iconBoostWebp from '@/assets/illustrations/icons/icon-boost.webp';
+import iconBoostPng from '@/assets/illustrations/icons/icon-boost.png';
 
 export function GaugeAllocations({ gauges }: { gauges: GaugeAllocation[] }) {
   return (
@@ -26,8 +28,15 @@ export function GaugeAllocations({ gauges }: { gauges: GaugeAllocation[] }) {
         <div className="space-y-3">
           {gauges.map((g, i) => (
             <div key={i} className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-control bg-bg border border-void-border flex items-center justify-center font-mono text-[11px] font-medium text-gold shrink-0">
-                {(g.weightBps / 100).toFixed(0)}%
+              <div className="w-10 h-10 rounded-control bg-bg border border-void-border flex items-center justify-center shrink-0">
+                <PixelArt
+                  webp={iconBoostWebp}
+                  png={iconBoostPng}
+                  width={238}
+                  height={240}
+                  alt=""
+                  className="w-6 h-auto"
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">

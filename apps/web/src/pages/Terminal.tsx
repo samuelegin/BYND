@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui";
 import {
@@ -45,37 +45,11 @@ export default function TerminalPage() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [extendingLocks, setExtendingLocks] = useState(false);
 
-  // NOTE: optimiseAndVote() has no on-chain time window (see ByNdVoter.sol's
-  // own doc comment: "Callable anytime — no time window"). ByNdVoter also has
-  // no timeUntilNextVote() function, so this countdown is a purely
-  // client-side/cosmetic display and no longer gates the "Cast system votes"
-  // button — that's gated solely on epoch.epochVoted now.
-  const [liveCountdown, setLiveCountdown] = useState<number>(epoch.timeUntilNextVote);
-  useEffect(() => {
-    setLiveCountdown(epoch.timeUntilNextVote);
-  }, [epoch.timeUntilNextVote]);
-
-  // Ticking countdown for the full epoch, used for the "Time remaining" /
-  // epoch-card display.
-  const [epochCountdown, setEpochCountdown] = useState<number>(epoch.epochEndsIn);
-  useEffect(() => {
-    setEpochCountdown(epoch.epochEndsIn);
-  }, [epoch.epochEndsIn]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setLiveCountdown(prev => Math.max(0, prev - 1));
-      setEpochCountdown(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Real global Mezo epoch number (new epoch every Thursday 00:00 UTC) —
-  // was previously our contract's internal counter, which only increments
-  // once per harvest cycle and showed a misleading "#1".
+  // Countdown ticking now happens centrally inside useProtocol, so every
+  // page reads the same live-updating clock — no local timer needed here.
+  const timeToVoteOpen = epoch.timeUntilNextVote;
+  // Real global Mezo epoch number (new epoch every Thursday 00:00 UTC).
   const mezoEpoch = epoch.displayEpoch;
-  // Cosmetic countdown only — does not gate optimiseAndVote() (see NOTE above).
-  const timeToVoteOpen = liveCountdown;
 
   const addrs = getAddresses(chainId ?? MATSNET_CHAIN_ID);
   const publicClient = usePublicClient();
@@ -132,7 +106,7 @@ export default function TerminalPage() {
   };
 
   const handleWithdraw = async (_tokenId: number) => {
-    alert("Permanent lock — exit via veBYND/MEZO pool on Mezo Swap.");
+    alert("Permanent lock. Exit via veBYND/MEZO pool on Mezo Swap.");
   };
 
   const handleStake = async (amount: string) => {
@@ -276,7 +250,7 @@ export default function TerminalPage() {
         stats={stats}
         position={position}
         mezoEpoch={mezoEpoch}
-        liveCountdown={epochCountdown}
+        liveCountdown={epoch.epochEndsIn}
       />
 
       <div className="max-w-[1120px] mx-auto px-5 py-8">
@@ -338,7 +312,7 @@ export default function TerminalPage() {
                 epoch={epoch}
                 stats={stats}
                 mezoEpoch={mezoEpoch}
-                liveCountdown={epochCountdown}
+                liveCountdown={epoch.epochEndsIn}
               />
             </div>
           </div>
@@ -352,7 +326,7 @@ export default function TerminalPage() {
         stats={stats}
         epoch={epoch}
         gauges={gauges}
-        liveCountdown={liveCountdown}
+        liveCountdown={epoch.timeUntilNextVote}
         timeToVoteOpen={timeToVoteOpen}
         onUnlockPermanent={handleUnlockPermanent}
         onDeposit={handleDeposit}

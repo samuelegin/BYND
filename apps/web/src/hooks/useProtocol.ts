@@ -441,6 +441,27 @@ export function useProtocol(
     }
   }, [protocolData, epochFlags, matsnetEpochData, rewardSymbolData]);
 
+  // ── Live per-second countdown tick ──────────────────────────────────────
+  // timeUntilNextVote/epochEndsIn above are only refreshed from-chain every
+  // 15s (see refetchInterval on the protocolData read). Without this, any
+  // page showing that raw value only appears to move in ~15s jumps instead
+  // of ticking smoothly — that's exactly what was happening on Analytics,
+  // which read epoch.timeUntilNextVote directly. Terminal and Keeper used to
+  // patch this locally with their own per-page setInterval, which duplicated
+  // the logic and could drift out of sync with each other. Centralizing it
+  // here means every consumer of this hook gets one consistent, correctly
+  // ticking clock for free — no page-level timer needed anymore.
+  useEffect(() => {
+    const id = setInterval(() => {
+      setEpoch(prev => ({
+        ...prev,
+        timeUntilNextVote: Math.max(0, prev.timeUntilNextVote - 1),
+        epochEndsIn:       Math.max(0, prev.epochEndsIn - 1),
+      }));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
   // ── Sync user balances (veBYND + staked) — independent of reward tokens ──
   useEffect(() => {
     if (!balanceData) return;

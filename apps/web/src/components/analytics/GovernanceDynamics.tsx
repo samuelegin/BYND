@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Copy, ExternalLink } from "lucide-react";
-import { Panel, LiveDot } from "@/components/ui";
+import { Panel, LiveDot, PixelArt } from "@/components/ui";
 import type { EpochState, GaugeAllocation, ProtocolStats } from "@/types";
+import iconBoostWebp from "@/assets/illustrations/icons/icon-boost.webp";
+import iconBoostPng from "@/assets/illustrations/icons/icon-boost.png";
 
 interface GovernanceDynamicsProps {
   epoch: EpochState;
@@ -82,10 +84,17 @@ export function GovernanceDynamics({
                 className="rounded-control border border-void-border p-4 flex items-center gap-4 hover:border-white/[.12] transition-colors"
               >
                 <div
-                  className="w-10 h-10 rounded-control flex items-center justify-center font-mono text-[11px] font-medium text-gold-ink shrink-0"
+                  className="w-10 h-10 rounded-control flex items-center justify-center shrink-0"
                   style={{ backgroundColor: GAUGE_COLORS[i] || "#E5B567" }}
                 >
-                  {(g.weightBps / 100).toFixed(0)}%
+                  <PixelArt
+                    webp={iconBoostWebp}
+                    png={iconBoostPng}
+                    width={238}
+                    height={240}
+                    alt=""
+                    className="w-6 h-auto"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">

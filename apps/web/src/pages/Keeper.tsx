@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { RefreshCw, Zap, Shield, Droplets } from "lucide-react";
 import { SectionHeader } from "@/components/ui";
 import { CastVotesModal, HarvestModal } from "@/components/modals";
@@ -29,18 +29,12 @@ export default function KeeperPage() {
   // separate local calendar calculation here, which could drift out of
   // sync with the epoch.timeUntilNextVote value the CastVotesModal below
   // actually gates on.
+  // Countdown ticking now happens centrally inside useProtocol, so every
+  // page (Terminal, Keeper, Analytics) reads the same live-updating clock —
+  // no local timer needed here anymore.
   const mezoEpoch = epoch.displayEpoch;
-  const [liveCountdown, setLiveCountdown] = useState<number>(epoch.epochEndsIn);
-  useEffect(() => { setLiveCountdown(epoch.epochEndsIn); }, [epoch.epochEndsIn]);
-  const [timeToVoteOpen, setTimeToVoteOpen] = useState<number>(epoch.timeUntilNextVote);
-  useEffect(() => { setTimeToVoteOpen(epoch.timeUntilNextVote); }, [epoch.timeUntilNextVote]);
-  useEffect(() => {
-    const id = setInterval(() => {
-      setLiveCountdown(prev => Math.max(0, prev - 1));
-      setTimeToVoteOpen(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
+  const liveCountdown = epoch.epochEndsIn;
+  const timeToVoteOpen = epoch.timeUntilNextVote;
 
   const addrs = getAddresses(chainId ?? 31611);
   const publicClient = usePublicClient();
@@ -197,7 +191,7 @@ export default function KeeperPage() {
       done: epoch.epochVoted,
       isLoading: false,
       description:
-        "Aggregates all veMEZO power and casts votes toward highest-bribe veBTC gauges (falls back to auto-selecting the best live gauge if none are configured). Callable anytime — no time window; first keeper to call it each epoch locks in the vote.",
+        "Aggregates all veMEZO power and casts votes toward highest-bribe veBTC gauges (falls back to auto-selecting the best live gauge if none are configured). Callable anytime, no time window. First keeper to call it each epoch locks in the vote.",
       onClick: () => setActiveModal("castVotes"),
       badge: epoch.epochVoted ? "Done" : canVote ? "Ready" : "Waiting",
       badgeVariant: (epoch.epochVoted
@@ -214,7 +208,7 @@ export default function KeeperPage() {
       can: canHarvest,
       done: epoch.epochHarvested,
       isLoading: false,
-      description: "Collects bribes from all gauges — any token.",
+      description: "Collects bribes from all gauges, any token.",
       onClick: () => setActiveModal("harvest"),
       badge: epoch.epochHarvested ? "Done" : canHarvest ? "Ready" : "Locked",
       badgeVariant: (epoch.epochHarvested

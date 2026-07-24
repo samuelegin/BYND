@@ -47,12 +47,12 @@ export default function AnalyticsPage() {
         />
 
         <div className="grid lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 space-y-6">
+          <div className="min-w-0 lg:col-span-7 space-y-6">
             <GovernanceDynamics epoch={epoch} stats={stats} gauges={gauges} />
             <EpochHistoryTable epochHistory={epochHistory} />
           </div>
 
-          <div className="lg:col-span-5 space-y-6">
+          <div className="min-w-0 lg:col-span-5 space-y-6">
             <SystemIntegrity epoch={epoch} stats={stats} />
             <ProtocolParameters stats={stats} gauges={gauges} />
           </div>

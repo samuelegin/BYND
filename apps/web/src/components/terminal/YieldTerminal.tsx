@@ -55,7 +55,7 @@ export function YieldTerminal({ position, stats, hasRewards, onClaim }: YieldTer
                 {i === 0 && (
                   <p className="text-xs text-white/60 mt-1">
                     {parseFloat(r.amount || '0') > 0
-                      ? 'Bribes from gauge voting — ready to claim'
+                      ? 'Bribes from gauge voting, ready to claim'
                       : 'Rewards accumulate after keeper harvests each epoch'}
                   </p>
                 )}

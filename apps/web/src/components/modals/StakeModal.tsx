@@ -34,7 +34,7 @@ export const StakeModal: React.FC<StakeModalProps> = ({
       }
       setStatus({ type: 'loading', message: 'Staking veBYND…' });
       await onStake(amount);
-      setStatus({ type: 'success', message: 'Staked — earning gauge-bribe yield' });
+      setStatus({ type: 'success', message: 'Staked. Earning gauge-bribe yield' });
       setTimeout(onClose, 2000);
     } catch (e: any) {
       setStatus({ type: 'error', message: e.message || 'Staking failed' });

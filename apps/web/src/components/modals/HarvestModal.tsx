@@ -27,7 +27,7 @@ export const HarvestModal: React.FC<HarvestModalProps> = ({
     setStatus({ type: 'loading', message: 'Harvesting MUSD from gauges…' });
     try {
       await onHarvest();
-      setStatus({ type: 'success', message: `Harvested — your bounty: ${bounty} MUSD` });
+      setStatus({ type: 'success', message: `Harvested. Your bounty: ${bounty} MUSD` });
       setTimeout(onClose, 2000);
     } catch (e: any) {
       setStatus({ type: 'error', message: e.message || 'harvestAndDistribute() failed' });

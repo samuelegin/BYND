@@ -35,7 +35,7 @@ export function WhyBynd() {
         </h2>
         <p className="mt-4 text-[15.5px] leading-[1.62] text-white/60">
           Mezo&apos;s boost gauges let protocols bid for veMEZO allocation to amplify veBTC
-          positions. Bynd pools veMEZO into one permanent aggregated block — the dominant
+          positions. Bynd pools veMEZO into one permanent aggregated block, the dominant
           source protocols bid to attract.
         </p>
       </motion.div>

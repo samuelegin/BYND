@@ -5,7 +5,7 @@ const NOTES = [
   {
     icon: Clock,
     title: "No epoch gate",
-    body: "claimRebases() is permissionless and callable any time. Rebase compounds locked MEZO in-place — no tokens leave the vault.",
+    body: "claimRebases() is permissionless and callable any time. Rebase compounds locked MEZO in-place. No tokens leave the vault.",
   },
   {
     icon: Repeat,

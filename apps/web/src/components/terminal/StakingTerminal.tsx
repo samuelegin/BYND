@@ -19,7 +19,7 @@ export function StakingTerminal({ position, stats, onStake, onUnstake }: Staking
             Staking terminal
           </p>
           <p className="text-sm text-white/60 mt-1">
-            Step 02 — stake veBYND · activate MUSD yield
+            Step 02. Stake veBYND. Activate MUSD yield
           </p>
         </div>
         <Badge variant={parseFloat(position.stakedBalance) > 0 ? 'acid' : 'muted'}>

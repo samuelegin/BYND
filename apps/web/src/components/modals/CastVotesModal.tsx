@@ -26,7 +26,7 @@ export const CastVotesModal: React.FC<CastVotesModalProps> = ({
     setStatus({ type: 'loading', message: 'Casting votes on-chain…' });
     try {
       await onCastVotes();
-      setStatus({ type: 'success', message: 'Votes cast — veBTC gauges activated' });
+      setStatus({ type: 'success', message: 'Votes cast. veBTC gauges activated' });
       setTimeout(onClose, 2000);
     } catch (e: any) {
       setStatus({ type: 'error', message: e.message || 'optimiseAndVote() failed' });
@@ -39,7 +39,7 @@ export const CastVotesModal: React.FC<CastVotesModalProps> = ({
   const canVote = !epochVoted;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Cast system votes" subtitle="Permissionless — earn keeper bounty">
+    <Modal isOpen={isOpen} onClose={onClose} title="Cast system votes" subtitle="Permissionless, earn keeper bounty">
       <div className="space-y-4">
         {!canVote && (
           <div className="rounded-control p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">

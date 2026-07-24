@@ -20,7 +20,7 @@ export function EpochFlowSteps({ steps }: { steps: KeeperStepDef[] }) {
   return (
     <Panel className="p-6">
       <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38] mb-6">
-        Epoch flow — call order
+        Epoch flow. Call order
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">

@@ -27,7 +27,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
     setStatus({ type: 'loading', message: 'Locking veMEZO NFT…' });
     try {
       await onDeposit(selected);
-      setStatus({ type: 'success', message: 'Locked — veBYND minted 1:1' });
+      setStatus({ type: 'success', message: 'Locked. veBYND minted 1:1' });
       setTimeout(onClose, 2000);
     } catch (e: any) {
       setStatus({ type: 'error', message: e.message || 'Deposit failed' });
@@ -59,7 +59,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
                   veMEZO #{selected} is permanently locked
                 </p>
                 <p className="text-xs text-white/60 leading-relaxed">
-                  The vault requires a time-based lock. Click below to convert it — this is a one-time
+                  The vault requires a time-based lock. Click below to convert it. This is a one-time
                   wallet transaction. The vault will immediately re-lock it to 4 years on your first deposit.
                 </p>
               </div>
@@ -72,7 +72,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
                 setStatus({ type: 'loading', message: 'Converting to time-based lock…' });
                 try {
                   await onUnlockPermanent(selected);
-                  setStatus({ type: 'success', message: 'Done — you can now deposit. Click Lock and mint.' });
+                  setStatus({ type: 'success', message: 'Done. You can now deposit. Click Lock and mint.' });
                 } catch (e: any) {
                   setStatus({ type: 'error', message: e.message || 'Unlock failed' });
                 }

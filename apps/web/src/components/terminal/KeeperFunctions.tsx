@@ -41,7 +41,7 @@ export function KeeperFunctions({
                     ? 'Reset all veMEZO to 4-yr max'
                     : canExtend
                       ? 'Reset all veMEZO to 4-yr max'
-                      : `Cooldown — ready in ${formatTime(Math.max(0, epoch.extendCooldownEndsAt - Math.floor(Date.now() / 1000)))}`}
+                      : `Cooldown, ready in ${formatTime(Math.max(0, epoch.extendCooldownEndsAt - Math.floor(Date.now() / 1000)))}`}
                 </p>
               </div>
             </div>
@@ -78,7 +78,7 @@ export function KeeperFunctions({
                   Cast system votes
                 </p>
                 <p className="text-xs text-white/60">
-                  {epoch.epochVoted ? 'Voted this epoch' : 'Callable anytime — no time window'}
+                  {epoch.epochVoted ? 'Voted this epoch' : 'Callable anytime, no time window'}
                 </p>
               </div>
             </div>

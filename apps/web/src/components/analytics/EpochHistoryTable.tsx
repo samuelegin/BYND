@@ -15,7 +15,7 @@ export function EpochHistoryTable({
   return (
     <Panel className="p-6">
       <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38] mb-6">
-        Epoch registry — historical performance
+        Epoch registry. Historical performance
       </p>
       {epochHistory.length > 0 ? (
         <div className="overflow-x-auto">

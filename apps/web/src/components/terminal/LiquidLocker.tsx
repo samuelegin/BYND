@@ -27,7 +27,7 @@ export function LiquidLocker({ position, stats, isScanning, isLoading, onDeposit
             Liquid locker
           </p>
           <p className="text-sm text-white/60 mt-1">
-            Step 01 — lock and mint veBYND · permanent 4-year lock
+            Step 01. Lock and mint veBYND. Permanent 4-year lock
           </p>
         </div>
         <Badge variant={hasNFT ? 'acid' : 'muted'}>
@@ -42,7 +42,7 @@ export function LiquidLocker({ position, stats, isScanning, isLoading, onDeposit
           Your veMEZO NFT is locked for the 4-year maximum to secure
           highest governance weight. You receive liquid{' '}
           <span className="text-white/[.87] font-medium">veBYND</span> 1:1 as
-          your receipt — exit via Mezo Swap, not withdrawal.
+          your receipt. Exit via Mezo Swap, not withdrawal.
         </p>
       </div>
 

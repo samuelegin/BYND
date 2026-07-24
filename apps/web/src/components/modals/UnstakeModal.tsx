@@ -21,7 +21,7 @@ export const UnstakeModal: React.FC<UnstakeModalProps> = ({ isOpen, onClose, sta
     setStatus({ type: 'loading', message: 'Unstaking veBYND…' });
     try {
       await onUnstake(amount);
-      setStatus({ type: 'success', message: 'Unstaked — veBYND returned to wallet' });
+      setStatus({ type: 'success', message: 'Unstaked. veBYND returned to wallet' });
       setTimeout(onClose, 2000);
     } catch (e: any) {
       setStatus({ type: 'error', message: e.message || 'Unstake failed' });

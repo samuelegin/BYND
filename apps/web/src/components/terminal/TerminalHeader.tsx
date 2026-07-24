@@ -37,7 +37,7 @@ export function TerminalHeader({ isLoading, isScanning, networkError, contractsD
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-1.5 bg-gold rounded-full animate-pulse shrink-0" />
               <p className="text-sm text-gold">
-                Connected to Mezo Matsnet — Bynd contracts pending deployment.
+                Connected to Mezo Matsnet. Bynd contracts pending deployment.
               </p>
             </div>
             <p className="font-mono text-[11px] text-white/[.38] shrink-0">
@@ -49,7 +49,7 @@ export function TerminalHeader({ isLoading, isScanning, networkError, contractsD
           <div className="border-t border-void-border bg-gold/5 px-6 py-3 flex items-center gap-3">
             <div className="w-1.5 h-1.5 bg-gold rounded-full shrink-0" />
             <p className="text-sm text-gold">
-              Live — reading from Mezo Matsnet (chain ID 31611)
+              Live, reading from Mezo Matsnet (chain ID 31611)
             </p>
           </div>
         )}
@@ -58,7 +58,7 @@ export function TerminalHeader({ isLoading, isScanning, networkError, contractsD
           <div className="border-t border-void-border px-6 py-3 flex items-center gap-3">
             <Loader2 size={14} className="text-gold animate-spin shrink-0" />
             <p className="text-sm text-white/60">
-              Scanning chain for your veMEZO NFTs — this takes a few seconds…
+              Scanning chain for your veMEZO NFTs. This takes a few seconds…
             </p>
           </div>
         )}

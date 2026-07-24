@@ -52,7 +52,7 @@ export const STEPS: Record<TabKey, { num: number; title: string; body: string }[
     {
       num: 2,
       title: 'Earn a bounty',
-      body: 'Every successful keeper call pays a bounty from protocol fees — maintenance that pays for itself.',
+      body: 'Every successful keeper call pays a bounty from protocol fees. Maintenance that pays for itself.',
     },
     {
       num: 3,

@@ -254,7 +254,6 @@ export default function KeeperPage() {
           liveCountdown={liveCountdown}
           pendingIncentives={stats.pendingIncentives}
           rewardTokenSymbol={stats.rewardTokenSymbol}
-          bountyBps={stats.bountyBps}
         />
         <EpochFlowSteps steps={steps} />
         <KeeperNotes />

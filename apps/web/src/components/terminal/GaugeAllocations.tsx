@@ -30,11 +30,11 @@ export function GaugeAllocations({ gauges }: { gauges: GaugeAllocation[] }) {
                 {(g.weightBps / 100).toFixed(0)}%
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium text-white/[.87]">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-sm font-medium text-white/[.87] truncate min-w-0">
                     {g.name}
                   </span>
-                  <span className="font-mono text-xs text-gold font-medium">
+                  <span className="font-mono text-xs text-gold font-medium shrink-0 whitespace-nowrap">
                     APR {g.apr}
                   </span>
                 </div>

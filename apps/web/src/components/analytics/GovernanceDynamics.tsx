@@ -88,11 +88,11 @@ export function GovernanceDynamics({
                   {(g.weightBps / 100).toFixed(0)}%
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-medium text-white/[.87]">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-sm font-medium text-white/[.87] truncate min-w-0">
                       {g.name}
                     </span>
-                    <span className="font-mono text-xs font-medium text-gold">
+                    <span className="font-mono text-xs font-medium text-gold shrink-0 whitespace-nowrap">
                       APR {g.apr}
                     </span>
                   </div>

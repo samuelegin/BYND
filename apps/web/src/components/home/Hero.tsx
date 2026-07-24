@@ -70,21 +70,21 @@ export function Hero({ isConnected, isConnecting, connect }: HeroProps) {
 
           <motion.h1
             variants={fadeUp}
-            className="max-w-[12ch] text-[clamp(37px,5.6vw,58px)] font-semibold leading-[1.06] tracking-[-.02em] text-white/[.87]"
+            className="max-w-[14ch] text-[clamp(37px,5.6vw,58px)] font-semibold leading-[1.06] tracking-[-.02em] text-white/[.87]"
           >
-            Turn <span className="text-white/[.38]">locked veMEZO</span> into{" "}
-            <span className="text-gold">liquid veBYND</span>
+            <span className="text-gold">Liquidity</span> and{" "}
+            <span className="text-gold">automation</span> for your{" "}
+            <span className="text-white/[.38]">veMEZO</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             className="mt-[22px] max-w-[480px] text-[17px] leading-[1.65] text-white/60 lg:mt-4"
           >
-            Bynd pools fragmented veMEZO into one permanent aggregated boost
-            block, routes it to the highest-yielding gauges, and mints{" "}
-            <b className="font-semibold text-white/[.87]">veBYND</b> — a liquid{" "}
-            <span className="font-mono text-[.92em] text-gold">ERC-20</span>{" "}
-            claim you can stake, trade, or exit anytime.
+            BynD pools veMEZO together, automatically votes it toward the
+            gauges with the strongest incentives, and gives you back{" "}
+            <b className="font-semibold text-white/[.87]">veBYND</b>, a token
+            you can stake, trade, or exit anytime.
           </motion.p>
 
           <motion.div
@@ -96,7 +96,7 @@ export function Hero({ isConnected, isConnecting, connect }: HeroProps) {
                 to="/terminal"
                 className="inline-flex items-center gap-2 rounded-control bg-gold px-[22px] py-[13px] text-[15px] font-semibold text-gold-ink transition-[transform,background] duration-200 hover:-translate-y-px hover:bg-gold-bright"
               >
-                Open terminal
+                Explore BynD
                 <ArrowRight size={16} />
               </Link>
             ) : (

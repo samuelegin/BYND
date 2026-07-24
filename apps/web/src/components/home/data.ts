@@ -13,17 +13,17 @@ export const STEPS: Record<TabKey, { num: number; title: string; body: string }[
     {
       num: 1,
       title: 'Deposit veMEZO',
-      body: 'Lock or deposit veMEZO and Bynd folds it into one permanent, aggregated position — no more stranded, fragmented locks.',
+      body: 'Deposit your veMEZO and it joins one shared pool with everyone else\'s, instead of sitting on its own.',
     },
     {
       num: 2,
       title: 'Route to gauges',
-      body: 'The combined boost block votes as one, steering weight to the highest-yielding gauges every epoch.',
+      body: 'Each week, BynD votes the combined pool toward whichever gauges are offering the best incentives.',
     },
     {
       num: 3,
       title: 'Mint veBYND',
-      body: 'You receive liquid veBYND, an ERC-20 claim on the pooled boost and rewards. Stake, trade, or exit anytime.',
+      body: 'You get veBYND back. Hold it, stake it to earn, or trade it whenever you want.',
     },
   ],
   rewards: [
@@ -65,20 +65,20 @@ export const STEPS: Record<TabKey, { num: number; title: string; body: string }[
 export const REVENUE_STREAMS = [
   {
     icon: Radio,
-    title: 'Boosted emissions',
-    body: 'Aggregated boost earns a bigger share of gauge emissions than any single veMEZO lock could reach alone.',
-    tag: 'Emissions',
+    title: 'Bigger rewards, together',
+    body: 'Pooling veMEZO together earns a bigger share of rewards than any single small position could reach on its own.',
+    tag: 'Rewards',
   },
   {
     icon: Gift,
-    title: 'Vote bribes',
-    body: 'Protocols pay the block to direct its votes. Every bribe, in any ERC-20, is collected and passed through.',
-    tag: 'Bribes',
+    title: 'Paid to vote',
+    body: 'Other protocols pay BynD to direct its votes their way. Whatever they pay, in any token, gets passed straight on to you.',
+    tag: 'Incentives',
   },
   {
     icon: Percent,
-    title: 'Protocol fees',
-    body: 'A slice of mint, swap, and exit fees on veBYND flows back to long-term stakers.',
+    title: 'A share of the fees',
+    body: 'A small fee from minting, swapping, or exiting veBYND flows back to stakers who stick around.',
     tag: 'Fees',
   },
 ];

@@ -3,7 +3,6 @@ import { RefreshCw, Zap, Shield, Droplets } from "lucide-react";
 import { SectionHeader } from "@/components/ui";
 import { CastVotesModal, HarvestModal } from "@/components/modals";
 import {
-  BountyHero,
   StatusOverview,
   EpochFlowSteps,
   KeeperNotes,
@@ -142,12 +141,6 @@ export default function KeeperPage() {
     );
   };
 
-  const estimatedBounty = (
-    (parseFloat(stats.pendingIncentives.replace(/[$,]/g, "")) *
-      stats.bountyBps) /
-    10000
-  ).toFixed(2);
-
   const canClaimRebases = true;
   const canExtend = !epoch.epochLocksExtended;
   // optimiseAndVote() is callable anytime on-chain — no time window (see
@@ -243,12 +236,6 @@ export default function KeeperPage() {
       </div>
 
       <div className="max-w-[1120px] mx-auto px-5 py-8 space-y-6">
-        <BountyHero
-          estimatedBounty={estimatedBounty}
-          rewardTokenSymbol={stats.rewardTokenSymbol}
-          bountyBps={stats.bountyBps}
-          pendingIncentives={stats.pendingIncentives}
-        />
         <StatusOverview
           mezoEpoch={mezoEpoch}
           liveCountdown={liveCountdown}

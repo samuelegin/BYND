@@ -96,8 +96,8 @@ export function GovernanceDynamics({
                       APR {g.apr}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-white/60 truncate">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="font-mono text-xs text-white/60 truncate min-w-0">
                       {g.gauge}
                     </span>
                     <button

@@ -39,6 +39,8 @@ const EMPTY_EPOCH: EpochState = {
   epochDuration: 604800,
   mezoEpochEndsAt: 0,
   mezoVoteWindowOpensAt: 0,
+  voteOpensAtAbs: 0,
+  epochEndsAtAbs: 0,
   clockDrifted: false,
   extendCooldownEndsAt: 0,
   canExtendLocks: false,
@@ -216,6 +218,7 @@ export function useProtocol(
       { address: addrs.ByNdVault   as Address, abi: VAULT_ABI,   functionName: 'totalLockedMEZO'     }, // 11
       { address: addrs.ByNdVault   as Address, abi: VAULT_ABI,   functionName: 'totalPendingRebase' }, // 12
       { address: addrs.ByNdVault   as Address, abi: VAULT_ABI,   functionName: 'lastExtendTimestamp' }, // 13
+      { address: addrs.ByNdVoter   as Address, abi: VOTER_ABI,   functionName: 'voteWindow'          }, // 14
     ],
     query: { enabled: contractsEnabled || readOnlyContractsEnabled, refetchInterval: 15_000 }, // slot 5 (timeUntilNextVote) drives the countdown
   });
@@ -353,6 +356,7 @@ export function useProtocol(
     const lastVoteTs  = protocolData[9]?.result as bigint | undefined;
     const totalLockedMezo = protocolData[11]?.result as bigint | undefined;
     const lastExtendTs = protocolData[13]?.result as bigint | undefined;
+    const chainVoteWindow = protocolData[14]?.result as bigint | undefined;
 
     const formattedTotalLocked = totalLockedMezo != null
       ? Number(formatEther(totalLockedMezo)).toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -390,15 +394,34 @@ export function useProtocol(
       const now = Math.floor(Date.now() / 1000);
       const matsnetEpochStart = matsnetEpochData?.[0]?.result as bigint | undefined;
       const matsnetEpochEnd   = matsnetEpochData?.[1]?.result as bigint | undefined;
+      // Prefer the real on-chain voteWindow (governance can change it via
+      // setVoteWindow()); fall back to the constant only before it's loaded.
+      const voteWindowSecs = chainVoteWindow != null ? Number(chainVoteWindow) : VOTE_WINDOW;
 
       const mezoEpochEndsAt        = matsnetEpochEnd != null ? Number(matsnetEpochEnd) : undefined;
-      const mezoVoteWindowOpensAt  = mezoEpochEndsAt != null ? mezoEpochEndsAt - VOTE_WINDOW : undefined;
+      const mezoVoteWindowOpensAt  = mezoEpochEndsAt != null ? mezoEpochEndsAt - voteWindowSecs : undefined;
 
       // ByNdVoter's OWN on-chain clock — this is what actually gates
       // optimiseAndVote(), independent of Mezo's real boundary above.
       const ownVoteOpensIn       = timeToVote != null ? Number(timeToVote) : undefined;
-      const ownEpochEndsIn       = ownVoteOpensIn != null ? ownVoteOpensIn + VOTE_WINDOW : undefined;
+      const ownEpochEndsIn       = ownVoteOpensIn != null ? ownVoteOpensIn + voteWindowSecs : undefined;
       const ownVoteWindowOpensAt = ownVoteOpensIn != null ? now + ownVoteOpensIn : undefined;
+
+      // ── Wall-clock anchors for the ticking countdown ────────────────────
+      // timeUntilNextVote()/epochNext() are pure functions of block.timestamp,
+      // which on a low-traffic testnet only advances when a tx is mined — it
+      // can sit frozen for minutes between blocks. Re-deriving "seconds
+      // remaining" straight from that value on every 15s poll means the
+      // client-side tick gets reset back to the same stale number each time
+      // no new block has landed, which reads as a frozen countdown. Instead,
+      // convert the (possibly slightly stale) relative offset into an
+      // absolute wall-clock target ONCE per poll, using Date.now() as the
+      // base rather than block.timestamp. The per-second tick then derives
+      // the displayed countdown from this absolute target vs. Date.now(),
+      // so it counts down smoothly in real time between polls regardless of
+      // block cadence.
+      const newVoteOpensAtAbs = ownVoteWindowOpensAt;
+      const newEpochEndsAtAbs = ownEpochEndsIn != null ? now + ownEpochEndsIn : undefined;
 
       // Flag when BynD's internal vote-window clock disagrees with Mezo's
       // real one by more than an hour — the button may show/enable at a
@@ -430,6 +453,8 @@ export function useProtocol(
         epochEndsIn:        ownEpochEndsIn ?? prev.epochEndsIn,
         mezoEpochEndsAt:       mezoEpochEndsAt       ?? prev.mezoEpochEndsAt,
         mezoVoteWindowOpensAt: mezoVoteWindowOpensAt ?? prev.mezoVoteWindowOpensAt,
+        voteOpensAtAbs:        newVoteOpensAtAbs ?? prev.voteOpensAtAbs,
+        epochEndsAtAbs:        newEpochEndsAtAbs ?? prev.epochEndsAtAbs,
         clockDrifted,
         extendCooldownEndsAt:  extendCooldownEndsAt  ?? prev.extendCooldownEndsAt,
         canExtendLocks:        extendCooldownEndsAt != null ? now >= extendCooldownEndsAt : prev.canExtendLocks,
@@ -453,11 +478,20 @@ export function useProtocol(
   // ticking clock for free — no page-level timer needed anymore.
   useEffect(() => {
     const id = setInterval(() => {
-      setEpoch(prev => ({
-        ...prev,
-        timeUntilNextVote: Math.max(0, prev.timeUntilNextVote - 1),
-        epochEndsIn:       Math.max(0, prev.epochEndsIn - 1),
-      }));
+      setEpoch(prev => {
+        const nowMs = Date.now();
+        // Once we have real anchors, derive the countdown from wall-clock
+        // time against them. Before the first successful chain read (both
+        // anchors still 0), fall back to a plain decrement so the initial
+        // placeholder value still counts down instead of sitting static.
+        const timeUntilNextVote = prev.voteOpensAtAbs > 0
+          ? Math.max(0, prev.voteOpensAtAbs - Math.floor(nowMs / 1000))
+          : Math.max(0, prev.timeUntilNextVote - 1);
+        const epochEndsIn = prev.epochEndsAtAbs > 0
+          ? Math.max(0, prev.epochEndsAtAbs - Math.floor(nowMs / 1000))
+          : Math.max(0, prev.epochEndsIn - 1);
+        return { ...prev, timeUntilNextVote, epochEndsIn };
+      });
     }, 1000);
     return () => clearInterval(id);
   }, []);

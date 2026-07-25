@@ -25,6 +25,21 @@
 //                            which at the 1.5%/week default decay emits
 //                            roughly ~40M BYND over the long run — see the
 //                            NatSpec in BYNDEmissions.sol for the math.
+//   USE_TIMELOCK            - set to "true" to gate BYNDEmissions.setParams()
+//                            / setLpToken() behind an OZ TimelockController
+//                            instead of granting ADMIN_ROLE straight to
+//                            treasury. Recommended before mainnet; optional
+//                            for testnet. When enabled, treasury only gets
+//                            proposer/executor rights on the timelock, not
+//                            ADMIN_ROLE on BYNDEmissions directly — changes
+//                            to decay rate / LP-staking split then require
+//                            going through the timelock's schedule()/
+//                            execute() flow with TIMELOCK_MIN_DELAY_SECONDS
+//                            of delay in between, so no single key can
+//                            change protocol economics instantly.
+//   TIMELOCK_MIN_DELAY_SECONDS - delay enforced between schedule() and
+//                            execute() on the timelock. Defaults to 172800
+//                            (2 days). Only used when USE_TIMELOCK=true.
 
 const fs = require("fs");
 const path = require("path");
@@ -88,6 +103,74 @@ async function main() {
   await tx.wait();
   console.log(`MINTER_ROLE granted:       BYND -> BYNDEmissions`);
 
+  // ── 3b. Optional: gate setParams()/setLpToken() behind a timelock ───
+  const useTimelock = (process.env.USE_TIMELOCK || "").toLowerCase() === "true";
+  let timelockAddress = null;
+  let timelockMinDelay = null;
+
+  if (useTimelock) {
+    timelockMinDelay = process.env.TIMELOCK_MIN_DELAY_SECONDS || "172800"; // 2 days
+    console.log(`\nDeploying TimelockController (min delay: ${timelockMinDelay}s)...`);
+
+    // treasury is both proposer and executor for now (single-key controlled,
+    // but every setParams()/setLpToken() call is still forced through the
+    // delay — the point isn't multisig-style access control yet, it's
+    // removing the ability to change protocol economics instantly).
+    const Timelock = await ethers.getContractFactory("TimelockController");
+    const timelock = await Timelock.deploy(
+      timelockMinDelay,
+      [treasury],       // proposers
+      [treasury],       // executors
+      ethers.ZeroAddress // no separate timelock admin — avoids a second bypass path
+    );
+    await timelock.waitForDeployment();
+    timelockAddress = await timelock.getAddress();
+    console.log(`TimelockController deployed: ${timelockAddress}`);
+
+    const adminRole = await emissions.ADMIN_ROLE();
+    const defaultAdminRole = await emissions.DEFAULT_ADMIN_ROLE();
+
+    let t = await emissions.grantRole(adminRole, timelockAddress);
+    await t.wait();
+    t = await emissions.grantRole(defaultAdminRole, timelockAddress);
+    await t.wait();
+    console.log(`ADMIN_ROLE + DEFAULT_ADMIN_ROLE on BYNDEmissions granted to TimelockController`);
+
+    // renounceRole can only be called BY the account being renounced
+    // (AccessControl enforces msg.sender == account) — this script signs as
+    // `deployer`, so it can only self-service this when treasury IS the
+    // deployer wallet. If a separate TREASURY_ADDRESS (e.g. a multisig) was
+    // used, that account has to renounce its own roles itself afterward.
+    if (treasury.toLowerCase() === deployer.address.toLowerCase()) {
+      t = await emissions.renounceRole(adminRole, treasury);
+      await t.wait();
+      t = await emissions.renounceRole(defaultAdminRole, treasury);
+      await t.wait();
+      console.log(`ADMIN_ROLE + DEFAULT_ADMIN_ROLE on BYNDEmissions renounced by treasury (== deployer)`);
+    } else {
+      console.log(
+        `\nWARNING: treasury (${treasury}) still holds ADMIN_ROLE + DEFAULT_ADMIN_ROLE ` +
+        `on BYNDEmissions alongside the TimelockController — this script signs as the ` +
+        `deployer wallet and can't renounce another account's role for it. ` +
+        `Have the treasury account call emissions.renounceRole(ADMIN_ROLE, treasury) ` +
+        `and emissions.renounceRole(DEFAULT_ADMIN_ROLE, treasury) itself once you're ` +
+        `ready to fully hand control to the timelock — until then, treasury retains ` +
+        `an instant bypass around the delay.`
+      );
+    }
+    console.log(
+      `\nNOTE: setLpToken() is also ADMIN_ROLE-gated, so once your veBYND/MEZO ` +
+      `pool is seeded, wiring it in now goes through the timelock too — schedule() ` +
+      `it, wait ${timelockMinDelay}s, then execute().`
+    );
+  } else {
+    console.log(
+      `\nUSE_TIMELOCK not set — treasury (${treasury}) holds ADMIN_ROLE on ` +
+      `BYNDEmissions directly, so setParams()/setLpToken() take effect instantly. ` +
+      `Set USE_TIMELOCK=true to gate them behind a delay instead.`
+    );
+  }
+
   // ── 4. Save deployment record ───────────────────────────────────────
   const outDir = path.join(__dirname, "..", "deployments");
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
@@ -106,6 +189,7 @@ async function main() {
     initialRatePerSecond: rateTokens,
     weeklyDecayBps: 9850,
     lpPoolWeightBps: 7000,
+    timelock: useTimelock ? { address: timelockAddress, minDelaySeconds: timelockMinDelay } : null,
   };
 
   const outFile = path.join(outDir, `bynd-token-${network.name}-${record.timestamp}.json`);
@@ -114,7 +198,11 @@ async function main() {
 
   console.log("\nNext steps:");
   console.log("1. Verify both contracts (see verify commands).");
-  console.log("2. If LP_TOKEN_ADDRESS wasn't set, call setLpToken() once your pool is live.");
+  console.log(
+    useTimelock
+      ? "2. If LP_TOKEN_ADDRESS wasn't set, schedule() + execute() setLpToken() through the TimelockController once your pool is live."
+      : "2. If LP_TOKEN_ADDRESS wasn't set, call setLpToken() once your pool is live."
+  );
   console.log("3. Add BYND / BYNDEmissions addresses to apps/web/.env for the frontend.");
 }
 

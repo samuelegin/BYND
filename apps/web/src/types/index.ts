@@ -42,6 +42,13 @@ export interface EpochState {
   // which can drift from this.
   mezoEpochEndsAt: number;
   mezoVoteWindowOpensAt: number;
+  // Wall-clock target timestamps (now + on-chain relative offset) that
+  // timeUntilNextVote/epochEndsIn are ticked down against client-side.
+  // These are intentionally NOT re-derived as raw "seconds remaining"
+  // straight from chain on every poll — see the tick effect in
+  // useProtocol.ts for why. 0 = not yet known.
+  voteOpensAtAbs: number;
+  epochEndsAtAbs: number;
   // true when BynD's own on-chain vote-window clock (lastVoteTimestamp +
   // epochDuration - voteWindow) disagrees with Mezo's real epoch boundary
   // by more than an hour — i.e. optimiseAndVote() will actually unlock at

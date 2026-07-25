@@ -90,6 +90,7 @@ export const VOTER_ABI = [
   { name: 'markLocksExtended',    type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { name: 'currentEpoch',         type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'epochDuration',        type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'voteWindow',           type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'bountyBps',            type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   // protocolFeeBps: new in v2, the fee taken off the top before the staker
   // split. Not yet displayed anywhere in the UI — worth surfacing.

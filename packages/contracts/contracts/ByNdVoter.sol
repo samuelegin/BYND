@@ -53,6 +53,16 @@ contract ByNdVoter is
     uint256 public epochDuration;
     uint256 public lastVoteTimestamp;
     uint256 public currentEpoch;
+    /// @dev How close to Mezo's real epoch boundary (boostVoter.epochNext())
+    /// optimiseAndVote() must be called. Voting is only allowed in the final
+    /// `voteWindow` seconds before that real Thursday 00:00 UTC boundary —
+    /// this is what stops a keeper from voting right at epoch start and then
+    /// immediately harvesting $0, since Mezo's gauge/bribe contracts only
+    /// release incentives once the real epoch actually ends. Anchored to
+    /// boostVoter.epochNext() (Mezo's own clock) rather than our internal
+    /// lastVoteTimestamp cadence, so it can't drift out of sync the way a
+    /// purely-internal timer could.
+    uint256 public voteWindow;
 
     mapping(uint256 => bool) public epochVoted;
     mapping(uint256 => bool) public epochHarvested;
@@ -103,6 +113,7 @@ contract ByNdVoter is
     event MinThresholdUpdated(uint256 newThreshold);
     event TokenMinThresholdUpdated(address indexed token, uint256 newThreshold);
     event ProtocolFeeUpdated(uint256 newFeeBps);
+    event VoteWindowUpdated(uint256 newWindow);
     event ProtocolFeeCollected(uint256 indexed epoch, address indexed token, uint256 amount);
     event BribesClaimBatch(uint256 indexed epoch, uint256 processed, uint256 cursor, uint256 total);
     event HarvestSkippedBelowThreshold(uint256 indexed epoch, address indexed token, uint256 harvested);
@@ -135,6 +146,7 @@ contract ByNdVoter is
         protocolFeeBps = 0;
         minHarvestThreshold = 0;
         epochDuration = 7 days;
+        voteWindow = 4 hours;
     }
 
     function markRebasesClaimed(address keeper) external {
@@ -154,11 +166,18 @@ contract ByNdVoter is
     }
 
     function optimiseAndVote() external nonReentrant {
-        // Callable anytime — no time window. The only thing preventing a
-        // double-vote is epochVoted[currentEpoch], which only clears again
-        // once harvestAndDistribute() advances to the next epoch. So the
-        // first keeper to call this after an epoch begins locks in the vote
-        // for that epoch; there is no separate window to miss.
+        // Only callable in the final `voteWindow` seconds before Mezo's real
+        // epoch boundary (boostVoter.epochNext()) — voting any earlier would
+        // let harvestAndDistribute() run right after with $0 to distribute,
+        // since Mezo's gauge/bribe contracts only release incentives once
+        // the real epoch actually ends. The only thing preventing a
+        // double-vote within that window is epochVoted[currentEpoch], which
+        // only clears again once harvestAndDistribute() advances to the
+        // next epoch.
+        require(
+            block.timestamp >= boostVoter.epochNext(block.timestamp) - voteWindow,
+            "ByNdVoter: vote window not open"
+        );
         require(!epochVoted[currentEpoch], "ByNdVoter: already voted");
         require(managedTokenIds.length > 0, "ByNdVoter: no managed tokenIds");
 
@@ -479,6 +498,16 @@ contract ByNdVoter is
         return gauges.length;
     }
 
+    /// @notice Seconds until optimiseAndVote()'s window opens, 0 if it's
+    /// already open. Mirrors the exact gate in optimiseAndVote() (anchored
+    /// to boostVoter.epochNext(), Mezo's real clock) so this can never
+    /// drift out of sync with what actually gates the call.
+    function timeUntilNextVote() external view returns (uint256) {
+        uint256 windowOpensAt = boostVoter.epochNext(block.timestamp) - voteWindow;
+        if (block.timestamp >= windowOpensAt) return 0;
+        return windowOpensAt - block.timestamp;
+    }
+
     function fetchLiveGauges() external view returns (
         address[] memory gaugeAddrs,
         address[] memory bribeAddrs,
@@ -635,6 +664,15 @@ contract ByNdVoter is
     function setEpochDuration(uint256 duration) external onlyGovernance {
         require(duration >= 1 days, "ByNdVoter: too short");
         epochDuration = duration;
+    }
+
+    /// @dev Capped at half the epoch duration so the window can never
+    /// swallow the whole epoch (which would make optimiseAndVote() callable
+    /// anytime again, defeating the point of gating it).
+    function setVoteWindow(uint256 newWindow) external onlyGovernance {
+        require(newWindow <= epochDuration / 2, "ByNdVoter: window too large");
+        voteWindow = newWindow;
+        emit VoteWindowUpdated(newWindow);
     }
 
     function transferGovernance(address newGov) external onlyGovernance {

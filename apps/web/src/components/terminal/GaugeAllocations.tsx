@@ -53,6 +53,19 @@ export function GaugeAllocations({ gauges }: { gauges: GaugeAllocation[] }) {
                     style={{ width: `${g.weightBps / 100}%` }}
                   />
                 </div>
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <span className="text-[11px] text-white/[.38]">
+                    {(g.weightBps / 100).toFixed(1)}% weight
+                  </span>
+                  <span className="text-[11px] text-white/60">
+                    Bribes:{' '}
+                    <span className="text-white/[.87] font-medium">
+                      {g.bribeAmount != null
+                        ? Number(g.bribeAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                        : '–'}
+                    </span>
+                  </span>
+                </div>
               </div>
             </div>
           ))}

@@ -17,7 +17,7 @@ export function ProtocolParameters({ stats, gauges }: ProtocolParametersProps) {
         label="Keeper bounty"
         value={`${stats.bountyBps} bps (${stats.bountyBps / 100}%)`}
       />
-      <StatRow label="Protocol fee" value="10%" />
+      <StatRow label="Protocol fee" value={stats.protocolFeeBps > 0 ? `${(stats.protocolFeeBps / 100).toFixed(2)}%` : '0%'} />
       <StatRow
         label="Target boost"
         value={`Up to ${stats.boostEfficiency}%`}

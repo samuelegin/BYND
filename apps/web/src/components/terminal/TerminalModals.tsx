@@ -45,6 +45,7 @@ export function TerminalModals({
         onUnlockPermanent={onUnlockPermanent}
         tokenIds={position.veMezoTokenIds}
         lockedAmounts={position.lockedAmounts}
+        protocolFeeBps={stats.protocolFeeBps}
         onDeposit={onDeposit}
       />
       <WithdrawModal

@@ -73,15 +73,22 @@ export interface ProtocolStats {
   activeStakers: number;
   avgApr: string;
   boostEfficiency: number;
+  // Governance-set fee (ByNdVoter.protocolFeeBps) taken off the top before
+  // the staker split. Defaults to 0 until governance sets it on-chain.
+  protocolFeeBps: number;
 }
 
 export interface GaugeAllocation {
   gauge: string;
+  bribe: string;         // Mezo BoostVoter bribe contract address for this gauge
   name: string;
   weightBps: number;
   apr: string;
   pendingMUSD: string;
   boostedVeBTC?: string;
+  // Amount currently sitting in this gauge's bribe contract, read from
+  // Mezo's BoostVoter.claimable(gauge) — undefined until that read resolves.
+  bribeAmount?: string;
 }
 
 export interface EpochHistoryEntry {

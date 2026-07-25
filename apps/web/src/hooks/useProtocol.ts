@@ -15,6 +15,8 @@ const EMPTY_STATS: ProtocolStats = {
   totalVotingPower: '–', tvl: '–', veByndSupply: '–', totalStaked: '–',
   bountyBps: 100, pendingIncentives: '–', rewardTokenSymbol: '…',
   activeStakers: 0, avgApr: '–', boostEfficiency: 98,
+  // Governance hasn't necessarily set this — default to 0, not a placeholder.
+  protocolFeeBps: 0,
 };
 const WEEK = 7 * 24 * 3600;
 const VOTE_WINDOW = 4 * 3600; // matches ByNdVoter's voteWindow (4 hours)
@@ -219,6 +221,7 @@ export function useProtocol(
       { address: addrs.ByNdVault   as Address, abi: VAULT_ABI,   functionName: 'totalPendingRebase' }, // 12
       { address: addrs.ByNdVault   as Address, abi: VAULT_ABI,   functionName: 'lastExtendTimestamp' }, // 13
       { address: addrs.ByNdVoter   as Address, abi: VOTER_ABI,   functionName: 'voteWindow'          }, // 14
+      { address: addrs.ByNdVoter   as Address, abi: VOTER_ABI,   functionName: 'protocolFeeBps'      }, // 15 — governance-set, defaults to 0 on-chain if never set
     ],
     query: { enabled: contractsEnabled || readOnlyContractsEnabled, refetchInterval: 15_000 }, // slot 5 (timeUntilNextVote) drives the countdown
   });
@@ -308,6 +311,30 @@ export function useProtocol(
     query: { enabled: (contractsEnabled || readOnlyContractsEnabled) && gaugeCountNum > 0, refetchInterval: 60_000 },
   });
 
+  // ── 6b. Bribes pending on each gauge ─────────────────────────────────────
+  // BoostVoter.claimable(gauge) — confirmed live via scripts/fund-bribe.js —
+  // returns the bribe amount currently sitting on that gauge. Keyed off
+  // `gauges` (state, set below) rather than raw gaugeData, so it stays in
+  // sync with whatever gauge addresses actually resolved.
+  const gaugeAddresses = gauges.map(g => g.gauge);
+  const { data: bribeClaimableData } = useReadContracts({
+    contracts: gaugeAddresses.map(addr => ({
+      address:      VALIDATORS_VOTER_ADDRESS,
+      abi:          VALIDATORS_VOTER_ABI,
+      functionName: 'claimable' as const,
+      args:         [addr as Address] as [Address],
+    })),
+    query: { enabled: gaugeAddresses.length > 0 && (enabled || publicClientAvailable), refetchInterval: 30_000 },
+  });
+
+  useEffect(() => {
+    if (!bribeClaimableData || gaugeAddresses.length === 0) return;
+    setGauges(prev => prev.map((g, i) => {
+      const amt = bribeClaimableData[i]?.result as bigint | undefined;
+      return amt != null ? { ...g, bribeAmount: formatEther(amt) } : g;
+    }));
+  }, [bribeClaimableData]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Sync token IDs + locked amounts ─────────────────────────────────────
   useEffect(() => {
     const amounts: Record<number, string> = {};
@@ -357,6 +384,7 @@ export function useProtocol(
     const totalLockedMezo = protocolData[11]?.result as bigint | undefined;
     const lastExtendTs = protocolData[13]?.result as bigint | undefined;
     const chainVoteWindow = protocolData[14]?.result as bigint | undefined;
+    const protocolFeeBps = protocolData[15]?.result as bigint | undefined;
 
     const formattedTotalLocked = totalLockedMezo != null
       ? Number(formatEther(totalLockedMezo)).toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -381,6 +409,9 @@ export function useProtocol(
       pendingIncentives:   pendingInc  != null ? formatEther(pendingInc)                           : prev.pendingIncentives,
       rewardTokenSymbol:   (rewardSymbolData as string | undefined) ?? prev.rewardTokenSymbol,
       avgApr:             Number.isFinite(aprValue) ? `${aprValue.toFixed(1)}%` : prev.avgApr,
+      // Governance-set fee. 0 is a valid, real on-chain value (fee not set),
+      // so we only fall back to prev while the read is still in-flight.
+      protocolFeeBps:     protocolFeeBps != null ? Number(protocolFeeBps) : prev.protocolFeeBps,
     }));
     if (curEpoch !== undefined) {
       setIsLoading(false);
@@ -522,11 +553,16 @@ export function useProtocol(
   // ── Sync gauges ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!gaugeData || gaugeData.length === 0) { setGauges([]); return; }
+    // gauges(i) returns (address gauge, address bribe, string name, uint256
+    // weightBps) — 4 fields. Previously destructured as only 3
+    // ([gauge, name, weightBps]), which silently shifted every value one
+    // slot over: `name` received the bribe address and `weightBps` received
+    // the name string (Number("some-name") => NaN), breaking the weight bar.
     const parsed: GaugeAllocation[] = gaugeData
-      .map(d => d.result as [string, string, bigint] | undefined)
-      .filter((r): r is [string, string, bigint] => !!r)
-      .map(([gauge, name, weightBps]) => ({
-        gauge, name,
+      .map(d => d.result as [string, string, string, bigint] | undefined)
+      .filter((r): r is [string, string, string, bigint] => !!r)
+      .map(([gauge, bribe, name, weightBps]) => ({
+        gauge, bribe, name,
         weightBps:   Number(weightBps),
         apr:         '–',
         pendingMUSD: '–',

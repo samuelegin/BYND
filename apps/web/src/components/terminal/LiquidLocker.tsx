@@ -39,10 +39,9 @@ export function LiquidLocker({ position, stats, isScanning, isLoading, onDeposit
         <Shield size={14} className="text-gold shrink-0" />
         <p className="text-sm text-white/60 leading-relaxed">
           <span className="text-gold font-medium">Permanent lock.</span>{' '}
-          Your veMEZO NFT is locked for the 4-year maximum to secure
-          highest governance weight. You receive liquid{' '}
-          <span className="text-white/[.87] font-medium">veBYND</span> 1:1 as
-          your receipt. Exit via Mezo Swap, not withdrawal.
+          Your veMEZO NFT locks for 4 years and can't be withdrawn. You get
+          liquid <span className="text-white/[.87] font-medium">veBYND</span> 1:1
+          in return — trade it on secondary markets anytime.
         </p>
       </div>
 

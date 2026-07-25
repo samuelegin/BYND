@@ -152,6 +152,10 @@ export const ERC20_ABI = [
 export const VALIDATORS_VOTER_ABI = [
   { name: 'epochStart', type: 'function', stateMutability: 'view', inputs: [{ name: '_timestamp', type: 'uint256' }], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'epochNext',  type: 'function', stateMutability: 'view', inputs: [{ name: '_timestamp', type: 'uint256' }], outputs: [{ name: '', type: 'uint256' }] },
+  // Confirmed live via scripts/fund-bribe.js: BoostVoter.claimable(gauge)
+  // returns the bribe amount currently sitting on that gauge, ready to be
+  // voted for and harvested — this is what's shown as "Bribes" per gauge.
+  { name: 'claimable',  type: 'function', stateMutability: 'view', inputs: [{ name: '_gauge', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
 ] as const;
 
 export const VALIDATORS_VOTER_ADDRESS = '0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1' as const;

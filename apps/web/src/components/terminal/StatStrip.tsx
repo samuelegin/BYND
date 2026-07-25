@@ -33,11 +33,11 @@ export function StatStrip({ stats, position, mezoEpoch, liveCountdown }: StatStr
     <div className="max-w-[1120px] mx-auto px-5 mt-4">
       <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-void-border rounded-card border border-void-border bg-void-soft overflow-hidden">
         {items.map((s, i) => (
-          <div key={i} className="px-6 py-5">
-            <p className="text-[13px] text-white/[.38] mb-1.5">
+          <div key={i} className="px-6 py-5 md:px-5 md:py-3.5">
+            <p className="text-[13px] text-white/[.38] mb-1.5 md:mb-1">
               {s.label}
             </p>
-            <p className="font-mono text-xl font-medium text-gold">{s.value}</p>
+            <p className="font-mono text-xl md:text-lg font-medium text-gold">{s.value}</p>
             <p className="text-xs text-white/60 mt-1">{s.sub}</p>
           </div>
         ))}

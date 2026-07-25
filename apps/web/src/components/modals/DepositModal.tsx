@@ -14,11 +14,12 @@ interface DepositModalProps {
   tokenIds: number[];
   lockedAmounts?: Record<number, string>;
   permanentIds?: number[];   // token IDs with isPermanent=true — vault cannot accept these as-is
+  protocolFeeBps?: number;   // governance-set, 0 if never configured on-chain
   onUnlockPermanent: (tokenId: number) => Promise<void>;
   onDeposit: (tokenId: number) => Promise<void>;
 }
 
-export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tokenIds, lockedAmounts = {}, permanentIds = [], onUnlockPermanent, onDeposit }) => {
+export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tokenIds, lockedAmounts = {}, permanentIds = [], protocolFeeBps = 0, onUnlockPermanent, onDeposit }) => {
   const [selected, setSelected] = useState<number | null>(null);
   const [status, setStatus]     = useState<TxStatus>({ type: null, message: null });
 
@@ -36,6 +37,11 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
 
   const displayIds = tokenIds; // real token IDs only — no mock fallback
 
+  // veBYND minted 1:1 per MEZO locked, minus the governance-set protocol
+  // fee (0 unless governance has configured one on-chain).
+  const netReceive = (lockedAmount: string) =>
+    parseFloat(lockedAmount) * (1 - protocolFeeBps / 10000);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Lock and mint veBYND" subtitle="Permanent 4-year lock · 1:1 veBYND minted">
       <div className="space-y-4">
@@ -44,8 +50,8 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
         <div className="rounded-control p-3 border border-gold/20 bg-gold/5 flex gap-2">
           <Lock size={14} className="text-gold shrink-0 mt-0.5" />
           <p className="text-sm text-white/60 leading-relaxed">
-            <span className="text-gold font-medium">Permanent lock.</span> Your veMEZO NFT cannot be withdrawn.
-            Exit via the <span className="text-white/[.87] font-medium">veBYND/MEZO pool</span> on Mezo Swap.
+            <span className="text-gold font-medium">Permanent lock.</span> Your veMEZO NFT can't be withdrawn once locked.
+            To exit, trade veBYND on the <span className="text-white/[.87] font-medium">veBYND/MEZO pool</span> on secondary markets.
           </p>
         </div>
 
@@ -108,15 +114,23 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
                   <p className="text-xs text-white/60">{lockedAmounts[id] ? `~${parseFloat(lockedAmounts[id]).toLocaleString()} MEZO locked · extended to 4yr` : 'Loading…'}</p>
                 </div>
               </div>
-              <span className="font-mono text-xs font-medium text-gold">{lockedAmounts[id] ? `${parseFloat(lockedAmounts[id]).toLocaleString()} veBYND` : '…'}</span>
+              <span className="font-mono text-xs font-medium text-gold">{lockedAmounts[id] ? `${netReceive(lockedAmounts[id]).toLocaleString(undefined, { maximumFractionDigits: 2 })} veBYND` : '…'}</span>
             </button>
           ))}
         </div>
 
-        <div className="rounded-control p-3 border border-void-border bg-bg">
-          <StatRow label="You receive"    value={selected !== null && lockedAmounts[selected] ? `${parseFloat(lockedAmounts[selected]).toLocaleString()} veBYND` : '–'} accent={!!selected} />
+        <div className="rounded-control p-3 border border-void-border bg-bg space-y-2">
+          <StatRow
+            label="You receive"
+            value={selected !== null && lockedAmounts[selected] ? `${netReceive(lockedAmounts[selected]).toLocaleString(undefined, { maximumFractionDigits: 2 })} veBYND` : '–'}
+            accent={!!selected}
+          />
           <StatRow label="Lock duration"  value="4 years (max, permanent)" />
-          <StatRow label="Protocol fee"   value="None (on deposit)" />
+          <StatRow label="Protocol fee"   value={protocolFeeBps > 0 ? `${(protocolFeeBps / 100).toFixed(2)}%` : '0%'} />
+          <p className="text-xs text-white/[.38] leading-relaxed pt-1 border-t border-void-border">
+            You receive veBYND 1:1 per MEZO locked{protocolFeeBps > 0 ? ', minus the protocol fee above' : ''}. Once
+            deposited, this lock extends to the 4-year maximum and can't be withdrawn — exit only via secondary markets.
+          </p>
         </div>
 
         <TxBlock status={status} />

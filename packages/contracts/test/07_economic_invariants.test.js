@@ -28,6 +28,7 @@ describe("Economic invariants & tokenomics stress tests", function () {
       await voter.connect(deployer).setManagedTokenId(1);
       await fastForwardToVoteWindow();
       await voter.optimiseAndVote();
+      await voter.claimBribesBatch(200);
       // totalStaked is 0 right now — staking.notifyRewardAmount() will no-op
       // internally, but ByNdVoter still calls safeApprove(staking, stakerAmount)
       // beforehand, leaving that allowance stuck at a non-zero value.
@@ -50,6 +51,7 @@ describe("Economic invariants & tokenomics stress tests", function () {
 
       await fastForwardToVoteWindow();
       await voter.optimiseAndVote();
+      await voter.claimBribesBatch(200);
       await expect(voter.harvestAndDistribute()).to.not.be.reverted;
     });
   });
@@ -178,6 +180,7 @@ describe("Economic invariants & tokenomics stress tests", function () {
       await voter.connect(deployer).setManagedTokenId(1);
       await fastForwardToVoteWindow();
       await voter.optimiseAndVote();
+      await voter.claimBribesBatch(200);
       const treasuryBalBefore = await rewardTokenA.balanceOf(ctx.treasury.address);
       await voter.harvestAndDistribute();
       const treasuryBalAfter = await rewardTokenA.balanceOf(ctx.treasury.address);

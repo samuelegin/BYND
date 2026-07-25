@@ -56,6 +56,7 @@ describe("ByNdVoter — protocol fee", function () {
     await voter.connect(deployer).setManagedTokenId(1);
     await fastForwardToVoteWindow();
     await voter.optimiseAndVote();
+    await voter.claimBribesBatch(200);
 
     const treasuryBefore = await rewardTokenA.balanceOf(treasury.address);
     await expect(voter.harvestAndDistribute())
@@ -83,6 +84,7 @@ describe("ByNdVoter — protocol fee", function () {
     await voter.connect(deployer).setManagedTokenId(1);
     await fastForwardToVoteWindow();
     await voter.optimiseAndVote();
+    await voter.claimBribesBatch(200);
 
     const treasuryBefore = await rewardTokenA.balanceOf(treasury.address);
     await voter.harvestAndDistribute();
@@ -133,6 +135,7 @@ describe("ByNdVoter — protocol fee", function () {
     await voter.connect(deployer).setManagedTokenId(1);
     await fastForwardToVoteWindow();
     await voter.optimiseAndVote();
+    await voter.claimBribesBatch(200);
     await voter.harvestAndDistribute();
 
     // 1% bountyBps default, all 5 keeper slots effectively the same address

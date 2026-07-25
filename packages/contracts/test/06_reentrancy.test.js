@@ -10,7 +10,7 @@ describe("Security: reentrancy & trust-boundary tests", function () {
   });
 
   describe("extendLocks() reentrancy (MaliciousVeMEZO)", () => {
-    it("a reentrant call from increaseUnlockTime() reverts the whole batch and rolls back lastExtendTimestamp", async () => {
+    it("a reentrant call during increaseUnlockTime() is swallowed by the per-tokenId try/catch, not bubbled up", async () => {
       // Deploy a fresh vault wired to the malicious veMEZO instead of the mock
       const MaliciousVeMEZO = await ethers.getContractFactory("MaliciousVeMEZO");
       const malVeMEZO = await MaliciousVeMEZO.deploy();
@@ -31,30 +31,30 @@ describe("Security: reentrancy & trust-boundary tests", function () {
       // very first increaseUnlockTime() call triggered by the outer extendLocks().
       await malVeMEZO.arm(await vault.getAddress());
 
-      expect(await vault.lastExtendTimestamp()).to.equal(0);
-      await expect(vault.extendLocks()).to.be.revertedWith(
-        "ByNdVault: cooldown active"
-      );
-      // Because extendLocks() has no reentrancy guard and no try/catch around
-      // increaseUnlockTime(), the inner revert bubbles all the way up and the
-      // whole outer transaction — including the `lastExtendTimestamp` write —
-      // is rolled back. This means the attack can't actually desync state,
-      // but only because the cooldown check happens to catch it; extendLocks()
-      // itself is not reentrancy-guarded.
-      expect(await vault.lastExtendTimestamp()).to.equal(0);
+      const before = await malVeMEZO.locked(1);
+      // extendLocks() carries a nonReentrant guard, so the inner reentrant
+      // call reverts with "ReentrancyGuard: reentrant call" — but each
+      // tokenId's increaseUnlockTime() call is individually try/caught, so
+      // that revert is swallowed. The outer batch call still succeeds as a
+      // whole; only this tokenId's extension is skipped.
+      await expect(vault.extendLocks([1]))
+        .to.emit(vault, "LockExtendSkipped")
+        .withArgs(1);
+      const after = await malVeMEZO.locked(1);
+      expect(after.end).to.equal(before.end);
     });
   });
 
   describe("markLocksExtended() and tx.origin (RelayerCaller)", () => {
     it("records tx.origin, not msg.sender, as the keeper when called via a relayer contract", async () => {
       const { vault, voter, alice } = ctx;
-      await mintAndDeposit(ctx, alice);
+      const tokenId = await mintAndDeposit(ctx, alice);
 
       const RelayerCaller = await ethers.getContractFactory("RelayerCaller");
       const relayer = await RelayerCaller.deploy();
 
       // alice (EOA, tx.origin) calls through the relayer contract (msg.sender to the vault)
-      await relayer.connect(alice).relayExtendLocks(await vault.getAddress());
+      await relayer.connect(alice).relayExtendLocks(await vault.getAddress(), [tokenId]);
 
       expect(await voter.epochKeeperExtendLocks(0)).to.equal(alice.address);
       // NOTE: this means any keeper-bounty logic keyed off markLocksExtended's
@@ -151,8 +151,8 @@ describe("Security: reentrancy & trust-boundary tests", function () {
   describe("MockRewardsDistributor no-op safety", () => {
     it("claimRebases() succeeds against a no-op distributor without reverting", async () => {
       const { vault, alice } = ctx;
-      await mintAndDeposit(ctx, alice);
-      await expect(vault.claimRebases()).to.not.be.reverted;
+      const tokenId = await mintAndDeposit(ctx, alice);
+      await expect(vault.claimRebases([tokenId])).to.not.be.reverted;
     });
   });
 });

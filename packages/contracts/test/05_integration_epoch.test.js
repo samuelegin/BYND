@@ -24,27 +24,31 @@ describe("Integration: one full BynD epoch", function () {
     // gauge configuration
     await setupSingleGauge(ctx, musd);
 
-    // Step 00: claimRebases (permissionless, no epoch gate)
-    await expect(vault.connect(keeper).claimRebases())
+    // Step 00: claimRebases (permissionless, batched over the vault's tokenIds)
+    await expect(vault.connect(keeper).claimRebases([tokenIdAlice, tokenIdBob]))
       .to.emit(vault, "RebasesClaimed")
       .withArgs(keeper.address, 2);
 
-    // Step 01: extendLocks (once per 7-day epoch)
+    // Step 01: extendLocks (permissionless, batched, no cooldown — safe to
+    // call as often as needed since it's a no-op once a lock is maxed)
     const lockBefore = await veMEZO.locked(tokenIdAlice);
-    await vault.connect(keeper).extendLocks();
+    await vault.connect(keeper).extendLocks([tokenIdAlice, tokenIdBob]);
     const lockAfter = await veMEZO.locked(tokenIdAlice);
     expect(lockAfter.end).to.be.gt(lockBefore.end);
-    await expect(vault.connect(keeper).extendLocks()).to.be.revertedWith(
-      "ByNdVault: cooldown active"
-    );
+    await expect(vault.connect(keeper).extendLocks([tokenIdAlice, tokenIdBob])).to
+      .not.be.reverted;
 
     // Step 02: castVotes / optimiseAndVote — fast-forward into the vote window
     await jumpInsideVoteWindow(voter);
     await expect(voter.connect(keeper).optimiseAndVote()).to.emit(voter, "VotesCast");
 
-    // Step 03: harvestAndDistribute — simulate the gauge paying out MUSD bribes
+    // Step 03: claimBribesBatch — page through managed tokenIds claiming
+    // bribes, simulating the gauge paying out MUSD bribes into the voter
     const { boostVoter } = ctx;
     await musd.mint(await boostVoter.getAddress(), ethers.parseEther("2000"));
+    await voter.connect(keeper).claimBribesBatch(200);
+
+    // Step 04: harvestAndDistribute — finalizes the epoch and pays out
     await expect(voter.connect(keeper).harvestAndDistribute())
       .to.emit(voter, "Harvested")
       .withArgs(0, keeper.address, ethers.parseEther("20")); // 1% of 2000

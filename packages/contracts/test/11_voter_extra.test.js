@@ -104,6 +104,7 @@ describe("ByNdVoter — extra coverage", function () {
     await voter.connect(deployer).setManagedTokenId(1);
     await fastForwardToVoteWindow();
     await voter.optimiseAndVote();
+    await voter.claimBribesBatch(200);
 
     const tx = await voter.harvestAndDistribute();
     await expect(tx).to.emit(voter, "Harvested");

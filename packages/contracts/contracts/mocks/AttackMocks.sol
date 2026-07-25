@@ -10,14 +10,14 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 //  `if (lock.end < newEndTime)` condition is always true and
 //  increaseUnlockTime() is always called during extendLocks().
 // arm(target) makes the next increaseUnlockTime() call vault.extendLocks()
-//before doing anything else. The inner call hits the cooldown check
-//(lastExtendTimestamp was just written by the outer call), reverts with
-//"ByNdVault: cooldown active", and because neither extendLocks() nor
-//the loop uses try/catch — that revert bubbles all the way out, killing
-//the entire outer batch and rolling back lastExtendTimestamp to 0.
+//before doing anything else. extendLocks() is nonReentrant, so the inner
+//call reverts with "ReentrancyGuard: reentrant call" — but because the
+//outer loop wraps each increaseUnlockTime() call in try/catch, that revert
+//is swallowed rather than bubbling up: the outer batch still succeeds as a
+//whole, and only this tokenId's extension is skipped (LockExtendSkipped).
 
 interface IExtendLocksCallback {
-    function extendLocks() external;
+    function extendLocks(uint256[] calldata tokenIds) external;
 }
 
 contract MaliciousVeMEZO is ERC721 {
@@ -63,7 +63,9 @@ contract MaliciousVeMEZO is ERC721 {
     function increaseUnlockTime(uint256 tokenId, uint256 newEnd) external {
         if (armed) {
             armed = false;
-            IExtendLocksCallback(reentryTarget).extendLocks();
+            uint256[] memory ids = new uint256[](1);
+            ids[0] = tokenId;
+            IExtendLocksCallback(reentryTarget).extendLocks(ids);
         }
         require(_locked[tokenId].end < newEnd, "MaliciousVeMEZO: new end not later");
         _locked[tokenId].end = newEnd;
@@ -78,12 +80,12 @@ contract MaliciousVeMEZO is ERC721 {
 // Minimal pass-through that models a Gelato job, Chainlink Automation task, or smart-contract wallet routing extendLocks() on behalf of a keeper EOA Used to show that markLocksExtended() records tx.origin, not msg.sender.
 
 interface IExtendable {
-    function extendLocks() external;
+    function extendLocks(uint256[] calldata tokenIds) external;
 }
 
 contract RelayerCaller {
-    function relayExtendLocks(address vault) external {
-        IExtendable(vault).extendLocks();
+    function relayExtendLocks(address vault, uint256[] calldata tokenIds) external {
+        IExtendable(vault).extendLocks(tokenIds);
     }
 }
 

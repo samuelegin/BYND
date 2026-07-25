@@ -148,7 +148,14 @@ async function main() {
     "\nEpoch clock initialized at deploy time (lastVoteTimestamp = block.timestamp)."
   );
   console.log(
-    "optimiseAndVote() is callable anytime (no vote window) — the first keeper to call it each epoch locks in the vote."
+    "optimiseAndVote() is only callable in the final `voteWindow` seconds " +
+    "(default 4h) before Mezo's real epoch boundary — it will revert with " +
+    "'vote window not open' outside that window. Use timeUntilNextVote() to check."
+  );
+  console.log(
+    "\nIMPORTANT: harvestAndDistribute() and claimBribesBatch() will revert " +
+    "with 'gauges not configured' until governance calls voter.setGauges(...). " +
+    "Run scan-matsnet-gauges.js to find live gauges, then wire them before the first epoch."
   );
 
   const deploymentInfo = {

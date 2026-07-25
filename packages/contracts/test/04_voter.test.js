@@ -29,8 +29,8 @@ describe("ByNdVoter", function () {
 
     it("cannot be marked twice in the same epoch", async () => {
       const { vault, voter, alice } = ctx;
-      await mintAndDeposit(ctx, alice);
-      await vault.claimRebases();
+      const tokenId = await mintAndDeposit(ctx, alice);
+      await vault.claimRebases([tokenId]);
       expect(await voter.epochRebasesClaimed(0)).to.equal(true);
       // second claimRebases in the same epoch should not revert the vault call
       // (claimRebases has no epoch gate itself) but the voter-side flag is
@@ -126,12 +126,14 @@ describe("ByNdVoter", function () {
     });
 
     it("reverts on a second harvest of the same epoch", async () => {
-      const { voter, deployer, musd } = ctx;
+      const { voter, boostVoter, deployer, musd } = ctx;
       await voter.connect(deployer).setManagedTokenId(1);
       await setupSingleGauge(ctx, musd);
+      await musd.mint(await boostVoter.getAddress(), ethers.parseEther("100"));
       await fastForwardToVoteWindow();
       await voter.optimiseAndVote();
       await stakeSome(ctx.alice, ethers.parseEther("1"));
+      await voter.claimBribesBatch(200);
       await voter.harvestAndDistribute();
       // currentEpoch has advanced, so a second call now fails on "votes not cast"
       // for the *new* epoch rather than "already harvested" for the old one
@@ -153,6 +155,7 @@ describe("ByNdVoter", function () {
       // keeper (not deployer/governance) is the one who calls optimiseAndVote
       // here, so it's credited for that step's bounty share too
       await voter.connect(keeper).optimiseAndVote();
+      await voter.connect(keeper).claimBribesBatch(200);
 
       const treasuryBefore = await musd.balanceOf(treasury.address);
       const keeperBefore = await musd.balanceOf(keeper.address);
@@ -187,6 +190,7 @@ describe("ByNdVoter", function () {
 
       await fastForwardToVoteWindow();
       await voter.optimiseAndVote();
+      await voter.claimBribesBatch(200);
       await voter.harvestAndDistribute();
 
       // notifyRewardAmount no-ops when totalStaked == 0, so the 99% share

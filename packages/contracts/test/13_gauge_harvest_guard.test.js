@@ -37,6 +37,8 @@ describe("ByNdVoter — gauge harvest guard & failure visibility", function () {
     // epoch can still succeed.
     expect(await voter.currentEpoch()).to.equal(0);
     await setupSingleGauge(ctx, ctx.rewardTokenA);
+    await ctx.rewardTokenA.mint(await boostVoter.getAddress(), ethers.parseEther("100"));
+    await voter.claimBribesBatch(200);
     await expect(voter.harvestAndDistribute()).to.not.be.reverted;
   });
 
@@ -68,7 +70,7 @@ describe("ByNdVoter — gauge harvest guard & failure visibility", function () {
     await voter.optimiseAndVote();
 
     await boostVoter.setShouldRevertClaim(true);
-    await expect(voter.harvestAndDistribute())
+    await expect(voter.claimBribesBatch(200))
       .to.emit(voter, "BribeClaimFailed")
       .withArgs(0, 1);
   });

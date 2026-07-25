@@ -120,28 +120,45 @@ describe("ByNdVault", function () {
   });
 
   describe("extendLocks", () => {
-    it("extends every managed lock to the new 4-year max and enforces the 7-day cooldown", async () => {
+    it("extends every managed lock toward the new 4-year max and is a harmless no-op once it's already there", async () => {
       const { veMEZO, vault, alice } = ctx;
       const tokenId = await mintAndDeposit(ctx, alice);
       const before = await veMEZO.locked(tokenId);
 
-      await vault.extendLocks();
+      await vault.extendLocks([tokenId]);
       const after = await veMEZO.locked(tokenId);
       expect(after.end).to.be.gt(before.end);
 
-      await expect(vault.extendLocks()).to.be.revertedWith(
-        "ByNdVault: cooldown active"
-      );
-
-      await ethers.provider.send("evm_increaseTime", [7 * 86400 + 1]);
-      await ethers.provider.send("evm_mine");
-      await expect(vault.extendLocks()).to.not.be.reverted;
+      // no cooldown — callable again immediately. Each mined block advances
+      // block.timestamp by ~1s, so the target end time nudges forward by
+      // that same tiny amount rather than being byte-identical; it's a
+      // no-op in spirit (no meaningful re-extension), not a no-op to the
+      // wei/second.
+      await expect(vault.extendLocks([tokenId])).to.not.be.reverted;
+      const afterSecond = await veMEZO.locked(tokenId);
+      expect(afterSecond.end - after.end).to.be.lte(5n);
     });
 
     it("is callable by anyone (permissionless keeper step)", async () => {
       const { vault, stranger, alice } = ctx;
-      await mintAndDeposit(ctx, alice);
-      await expect(vault.connect(stranger).extendLocks()).to.not.be.reverted;
+      const tokenId = await mintAndDeposit(ctx, alice);
+      await expect(vault.connect(stranger).extendLocks([tokenId])).to.not.be
+        .reverted;
+    });
+
+    it("reverts on an empty batch", async () => {
+      const { vault } = ctx;
+      await expect(vault.extendLocks([])).to.be.revertedWith(
+        "ByNdVault: empty batch"
+      );
+    });
+
+    it("reverts above the MAX_BATCH cap", async () => {
+      const { vault } = ctx;
+      const ids = Array.from({ length: 201 }, (_, i) => i + 1);
+      await expect(vault.extendLocks(ids)).to.be.revertedWith(
+        "ByNdVault: batch too large"
+      );
     });
   });
 
@@ -154,22 +171,22 @@ describe("ByNdVault", function () {
         [await ctx.veMEZO.getAddress(), await ctx.veBYND.getAddress()],
         { kind: "uups" }
       );
-      await expect(freshVault.claimRebases()).to.be.revertedWith(
+      await expect(freshVault.claimRebases([1])).to.be.revertedWith(
         "ByNdVault: distributor not set"
       );
     });
 
-    it("reverts if there are no deposits yet", async () => {
+    it("reverts on an empty batch", async () => {
       const { vault } = ctx;
-      await expect(vault.claimRebases()).to.be.revertedWith(
-        "ByNdVault: no deposits"
+      await expect(vault.claimRebases([])).to.be.revertedWith(
+        "ByNdVault: empty batch"
       );
     });
 
     it("succeeds once there is at least one deposit and notifies the voter", async () => {
       const { vault, voter, alice, keeper } = ctx;
-      await mintAndDeposit(ctx, alice);
-      await expect(vault.connect(keeper).claimRebases())
+      const tokenId = await mintAndDeposit(ctx, alice);
+      await expect(vault.connect(keeper).claimRebases([tokenId]))
         .to.emit(vault, "RebasesClaimed")
         .withArgs(keeper.address, 1);
       expect(await voter.epochRebasesClaimed(0)).to.equal(true);

@@ -40,6 +40,26 @@
       "address": "0x6f47c26d42A22f05A4fc9aCFFBe4249A42d38f7B",
       "txHash": "0x11e2f9b275843ee12d63efab9b7c70898194c2bdbf73ea66427c4d0c1213015e",
       "kind": "uups"
+    },
+    {
+      "address": "0x0736B44A94b5f8d322D2f51A108e70e86589D91a",
+      "txHash": "0x5690db1bdc8a6df50eff3c1ab30ba181290b60f94e976102bf3df73eadffa734",
+      "kind": "uups"
+    },
+    {
+      "address": "0xb7B1CD5c9D6d3deDE64F3c803826f6B6150a2B6C",
+      "txHash": "0x9bc13592774df0cfb99fb35f8dee69df79ec010c10416b5e2392800c9fb06440",
+      "kind": "uups"
+    },
+    {
+      "address": "0xb95c341BD147FcD6c1a2Fe4B7Be1C68b830A416d",
+      "txHash": "0xc6be2fc3dff03d75bb5d4d849801ed1c86f19458e37840762f89b50d79e2277c",
+      "kind": "uups"
+    },
+    {
+      "address": "0x76b7e2EbD2839c36802442931382032e8840218d",
+      "txHash": "0xc429eb733c84cefa0f2a6136ffddd9892fb6ea151b0eb0cb15cf4e84a4bd7400",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -1600,6 +1620,415 @@
             "numberOfBytes": "32"
           },
           "t_struct(Gauge)10123_storage": {
+            "label": "struct ByNdVoter.Gauge",
+            "members": [
+              {
+                "label": "gauge",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "bribe",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "name",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "weightBps",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "tokens",
+                "type": "t_array(t_address)dyn_storage",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "347697898a54d4efadf8893b8694a579101a79304c62467f3ff012afef27510e": {
+      "address": "0xCB1c06Ef5A5ADB764f2eDbAfd268D7AC76476cc8",
+      "txHash": "0x9f5dab19b25e376920cff9b3fe949d5dd32983df3488c91c2e81a097fbeb2b6a",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:68"
+          },
+          {
+            "label": "_status",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "ReentrancyGuardUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\security\\ReentrancyGuardUpgradeable.sol:38"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "ReentrancyGuardUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\security\\ReentrancyGuardUpgradeable.sol:88"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\utils\\ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC1967UpgradeUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\proxy\\ERC1967\\ERC1967UpgradeUpgradeable.sol:169"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "UUPSUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\UUPSUpgradeable.sol:111"
+          },
+          {
+            "label": "staking",
+            "offset": 0,
+            "slot": "251",
+            "type": "t_contract(ByNdStaking)10467",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:43"
+          },
+          {
+            "label": "boostVoter",
+            "offset": 0,
+            "slot": "252",
+            "type": "t_contract(IBoostVoter)11764",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:44"
+          },
+          {
+            "label": "governance",
+            "offset": 0,
+            "slot": "253",
+            "type": "t_address",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:45"
+          },
+          {
+            "label": "vault",
+            "offset": 0,
+            "slot": "254",
+            "type": "t_address",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:46"
+          },
+          {
+            "label": "treasury",
+            "offset": 0,
+            "slot": "255",
+            "type": "t_address",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:47"
+          },
+          {
+            "label": "bountyBps",
+            "offset": 0,
+            "slot": "256",
+            "type": "t_uint256",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:49"
+          },
+          {
+            "label": "protocolFeeBps",
+            "offset": 0,
+            "slot": "257",
+            "type": "t_uint256",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:50"
+          },
+          {
+            "label": "minHarvestThreshold",
+            "offset": 0,
+            "slot": "258",
+            "type": "t_uint256",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:52"
+          },
+          {
+            "label": "epochDuration",
+            "offset": 0,
+            "slot": "259",
+            "type": "t_uint256",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:53"
+          },
+          {
+            "label": "lastVoteTimestamp",
+            "offset": 0,
+            "slot": "260",
+            "type": "t_uint256",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:54"
+          },
+          {
+            "label": "currentEpoch",
+            "offset": 0,
+            "slot": "261",
+            "type": "t_uint256",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:55"
+          },
+          {
+            "label": "voteWindow",
+            "offset": 0,
+            "slot": "262",
+            "type": "t_uint256",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:65"
+          },
+          {
+            "label": "epochVoted",
+            "offset": 0,
+            "slot": "263",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:67"
+          },
+          {
+            "label": "epochHarvested",
+            "offset": 0,
+            "slot": "264",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:68"
+          },
+          {
+            "label": "epochLocksExtended",
+            "offset": 0,
+            "slot": "265",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:69"
+          },
+          {
+            "label": "epochRebasesClaimed",
+            "offset": 0,
+            "slot": "266",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:70"
+          },
+          {
+            "label": "epochKeeperClaimRebases",
+            "offset": 0,
+            "slot": "267",
+            "type": "t_mapping(t_uint256,t_address)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:71"
+          },
+          {
+            "label": "epochKeeperExtendLocks",
+            "offset": 0,
+            "slot": "268",
+            "type": "t_mapping(t_uint256,t_address)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:72"
+          },
+          {
+            "label": "epochKeeperOptimise",
+            "offset": 0,
+            "slot": "269",
+            "type": "t_mapping(t_uint256,t_address)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:73"
+          },
+          {
+            "label": "epochSnapshotTaken",
+            "offset": 0,
+            "slot": "270",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:78"
+          },
+          {
+            "label": "epochClaimCursor",
+            "offset": 0,
+            "slot": "271",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:79"
+          },
+          {
+            "label": "epochUniqueTokens",
+            "offset": 0,
+            "slot": "272",
+            "type": "t_mapping(t_uint256,t_array(t_address)dyn_storage)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:80"
+          },
+          {
+            "label": "epochBalanceBefore",
+            "offset": 0,
+            "slot": "273",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:81"
+          },
+          {
+            "label": "tokenMinHarvestThreshold",
+            "offset": 0,
+            "slot": "274",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:88"
+          },
+          {
+            "label": "managedTokenIds",
+            "offset": 0,
+            "slot": "275",
+            "type": "t_array(t_uint256)dyn_storage",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:90"
+          },
+          {
+            "label": "tokenIdIndex",
+            "offset": 0,
+            "slot": "276",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:91"
+          },
+          {
+            "label": "gauges",
+            "offset": 0,
+            "slot": "277",
+            "type": "t_array(t_struct(Gauge)11882_storage)dyn_storage",
+            "contract": "ByNdVoter",
+            "src": "contracts\\ByNdVoter.sol:100"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_struct(Gauge)11882_storage)dyn_storage": {
+            "label": "struct ByNdVoter.Gauge[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(ByNdStaking)10467": {
+            "label": "contract ByNdStaking",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IBoostVoter)11764": {
+            "label": "contract IBoostVoter",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_address)": {
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_array(t_address)dyn_storage)": {
+            "label": "mapping(uint256 => address[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_bool)": {
+            "label": "mapping(uint256 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(uint256 => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Gauge)11882_storage": {
             "label": "struct ByNdVoter.Gauge",
             "members": [
               {

@@ -40,14 +40,11 @@ export function GaugeAllocations({ gauges }: { gauges: GaugeAllocation[] }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-sm font-medium text-white/[.87] truncate min-w-0">
-                    {g.name}
-                  </span>
                   <span
-                    className="font-mono text-xs text-white/60 shrink-0 whitespace-nowrap"
+                    className="font-mono text-sm font-medium text-white/[.87] truncate min-w-0"
                     title={g.gauge}
                   >
-                    {shortAddr(g.gauge)}
+                    {shortAddr(g.gauge, 6)}
                   </span>
                 </div>
                 <div className="h-1 bg-void-border rounded-full overflow-hidden">

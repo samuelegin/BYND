@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gift } from 'lucide-react';
+import { Gift, Clock } from 'lucide-react';
 import { Button } from '@/components/ui';
 import type { ProtocolStats, UserPosition } from '@/types';
 
@@ -12,6 +12,8 @@ interface YieldTerminalProps {
 
 export function YieldTerminal({ position, stats, hasRewards, onClaim }: YieldTerminalProps) {
   const rewards = position.claimableRewards ?? [];
+  const pendingAmount = parseFloat(stats.pendingIncentives || '0');
+  const hasPending = !isNaN(pendingAmount) && pendingAmount > 0;
 
   return (
     <div className="rounded-card bg-void-soft border border-void-border relative overflow-hidden">
@@ -24,6 +26,29 @@ export function YieldTerminal({ position, stats, hasRewards, onClaim }: YieldTer
           <Gift size={16} className="text-white/[.38]" />
         </div>
 
+        {/* Pending — sitting on Mezo's gauge, not yet pulled in by a keeper's
+            harvestAndDistribute(). Not a time-vesting thing: it only moves
+            into "claimable" once that keeper call actually fires. */}
+        {hasPending && (
+          <div className="mb-4 rounded-control p-3 border border-void-border bg-bg flex items-start gap-2">
+            <Clock size={13} className="text-white/60 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-white/[.38] mb-0.5">
+                Pending, not yet harvested
+              </p>
+              <p className="text-lg font-semibold text-white/[.87] leading-none">
+                {pendingAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                <span className="text-xs text-white/60 ml-1 font-normal">
+                  {stats.rewardTokenSymbol}
+                </span>
+              </p>
+              <p className="text-[11px] text-white/60 mt-1 leading-relaxed">
+                Sitting on the gauge. Moves to claimable once a keeper runs harvestAndDistribute().
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4 mb-6">
           {rewards.length === 0 ? (
             <div>
@@ -33,7 +58,7 @@ export function YieldTerminal({ position, stats, hasRewards, onClaim }: YieldTer
               <p className="text-4xl font-semibold text-gold leading-none">0.00</p>
               <p className="text-xs text-white/60 mt-1">
                 {parseFloat(position.stakedBalance || '0') > 0
-                  ? 'Rewards accumulate after keeper harvests each epoch'
+                  ? 'Rewards land here once a keeper calls harvestAndDistribute() this epoch'
                   : `Stake veBYND above to start earning ${stats.rewardTokenSymbol}`}
               </p>
             </div>
@@ -56,7 +81,7 @@ export function YieldTerminal({ position, stats, hasRewards, onClaim }: YieldTer
                   <p className="text-xs text-white/60 mt-1">
                     {parseFloat(r.amount || '0') > 0
                       ? 'Bribes from gauge voting, ready to claim'
-                      : 'Rewards accumulate after keeper harvests each epoch'}
+                      : 'Rewards land here once a keeper calls harvestAndDistribute() this epoch'}
                   </p>
                 )}
               </div>

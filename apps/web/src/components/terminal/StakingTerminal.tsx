@@ -1,6 +1,6 @@
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
-import { Panel, Button, Badge } from '@/components/ui';
+import { Panel, Button } from '@/components/ui';
 import type { ProtocolStats, UserPosition } from '@/types';
 
 interface StakingTerminalProps {
@@ -10,21 +10,16 @@ interface StakingTerminalProps {
   onUnstake: () => void;
 }
 
-export function StakingTerminal({ position, stats, onStake, onUnstake }: StakingTerminalProps) {
+export function StakingTerminal({ position, onStake, onUnstake }: StakingTerminalProps) {
   return (
     <Panel className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38]">
-            Staking terminal
-          </p>
-          <p className="text-sm text-white/60 mt-1">
-            Step 02. Stake veBYND. Activate MUSD yield
-          </p>
-        </div>
-        <Badge variant={parseFloat(position.stakedBalance) > 0 ? 'acid' : 'muted'}>
-          APR ~{stats.avgApr}
-        </Badge>
+      <div className="mb-6">
+        <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38]">
+          Staking terminal
+        </p>
+        <p className="text-sm text-white/60 mt-1">
+          Step 02. Stake veBYND. Activate MUSD yield
+        </p>
       </div>
 
       <div className="grid sm:grid-cols-3 gap-6">

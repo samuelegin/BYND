@@ -60,8 +60,8 @@ export const StakeModal: React.FC<StakeModalProps> = ({
             label="Reward tokens"
             value={
               rewardTokenSymbol && rewardTokenSymbol !== '…'
-                ? `${rewardTokenSymbol} + other ERC-20 bribes`
-                : 'Multiple ERC-20 bribe tokens'
+                ? `${rewardTokenSymbol} + other whitelisted tokens`
+                : 'Multiple whitelisted tokens'
             }
           />
           <StatRow label="Sources"         value="Gauge bribes" />

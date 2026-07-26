@@ -66,34 +66,50 @@ export function KeeperFunctions({
         </div>
 
         {/* castVotes */}
-        <div className={`rounded-control border p-3 space-y-2 transition-colors ${!epoch.epochVoted ? 'border-gold/30 bg-gold/5' : 'border-void-border'}`}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <RefreshCw
-                size={13}
-                className={`text-gold shrink-0 ${!epoch.epochVoted ? 'animate-spin' : ''}`}
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white/[.87] truncate">
-                  Cast system votes
-                </p>
-                <p className="text-xs text-white/60">
-                  {epoch.epochVoted ? 'Voted this epoch' : 'Callable anytime, no time window'}
-                </p>
+        {(() => {
+          const voteWindowOpen = timeToVoteOpen <= 0;
+          const canVote = !epoch.epochVoted && voteWindowOpen;
+          return (
+            <div className={`rounded-control border p-3 space-y-2 transition-colors ${canVote ? 'border-gold/30 bg-gold/5' : 'border-void-border'}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <RefreshCw
+                    size={13}
+                    className={`text-gold shrink-0 ${canVote ? 'animate-spin' : ''}`}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white/[.87] truncate">
+                      Cast system votes
+                    </p>
+                    <p className="text-xs text-white/60">
+                      {epoch.epochVoted
+                        ? 'Voted this epoch'
+                        : voteWindowOpen
+                          ? 'Vote window open'
+                          : `Opens in ${formatTime(timeToVoteOpen)}`}
+                    </p>
+                  </div>
+                </div>
+                {epoch.epochVoted ? (
+                  <Badge variant="acid">Done</Badge>
+                ) : !voteWindowOpen ? (
+                  <Badge variant="muted">Wait</Badge>
+                ) : (
+                  <Badge variant="orange">Ready</Badge>
+                )}
               </div>
+              <Button
+                variant={canVote ? 'outline' : 'ghost'}
+                size="sm"
+                fullWidth
+                onClick={onCastVotes}
+                disabled={!canVote}
+              >
+                <span className="font-mono">optimiseAndVote()</span>
+              </Button>
             </div>
-            {epoch.epochVoted && <Badge variant="acid">Done</Badge>}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            fullWidth
-            onClick={onCastVotes}
-            disabled={epoch.epochVoted}
-          >
-            <span className="font-mono">optimiseAndVote()</span>
-          </Button>
-        </div>
+          );
+        })()}
 
         {/* harvestAndDistribute */}
         <div className={`rounded-control border p-3 space-y-2 transition-colors ${epoch.epochVoted && !epoch.epochHarvested ? 'border-gold/30 bg-gold/5' : 'border-void-border'}`}>

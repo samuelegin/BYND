@@ -23,14 +23,14 @@ export function EpochFlowSteps({ steps }: { steps: KeeperStepDef[] }) {
         Epoch flow. Call order
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
         {steps.map((s) => {
           const Icon = s.icon;
           const active = s.can && !s.done;
           return (
             <div
               key={s.id}
-              className={`rounded-control border p-5 space-y-4 transition-colors ${active ? "border-gold/30 bg-gold/5" : "border-void-border"}`}
+              className={`flex h-full flex-col rounded-control border p-5 space-y-4 transition-colors ${active ? "border-gold/30 bg-gold/5" : "border-void-border"}`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gold/10 font-mono text-xs font-medium text-gold">
@@ -47,7 +47,7 @@ export function EpochFlowSteps({ steps }: { steps: KeeperStepDef[] }) {
                   {s.label}
                 </p>
               </div>
-              <p className="text-xs text-white/60 leading-relaxed">
+              <p className="flex-1 text-xs text-white/60 leading-relaxed">
                 {s.description}
               </p>
               <Button

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { RefreshCw, Zap, Shield, Droplets } from "lucide-react";
-import { SectionHeader } from "@/components/ui";
+import { SectionHeader, formatTime } from "@/components/ui";
 import { CastVotesModal, HarvestModal } from "@/components/modals";
 import {
   StatusOverview,
@@ -137,9 +137,13 @@ export default function KeeperPage() {
 
   const canClaimRebases = true;
   const canExtend = !epoch.epochLocksExtended;
-  // optimiseAndVote() is callable anytime on-chain — no time window (see
-  // ByNdVoter.sol's own doc comment). The only gate is epochVoted.
-  const canVote = !epoch.epochVoted;
+  // optimiseAndVote() DOES have a real on-chain time gate — it only opens
+  // in the final `voteWindow` seconds before Mezo's real epoch boundary
+  // (see ByNdVoter.sol's require on boostVoter.epochNext()). Confirmed by
+  // simulation: calling this outside the window reverts with
+  // "ByNdVoter: vote window not open". Gate on both conditions.
+  const voteWindowOpen = timeToVoteOpen <= 0;
+  const canVote = !epoch.epochVoted && voteWindowOpen;
   const canHarvest = epoch.epochVoted && !epoch.epochHarvested;
 
   const steps: KeeperStepDef[] = [
@@ -190,8 +194,11 @@ export default function KeeperPage() {
       can: canVote,
       done: epoch.epochVoted,
       isLoading: false,
-      description:
-        "Aggregates all veMEZO power and casts votes toward highest-bribe veBTC gauges (falls back to auto-selecting the best live gauge if none are configured). Callable anytime, no time window. First keeper to call it each epoch locks in the vote.",
+      description: epoch.epochVoted
+        ? "Aggregates all veMEZO power and casts votes toward highest-bribe veBTC gauges (falls back to auto-selecting the best live gauge if none are configured)."
+        : voteWindowOpen
+          ? "Aggregates all veMEZO power and casts votes toward highest-bribe veBTC gauges (falls back to auto-selecting the best live gauge if none are configured). Vote window is open now. First keeper to call it each epoch locks in the vote."
+          : `Only callable in the final window before Mezo's epoch boundary. Opens in ${formatTime(timeToVoteOpen)}.`,
       onClick: () => setActiveModal("castVotes"),
       badge: epoch.epochVoted ? "Done" : canVote ? "Ready" : "Waiting",
       badgeVariant: (epoch.epochVoted

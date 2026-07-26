@@ -29,3 +29,9 @@ export const formatWAT = (unixSeconds: number): string => {
     hour12: true,
   }).format(new Date(unixSeconds * 1000)) + ' WAT';
 };
+
+export const shortAddr = (addr: string | undefined, chars = 4): string => {
+  if (!addr) return '–';
+  if (addr.length <= 2 + chars * 2) return addr;
+  return `${addr.slice(0, 2 + chars)}…${addr.slice(-chars)}`;
+};

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Panel, PixelArt } from '@/components/ui';
+import { Panel, PixelArt, shortAddr } from '@/components/ui';
 import type { GaugeAllocation } from '@/types';
 import iconBoostWebp from '@/assets/illustrations/icons/icon-boost.webp';
 import iconBoostPng from '@/assets/illustrations/icons/icon-boost.png';
@@ -9,7 +9,7 @@ export function GaugeAllocations({ gauges }: { gauges: GaugeAllocation[] }) {
     <Panel className="p-6">
       <div className="flex items-center justify-between mb-6">
         <p className="font-mono text-[11px] uppercase tracking-[.14em] text-white/[.38]">
-          veBTC gauge weights
+          Gauge voted
         </p>
         <p className="text-xs text-white/60">
           Boosted veBTC positions
@@ -43,8 +43,11 @@ export function GaugeAllocations({ gauges }: { gauges: GaugeAllocation[] }) {
                   <span className="text-sm font-medium text-white/[.87] truncate min-w-0">
                     {g.name}
                   </span>
-                  <span className="font-mono text-xs text-gold font-medium shrink-0 whitespace-nowrap">
-                    APR {g.apr}
+                  <span
+                    className="font-mono text-xs text-white/60 shrink-0 whitespace-nowrap"
+                    title={g.gauge}
+                  >
+                    {shortAddr(g.gauge)}
                   </span>
                 </div>
                 <div className="h-1 bg-void-border rounded-full overflow-hidden">
@@ -58,8 +61,8 @@ export function GaugeAllocations({ gauges }: { gauges: GaugeAllocation[] }) {
                     {(g.weightBps / 100).toFixed(1)}% weight
                   </span>
                   <span className="text-[11px] text-white/60">
-                    Bribes:{' '}
-                    <span className="text-white/[.87] font-medium">
+                    Bribes available:{' '}
+                    <span className="text-gold font-medium">
                       {g.bribeAmount != null
                         ? Number(g.bribeAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })
                         : '–'}

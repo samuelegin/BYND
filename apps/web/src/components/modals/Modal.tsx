@@ -28,10 +28,13 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, 
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className={clsx(
-        'relative w-full rounded-panel border border-void-border bg-void-soft animate-slide-up shadow-[0_24px_60px_rgba(0,0,0,.45)]',
+        // max-h + flex-col caps the whole card to the viewport; the body
+        // below scrolls internally instead of pushing header/buttons off
+        // screen when content is tall (e.g. DepositModal with 3+ NFT rows).
+        'relative w-full max-h-[85vh] flex flex-col rounded-panel border border-void-border bg-void-soft animate-slide-up shadow-[0_24px_60px_rgba(0,0,0,.45)]',
         widths[size]
       )}>
-        <div className="flex items-start justify-between p-6 border-b border-void-border">
+        <div className="shrink-0 flex items-start justify-between p-6 border-b border-void-border">
           <div>
             <h3 className="font-display text-[17px] font-semibold text-white/[.87]">{title}</h3>
             {subtitle && <p className="text-sm text-white/60 mt-1">{subtitle}</p>}
@@ -40,7 +43,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, 
             <X size={16} />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto min-h-0">{children}</div>
       </div>
     </div>
   );

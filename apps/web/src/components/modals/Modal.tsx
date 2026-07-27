@@ -10,10 +10,15 @@ interface ModalProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  // Rendered OUTSIDE the scrollable body, pinned to the bottom of the card —
+  // use for primary actions (Cancel/Confirm) so they're never lost below a
+  // scroll fold when body content overflows. Without this, a tall modal's
+  // buttons scroll away with no visual cue that more content exists below.
+  footer?: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, children, size = 'md' }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, children, footer, size = 'md' }) => {
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
@@ -22,7 +27,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, 
 
   if (!isOpen) return null;
 
-  const widths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' };
+  const widths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-2xl' };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -44,6 +49,11 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, 
           </button>
         </div>
         <div className="p-6 overflow-y-auto min-h-0">{children}</div>
+        {footer && (
+          <div className="shrink-0 p-4 border-t border-void-border bg-void-soft rounded-b-panel">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

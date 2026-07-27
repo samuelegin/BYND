@@ -7,9 +7,8 @@ import type { TxStatus } from '@/types';
 import { Modal } from './Modal';
 import { TxBlock } from './TxBlock';
 
-import yKeyWebp from '@/assets/illustrations/icons/icon-y-key.webp';
-import yKeyPng from '@/assets/illustrations/icons/icon-y-key.png';
 import { PixelArt } from '@/components/ui';
+import { mascotForToken } from '@/lib/mascotAvatars';
 
 interface LockMintConfirmModalProps {
   isOpen: boolean;
@@ -132,10 +131,13 @@ export const LockMintConfirmModal: React.FC<LockMintConfirmModalProps> = ({
             doubt which token is about to be locked. */}
         <div className="flex items-center gap-3 rounded-control border border-void-border bg-bg p-3">
           <div
-            className="h-11 w-11 shrink-0 rounded-md border border-white/[.06] flex items-center justify-center"
+            className="h-11 w-11 shrink-0 rounded-md border border-white/[.06] flex items-center justify-center overflow-hidden"
             style={{ background: tileGradient(tokenId) }}
           >
-            <Lock size={16} className="text-white/70" strokeWidth={1.5} />
+            <PixelArt
+              {...mascotForToken(tokenId)}
+              className="h-9 w-auto object-contain"
+            />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-mono text-sm font-medium text-white/[.87]">veMEZO #{tokenId}</p>
@@ -143,14 +145,6 @@ export const LockMintConfirmModal: React.FC<LockMintConfirmModalProps> = ({
               {lockedAmount ? `${parseFloat(lockedAmount).toLocaleString()} MEZO locked` : 'Loading…'}
             </p>
           </div>
-          <PixelArt
-            webp={yKeyWebp}
-            png={yKeyPng}
-            width={73}
-            height={110}
-            alt=""
-            className="h-9 w-auto object-contain opacity-90 motion-safe:animate-illo-float"
-          />
         </div>
 
         {isPermanent && (

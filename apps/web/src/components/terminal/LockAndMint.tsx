@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { clsx } from 'clsx';
 import { AlertTriangle, ArrowRight, Lock, FileText, Clock, Sparkles } from 'lucide-react';
 import { Panel, Button, Badge, PixelArt } from '@/components/ui';
 import { LockMintConfirmModal } from '@/components/modals';
@@ -11,8 +12,7 @@ import yKeyWebp from '@/assets/illustrations/icons/icon-y-key.webp';
 import yKeyPng from '@/assets/illustrations/icons/icon-y-key.png';
 import coinWebp from '@/assets/illustrations/icons/icon-vebynd-coin.webp';
 import coinPng from '@/assets/illustrations/icons/icon-vebynd-coin.png';
-import celebrateWebp from '@/assets/illustrations/mascot/mascot-celebrate.webp';
-import celebratePng from '@/assets/illustrations/mascot/mascot-celebrate.png';
+import { mascotForToken } from '@/lib/mascotAvatars';
 
 interface LockAndMintProps {
   position: UserPosition;
@@ -58,7 +58,6 @@ export function LockAndMint({
 
   const isPermanent = selected !== null && permanentIds.includes(selected);
   const isExpired = selected !== null && expiredIds.includes(selected);
-  const isBlocked = isPermanent || isExpired;
   const selectedAmount = selected !== null ? lockedAmounts[selected] : undefined;
   const netReceive = selectedAmount
     ? parseFloat(selectedAmount) * (1 - stats.protocolFeeBps / 10000)
@@ -98,7 +97,7 @@ export function LockAndMint({
       {/* Loading state — mascot carousel instead of a spinner. Always
           plays at least one full cycle before it's allowed to settle, so
           a fast scan never flashes past the "found" beat. */}
-      <div className="relative mb-4">
+      <div className={clsx('relative mb-4', showCarousel && 'flex-1 flex flex-col min-h-0')}>
         <p className="font-mono text-[10px] uppercase tracking-widest text-white/[.38] mb-2">
           Select veMEZO NFT
         </p>
@@ -107,6 +106,7 @@ export function LockAndMint({
             isScanning={isScanning}
             foundCount={veMezoTokenIds.length}
             onComplete={() => setCarouselDone(true)}
+            className="flex-1"
           />
         ) : !hasNfts ? (
           <div className="rounded-control border border-void-border p-4 text-center">
@@ -153,10 +153,13 @@ export function LockAndMint({
               mental model. */}
           <div className="relative mb-4 flex items-center gap-3 rounded-control border border-void-border bg-bg p-3">
             <div
-              className="h-11 w-11 shrink-0 rounded-md border border-white/[.06] flex items-center justify-center"
+              className="h-11 w-11 shrink-0 rounded-md border border-white/[.06] flex items-center justify-center overflow-hidden"
               style={{ background: tileGradient(selected) }}
             >
-              <Lock size={16} className="text-white/70" strokeWidth={1.5} />
+              <PixelArt
+                {...mascotForToken(selected)}
+                className="h-9 w-auto object-contain"
+              />
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-mono text-sm font-medium text-white/[.87]">veMEZO #{selected}</p>
@@ -164,14 +167,6 @@ export function LockAndMint({
                 {selectedAmount ? `${parseFloat(selectedAmount).toLocaleString()} MEZO locked` : 'Loading…'}
               </p>
             </div>
-            <PixelArt
-              webp={celebrateWebp}
-              png={celebratePng}
-              width={163}
-              height={220}
-              alt="Found"
-              className="h-9 w-auto object-contain opacity-90"
-            />
           </div>
 
           {/* Inline stat strip — same numbers the confirm modal shows, so

@@ -32,6 +32,9 @@ interface MascotScanCarouselProps {
    * uses this to swap the carousel out for the NFT picker.
    */
   onComplete: () => void;
+  /** Extra classes merged onto the outer bordered box — e.g. 'flex-1' so
+   *  it grows to fill the card instead of sitting as a short box up top. */
+  className?: string;
 }
 
 /**
@@ -42,7 +45,7 @@ interface MascotScanCarouselProps {
  * played, it settles on the celebrate frame with a "Found" badge for a
  * beat, then hands off to the parent.
  */
-export function MascotScanCarousel({ isScanning, foundCount, onComplete }: MascotScanCarouselProps) {
+export function MascotScanCarousel({ isScanning, foundCount, onComplete, className }: MascotScanCarouselProps) {
   const [frameIndex, setFrameIndex] = useState(0);
   const [phase, setPhase] = useState<'cycling' | 'found' | 'empty'>('cycling');
   const cyclesCompleted = useRef(0);
@@ -90,7 +93,7 @@ export function MascotScanCarousel({ isScanning, foundCount, onComplete }: Masco
   const frame = phase === 'cycling' ? SCAN_FRAMES[frameIndex] : resultFrame;
 
   return (
-    <div className="rounded-control border border-void-border p-6 flex flex-col items-center justify-center gap-3 min-h-[168px]">
+    <div className={clsx('rounded-control border border-void-border p-6 flex flex-col items-center justify-center gap-3 min-h-[168px]', className)}>
       <div className="relative h-[72px] w-[72px] flex items-center justify-center">
         <PixelArt
           key={frame.alt}

@@ -1,6 +1,7 @@
 export { Modal } from './Modal';
 export { TxBlock } from './TxBlock';
 export { DepositModal } from './DepositModal';
+export { LockMintConfirmModal } from './LockMintConfirmModal';
 export { WithdrawModal } from './WithdrawModal';
 export { StakeModal } from './StakeModal';
 export { UnstakeModal } from './UnstakeModal';

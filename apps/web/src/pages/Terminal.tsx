@@ -55,9 +55,24 @@ export default function TerminalPage() {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
 
-  const withTx = async (fn: () => Promise<`0x${string}`>) => {
+  // Waits for a tx to be mined AND checks it actually succeeded. Mined does
+  // not mean succeeded -- a reverted tx still produces a receipt. Without
+  // this check, a reverted deposit()/stake()/approve() looks identical to a
+  // successful one in the UI: no error shown, no mint, no NFT transferred.
+  const waitAndCheck = async (hash: `0x${string}`, label: string) => {
+    const receipt = await publicClient?.waitForTransactionReceipt({ hash });
+    if (receipt?.status !== "success") {
+      throw new Error(
+        `${label} transaction was mined but reverted on-chain (${hash}). ` +
+          `No changes were made -- check the transaction on the explorer for the revert reason.`,
+      );
+    }
+    return receipt;
+  };
+
+  const withTx = async (fn: () => Promise<`0x${string}`>, label = "Transaction") => {
     const hash = await fn();
-    await publicClient?.waitForTransactionReceipt({ hash });
+    await waitAndCheck(hash, label);
     setTimeout(refresh, 1500);
   };
 
@@ -84,16 +99,16 @@ export default function TerminalPage() {
         );
       }
 
-      // Step 1: approve vault to transfer the NFT, then wait for the tx to be mined.
-      // On Matsnet block times are slow — calling deposit() before the approval lands
-      // causes the vault's safeTransferFrom to revert with "not approved".
+      // Step 1: approve vault to transfer the NFT, then wait for the tx to be mined
+      // AND confirm it actually succeeded -- a reverted approve() must stop this
+      // flow here, not silently continue into a guaranteed-to-fail deposit().
       const approveHash = await writeContractAsync({
         address: addrs.VeMEZO,
         abi: VEMEZO_ABI,
         functionName: "approve",
         args: [addrs.ByNdVault, BigInt(tokenId)],
       });
-      await publicClient?.waitForTransactionReceipt({ hash: approveHash });
+      await waitAndCheck(approveHash, `Approval for veMEZO #${tokenId}`);
 
       // Step 2: deposit — approval is now confirmed on-chain.
       return writeContractAsync({
@@ -102,7 +117,7 @@ export default function TerminalPage() {
         functionName: "deposit",
         args: [BigInt(tokenId)],
       });
-    });
+    }, `Deposit of veMEZO #${tokenId}`);
   };
 
   const handleWithdraw = async (_tokenId: number) => {
@@ -111,17 +126,17 @@ export default function TerminalPage() {
 
   const handleStake = async (amount: string) => {
     await withTx(async () => {
-      // Wait for the approval to be mined before staking — on Matsnet block
-      // times are slow, so calling stake() before the approval lands causes
+      // Wait for the approval to be mined AND confirm it succeeded before
+      // staking — on Matsnet block times are slow, so calling stake() before
+      // the approval lands (or after a reverted approval) causes
       // ByNdStaking's transferFrom to revert (allowance still 0 on-chain).
-      // Same pattern as handleDeposit's approve/deposit sequencing above.
       const approveHash = await writeContractAsync({
         address: addrs.VeBYND,
         abi: ERC20_ABI,
         functionName: "approve",
         args: [addrs.ByNdStaking, parseEther(amount)],
       });
-      await publicClient?.waitForTransactionReceipt({ hash: approveHash });
+      await waitAndCheck(approveHash, "veBYND approval");
 
       return writeContractAsync({
         address: addrs.ByNdStaking,
@@ -129,7 +144,7 @@ export default function TerminalPage() {
         functionName: "stake",
         args: [parseEther(amount)],
       });
-    });
+    }, `Stake of ${amount} veBYND`);
   };
 
   const handleUnstake = async (amount: string) => {

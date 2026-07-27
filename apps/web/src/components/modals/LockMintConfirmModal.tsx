@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlertTriangle, Lock, FileText, Clock, Percent } from 'lucide-react';
-import { Button, StatRow } from '@/components/ui';
+import { AlertTriangle, Lock, FileText, Clock, Percent, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui';
 import type { TxStatus } from '@/types';
 import { Modal } from './Modal';
 import { TxBlock } from './TxBlock';
+
+import yKeyWebp from '@/assets/illustrations/icons/icon-y-key.webp';
+import yKeyPng from '@/assets/illustrations/icons/icon-y-key.png';
+import { PixelArt } from '@/components/ui';
 
 interface LockMintConfirmModalProps {
   isOpen: boolean;
@@ -17,6 +21,40 @@ interface LockMintConfirmModalProps {
   protocolFeeBps?: number;
   onUnlockPermanent: (tokenId: number) => Promise<void>;
   onDeposit: (tokenId: number) => Promise<void>;
+}
+
+// Deterministic per-tokenId gradient — same formula used on the terminal
+// card's select preview, so the NFT reads as the "same object" across
+// both surfaces.
+const tileGradient = (id: number) => {
+  const hue = (id * 47) % 360;
+  return `linear-gradient(135deg, hsl(${hue} 70% 22%), hsl(${(hue + 40) % 360} 60% 12%))`;
+};
+
+// A single breakdown row — icon in a circular badge, label left, value
+// right, all vertically centered on one baseline. The icon sits in its
+// own fixed-width column and the label/value pair is wrapped in a
+// `flex-1` container so `justify-between` actually has the full row
+// width to work with (a bare flex child without flex-1 only sizes to its
+// content, which is what caused the earlier misaligned/bunched rows).
+function BreakdownRow({
+  icon, label, value, accent,
+}: { icon: React.ReactNode; label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[.06] text-white/60">
+        {icon}
+      </div>
+      <div className="flex flex-1 min-w-0 items-center justify-between gap-3">
+        <span className="font-mono text-[11px] uppercase tracking-widest text-white/[.38]">
+          {label}
+        </span>
+        <span className={accent ? 'font-mono text-sm font-semibold text-gold' : 'font-mono text-sm font-medium text-white/[.87]'}>
+          {value}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -89,6 +127,32 @@ export const LockMintConfirmModal: React.FC<LockMintConfirmModalProps> = ({
       }
     >
       <div className="space-y-5">
+        {/* Token identity strip — gradient tile ties this modal back to
+            the same NFT the user picked in the select, so there's no
+            doubt which token is about to be locked. */}
+        <div className="flex items-center gap-3 rounded-control border border-void-border bg-bg p-3">
+          <div
+            className="h-11 w-11 shrink-0 rounded-md border border-white/[.06] flex items-center justify-center"
+            style={{ background: tileGradient(tokenId) }}
+          >
+            <Lock size={16} className="text-white/70" strokeWidth={1.5} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-sm font-medium text-white/[.87]">veMEZO #{tokenId}</p>
+            <p className="text-xs text-white/[.38]">
+              {lockedAmount ? `${parseFloat(lockedAmount).toLocaleString()} MEZO locked` : 'Loading…'}
+            </p>
+          </div>
+          <PixelArt
+            webp={yKeyWebp}
+            png={yKeyPng}
+            width={73}
+            height={110}
+            alt=""
+            className="h-9 w-auto object-contain opacity-90 motion-safe:animate-illo-float"
+          />
+        </div>
+
         {isPermanent && (
           <div className="rounded-control p-3 border border-yellow-400/30 bg-yellow-400/5 space-y-2">
             <div className="flex gap-2">
@@ -124,31 +188,24 @@ export const LockMintConfirmModal: React.FC<LockMintConfirmModalProps> = ({
           </div>
         )}
 
-        <div className="rounded-control p-4 border border-void-border bg-bg space-y-3">
-          <div className="flex items-start gap-2.5">
-            <FileText size={13} className="text-white/[.38] mt-0.5 shrink-0" />
-            <StatRow
-              label="Voting power"
-              value={lockedAmount ? `${parseFloat(lockedAmount).toLocaleString()} veMEZO` : '–'}
-            />
-          </div>
-          <div className="flex items-start gap-2.5">
-            <Lock size={13} className="text-white/[.38] mt-0.5 shrink-0" />
-            <StatRow label="Mint rate" value="1:1 veBYND" accent />
-          </div>
-          <div className="flex items-start gap-2.5">
-            <Clock size={13} className="text-white/[.38] mt-0.5 shrink-0" />
-            <StatRow label="Lock duration" value="4 years (max)" />
-          </div>
+        <div className="rounded-control p-4 border border-void-border bg-bg space-y-4">
+          <BreakdownRow
+            icon={<FileText size={13} />}
+            label="Voting power"
+            value={lockedAmount ? `${parseFloat(lockedAmount).toLocaleString()} veMEZO` : '–'}
+          />
+          <BreakdownRow icon={<Lock size={13} />} label="Mint rate" value="1:1 veBYND" accent />
+          <BreakdownRow icon={<Clock size={13} />} label="Lock duration" value="4 years (max)" />
           {protocolFeeBps > 0 && (
-            <div className="flex items-start gap-2.5">
-              <Percent size={13} className="text-white/[.38] mt-0.5 shrink-0" />
-              <StatRow label="Protocol fee" value={`${(protocolFeeBps / 100).toFixed(2)}%`} />
-            </div>
+            <BreakdownRow
+              icon={<Percent size={13} />}
+              label="Protocol fee"
+              value={`${(protocolFeeBps / 100).toFixed(2)}%`}
+            />
           )}
           <div className="pt-3 border-t border-void-border flex items-center justify-between">
-            <span className="font-mono text-[11px] uppercase tracking-widest text-white/[.38]">
-              You receive
+            <span className="font-mono text-[11px] uppercase tracking-widest text-white/[.38] flex items-center gap-1.5">
+              <Sparkles size={12} className="text-gold" /> You receive
             </span>
             <span className="text-xl font-semibold text-gold leading-none">
               {netReceive !== null ? `${netReceive.toLocaleString(undefined, { maximumFractionDigits: 2 })} veBYND` : '–'}

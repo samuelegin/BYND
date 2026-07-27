@@ -3,13 +3,12 @@ import { Lock } from "lucide-react";
 import { Button } from "@/components/ui";
 import {
   TerminalHeader,
-  StatStrip,
-  LiquidLocker,
-  StakingTerminal,
-  GaugeAllocations,
-  YieldTerminal,
-  KeeperFunctions,
-  EpochStatus,
+  OverviewStats,
+  LockAndMint,
+  StakeAndEarn,
+  KeeperPanel,
+  ActivityPanel,
+  EpochRewardsPanel,
   TerminalModals,
 } from "@/components/terminal";
 import { useWallet } from "@/hooks/useWallet";
@@ -272,9 +271,6 @@ export default function TerminalPage() {
     }
   };
 
-  const checkAllowance = async (_amount: string) => true;
-  const approveToken = async (_amount: string) => {};
-
   const hasRewards = position.claimableRewards.some(r => parseFloat(r.amount || '0') > 0);
   const canExtend = epoch.canExtendLocks;
 
@@ -288,14 +284,7 @@ export default function TerminalPage() {
         refresh={refresh}
       />
 
-      <StatStrip
-        stats={stats}
-        position={position}
-        mezoEpoch={mezoEpoch}
-        liveCountdown={epoch.epochEndsIn}
-      />
-
-      <div className="max-w-[1120px] mx-auto px-5 py-8">
+      <div className="max-w-[1700px] mx-auto px-6 py-6 space-y-6">
         {!isConnected ? (
           <div className="flex flex-col items-center justify-center py-14 space-y-6 text-center">
             <div className="w-16 h-16 rounded-full border border-void-border flex items-center justify-center">
@@ -314,33 +303,39 @@ export default function TerminalPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-8 space-y-8">
-              <LiquidLocker
+          <>
+            <OverviewStats
+              stats={stats}
+              epoch={epoch}
+              mezoEpoch={mezoEpoch}
+              liveCountdown={epoch.epochEndsIn}
+            />
+
+            {/* Primary workflow — Step 1 and Step 2 side by side, always
+                visible without scrolling. */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
+              <LockAndMint
                 position={position}
                 stats={stats}
                 isScanning={isScanning}
                 isLoading={isLoading}
-                onDeposit={() => setActiveModal("deposit")}
-                onWithdraw={() => setActiveModal("withdraw")}
+                onDeposit={handleDeposit}
+                onUnlockPermanent={handleUnlockPermanent}
+                onExtendLock={handleExtendLock}
               />
-              <StakingTerminal
-                position={position}
-                stats={stats}
-                onStake={() => setActiveModal("stake")}
-                onUnstake={() => setActiveModal("unstake")}
-              />
-              <GaugeAllocations gauges={gauges} />
-            </div>
-
-            <div className="lg:col-span-4 space-y-6">
-              <YieldTerminal
+              <StakeAndEarn
                 position={position}
                 stats={stats}
                 hasRewards={hasRewards}
-                onClaim={() => setActiveModal("claim")}
+                onStake={handleStake}
+                onClaim={handleClaim}
+                onUnstake={() => setActiveModal("unstake")}
               />
-              <KeeperFunctions
+            </div>
+
+            {/* Secondary row — keeper status, protocol activity, epoch/rewards. */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+              <KeeperPanel
                 epoch={epoch}
                 stats={stats}
                 canExtend={canExtend}
@@ -350,14 +345,15 @@ export default function TerminalPage() {
                 onCastVotes={() => setActiveModal("castVotes")}
                 onHarvest={() => setActiveModal("harvest")}
               />
-              <EpochStatus
+              <ActivityPanel gauges={gauges} />
+              <EpochRewardsPanel
                 epoch={epoch}
                 stats={stats}
                 mezoEpoch={mezoEpoch}
                 liveCountdown={epoch.epochEndsIn}
               />
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -368,17 +364,9 @@ export default function TerminalPage() {
         stats={stats}
         epoch={epoch}
         gauges={gauges}
-        liveCountdown={epoch.timeUntilNextVote}
         timeToVoteOpen={timeToVoteOpen}
-        onUnlockPermanent={handleUnlockPermanent}
-        onExtendLock={handleExtendLock}
-        onDeposit={handleDeposit}
         onWithdraw={handleWithdraw}
-        onStake={handleStake}
-        onCheckAllowance={checkAllowance}
-        onApprove={approveToken}
         onUnstake={handleUnstake}
-        onClaim={handleClaim}
         onCastVotes={handleCastVotes}
         onHarvest={handleHarvest}
       />

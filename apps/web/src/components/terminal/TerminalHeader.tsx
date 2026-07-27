@@ -12,7 +12,7 @@ interface TerminalHeaderProps {
 
 export function TerminalHeader({ isLoading, isScanning, networkError, contractsDeployed, refresh }: TerminalHeaderProps) {
   return (
-    <div className="max-w-[1120px] mx-auto px-5 pt-6">
+    <div className="max-w-[1700px] mx-auto px-6 pt-6">
       <div className="rounded-card border border-void-border bg-void-soft overflow-hidden">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">

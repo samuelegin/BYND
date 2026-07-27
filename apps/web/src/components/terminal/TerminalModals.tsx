@@ -1,10 +1,7 @@
 import React from 'react';
 import {
-  DepositModal,
   WithdrawModal,
-  StakeModal,
   UnstakeModal,
-  ClaimModal,
   CastVotesModal,
   HarvestModal,
 } from '@/components/modals';
@@ -17,67 +14,35 @@ interface TerminalModalsProps {
   stats: ProtocolStats;
   epoch: EpochState;
   gauges: GaugeAllocation[];
-  liveCountdown: number;
   timeToVoteOpen: number;
-  onUnlockPermanent: (tokenId: number) => Promise<void>;
-  onExtendLock: (tokenId: number) => Promise<void>;
-  onDeposit: (tokenId: number) => Promise<void>;
   onWithdraw: (tokenId: number) => Promise<void>;
-  onStake: (amount: string) => Promise<void>;
-  onCheckAllowance: (amount: string) => Promise<boolean>;
-  onApprove: (amount: string) => Promise<void>;
   onUnstake: (amount: string) => Promise<void>;
-  onClaim: () => Promise<void>;
   onCastVotes: () => Promise<void>;
   onHarvest: () => Promise<void>;
 }
 
+// Lock & Mint (Step 1), Stake (Step 2), and Claim all now happen inline in
+// their respective terminal cards -- they read like completing a
+// transaction, not opening a separate dialog. This leaves modals for the
+// lower-frequency, secondary actions only: withdraw (disabled/permanent
+// lock info), unstake, and the two keeper calls.
 export function TerminalModals({
-  activeModal, onClose, position, stats, epoch, gauges, liveCountdown, timeToVoteOpen,
-  onUnlockPermanent, onExtendLock, onDeposit, onWithdraw, onStake, onCheckAllowance, onApprove,
-  onUnstake, onClaim, onCastVotes, onHarvest,
+  activeModal, onClose, position, stats, epoch, gauges, timeToVoteOpen,
+  onWithdraw, onUnstake, onCastVotes, onHarvest,
 }: TerminalModalsProps) {
   return (
     <>
-      <DepositModal
-        isOpen={activeModal === 'deposit'}
-        onClose={onClose}
-        permanentIds={position.permanentIds}
-        expiredIds={position.expiredIds}
-        onUnlockPermanent={onUnlockPermanent}
-        onExtendLock={onExtendLock}
-        tokenIds={position.veMezoTokenIds}
-        lockedAmounts={position.lockedAmounts}
-        protocolFeeBps={stats.protocolFeeBps}
-        onDeposit={onDeposit}
-      />
       <WithdrawModal
         isOpen={activeModal === 'withdraw'}
         onClose={onClose}
         tokenIds={position.veMezoTokenIds}
         onWithdraw={onWithdraw}
       />
-      <StakeModal
-        isOpen={activeModal === 'stake'}
-        onClose={onClose}
-        veByndBalance={position.veByndBalance}
-        avgApr={stats.avgApr}
-        rewardTokenSymbol={stats.rewardTokenSymbol}
-        onStake={onStake}
-        onCheckAllowance={onCheckAllowance}
-        onApprove={onApprove}
-      />
       <UnstakeModal
         isOpen={activeModal === 'unstake'}
         onClose={onClose}
         stakedBalance={position.stakedBalance}
         onUnstake={onUnstake}
-      />
-      <ClaimModal
-        isOpen={activeModal === 'claim'}
-        onClose={onClose}
-        claimableRewards={position.claimableRewards}
-        onClaim={onClaim}
       />
       <CastVotesModal
         isOpen={activeModal === 'castVotes'}

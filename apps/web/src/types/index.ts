@@ -9,6 +9,7 @@ export interface UserPosition {
   veMezoTokenIds: number[];
   lockedAmounts: Record<number, string>; // tokenId → locked MEZO amount
   permanentIds: number[];               // subset of veMezoTokenIds with isPermanent=true
+  expiredIds: number[];                 // subset of veMezoTokenIds with end <= now and not permanent — vault will reject these until extended
   veByndBalance: string;
   stakedBalance: string;
   // Generic across every registered reward token (populated from

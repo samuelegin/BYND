@@ -20,6 +20,7 @@ interface TerminalModalsProps {
   liveCountdown: number;
   timeToVoteOpen: number;
   onUnlockPermanent: (tokenId: number) => Promise<void>;
+  onExtendLock: (tokenId: number) => Promise<void>;
   onDeposit: (tokenId: number) => Promise<void>;
   onWithdraw: (tokenId: number) => Promise<void>;
   onStake: (amount: string) => Promise<void>;
@@ -33,7 +34,7 @@ interface TerminalModalsProps {
 
 export function TerminalModals({
   activeModal, onClose, position, stats, epoch, gauges, liveCountdown, timeToVoteOpen,
-  onUnlockPermanent, onDeposit, onWithdraw, onStake, onCheckAllowance, onApprove,
+  onUnlockPermanent, onExtendLock, onDeposit, onWithdraw, onStake, onCheckAllowance, onApprove,
   onUnstake, onClaim, onCastVotes, onHarvest,
 }: TerminalModalsProps) {
   return (
@@ -42,7 +43,9 @@ export function TerminalModals({
         isOpen={activeModal === 'deposit'}
         onClose={onClose}
         permanentIds={position.permanentIds}
+        expiredIds={position.expiredIds}
         onUnlockPermanent={onUnlockPermanent}
+        onExtendLock={onExtendLock}
         tokenIds={position.veMezoTokenIds}
         lockedAmounts={position.lockedAmounts}
         protocolFeeBps={stats.protocolFeeBps}

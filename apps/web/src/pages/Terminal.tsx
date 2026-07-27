@@ -60,7 +60,15 @@ export default function TerminalPage() {
   // this check, a reverted deposit()/stake()/approve() looks identical to a
   // successful one in the UI: no error shown, no mint, no NFT transferred.
   const waitAndCheck = async (hash: `0x${string}`, label: string) => {
-    const receipt = await publicClient?.waitForTransactionReceipt({ hash });
+    // Matsnet's block times are slower/less consistent than viem's default
+    // timeout assumes -- without this, a perfectly good tx that just takes a
+    // bit longer to confirm throws a spurious "receipt not found" error even
+    // though it lands fine a few seconds later.
+    const receipt = await publicClient?.waitForTransactionReceipt({
+      hash,
+      timeout: 180_000, // 3 min
+      pollingInterval: 3_000,
+    });
     if (receipt?.status !== "success") {
       throw new Error(
         `${label} transaction was mined but reverted on-chain (${hash}). ` +
@@ -207,6 +215,25 @@ export default function TerminalPage() {
         functionName: "unlockPermanent",
         args: [BigInt(tokenId)],
       }),
+      `Unlock permanent lock for veMEZO #${tokenId}`,
+    );
+  };
+
+  const handleExtendLock = async (tokenId: number) => {
+    // Fixes the exact bug that silently broke veMEZO #832's deposit: the
+    // vault requires (isPermanent || end > now), and an already-expired,
+    // non-permanent lock reverts deposit() every time until extended.
+    const FOUR_YEARS = 4 * 365 * 24 * 60 * 60;
+    const newEnd = BigInt(Math.floor(Date.now() / 1000) + FOUR_YEARS);
+    await withTx(
+      () =>
+        writeContractAsync({
+          address: addrs.VeMEZO,
+          abi: VEMEZO_ABI,
+          functionName: "increaseUnlockTime",
+          args: [BigInt(tokenId), newEnd],
+        }),
+      `Extend lock for veMEZO #${tokenId}`,
     );
   };
 
@@ -344,6 +371,7 @@ export default function TerminalPage() {
         liveCountdown={epoch.timeUntilNextVote}
         timeToVoteOpen={timeToVoteOpen}
         onUnlockPermanent={handleUnlockPermanent}
+        onExtendLock={handleExtendLock}
         onDeposit={handleDeposit}
         onWithdraw={handleWithdraw}
         onStake={handleStake}

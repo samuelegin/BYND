@@ -14,12 +14,14 @@ interface DepositModalProps {
   tokenIds: number[];
   lockedAmounts?: Record<number, string>;
   permanentIds?: number[];   // token IDs with isPermanent=true — vault cannot accept these as-is
+  expiredIds?: number[];     // token IDs whose lock has already ended — vault requires end > now unless permanent
   protocolFeeBps?: number;   // governance-set, 0 if never configured on-chain
   onUnlockPermanent: (tokenId: number) => Promise<void>;
+  onExtendLock: (tokenId: number) => Promise<void>;
   onDeposit: (tokenId: number) => Promise<void>;
 }
 
-export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tokenIds, lockedAmounts = {}, permanentIds = [], protocolFeeBps = 0, onUnlockPermanent, onDeposit }) => {
+export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tokenIds, lockedAmounts = {}, permanentIds = [], expiredIds = [], protocolFeeBps = 0, onUnlockPermanent, onExtendLock, onDeposit }) => {
   const [selected, setSelected] = useState<number | null>(null);
   const [status, setStatus]     = useState<TxStatus>({ type: null, message: null });
 
@@ -90,18 +92,58 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
           </div>
         )}
 
+        {/* Per-token warning + one-click extend when an EXPIRED lock is selected. The
+            vault requires (isPermanent || end > now) — an expired lock reverts on
+            deposit(). Without this check it used to fail silently (looked "successful"
+            in the UI, minted nothing) since the old code never checked tx receipt status. */}
+        {selected !== null && expiredIds.includes(selected) && (
+          <div className="rounded-control p-3 border border-yellow-400/30 bg-yellow-400/5 space-y-2">
+            <div className="flex gap-2">
+              <AlertTriangle size={14} className="text-yellow-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm text-yellow-300 font-medium">
+                  veMEZO #{selected}&rsquo;s lock has expired
+                </p>
+                <p className="text-xs text-white/60 leading-relaxed">
+                  The vault requires an active (non-expired) lock. Click below to extend it to the
+                  4-year maximum first — this is a one-time wallet transaction, then you can deposit.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              fullWidth
+              className="border-yellow-400/30 text-yellow-300 hover:bg-yellow-400/10"
+              onClick={async () => {
+                setStatus({ type: 'loading', message: 'Extending lock to 4 years…' });
+                try {
+                  await onExtendLock(selected);
+                  setStatus({ type: 'success', message: 'Done. You can now deposit. Click Lock and mint.' });
+                } catch (e: any) {
+                  setStatus({ type: 'error', message: e.message || 'Extend failed' });
+                }
+              }}
+              isLoading={status.type === 'loading'}
+            >
+              Extend lock to 4 years
+            </Button>
+          </div>
+        )}
+
         <div className="space-y-2">
           {displayIds.length === 0 ? (
             <div className="rounded-control p-6 border border-void-border text-center">
               <p className="text-sm text-white/60">No veMEZO NFTs in wallet</p>
             </div>
-          ) : displayIds.map(id => (
+          ) : displayIds.map(id => {
+            const isExpired = expiredIds.includes(id);
+            return (
             <button
               key={id}
               onClick={() => setSelected(id)}
               className={clsx(
                 'w-full flex items-center justify-between rounded-control p-4 border transition-all duration-200',
-                selected === id ? 'border-gold/50 bg-gold/5' : 'border-void-border hover:border-white/[.12]'
+                selected === id ? 'border-gold/50 bg-gold/5' : isExpired ? 'border-yellow-400/20' : 'border-void-border hover:border-white/[.12]'
               )}
             >
               <div className="flex items-center gap-3">
@@ -111,12 +153,19 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
                 )} />
                 <div className="text-left">
                   <span className="text-sm font-medium text-white/[.87]">veMEZO #{id}</span>
-                  <p className="text-xs text-white/60">{lockedAmounts[id] ? `~${parseFloat(lockedAmounts[id]).toLocaleString()} MEZO locked · extended to 4yr` : 'Loading…'}</p>
+                  <p className={clsx('text-xs', isExpired ? 'text-yellow-400' : 'text-white/60')}>
+                    {!lockedAmounts[id]
+                      ? 'Loading…'
+                      : isExpired
+                        ? `~${parseFloat(lockedAmounts[id]).toLocaleString()} MEZO · lock expired`
+                        : `~${parseFloat(lockedAmounts[id]).toLocaleString()} MEZO locked · extended to 4yr`}
+                  </p>
                 </div>
               </div>
               <span className="font-mono text-xs font-medium text-gold">{lockedAmounts[id] ? `${netReceive(lockedAmounts[id]).toLocaleString(undefined, { maximumFractionDigits: 2 })} veBYND` : '…'}</span>
             </button>
-          ))}
+            );
+          })}
         </div>
 
         <div className="rounded-control p-3 border border-void-border bg-bg space-y-2">
@@ -138,7 +187,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
         <div className="flex gap-3">
           <Button variant="ghost" className="flex-1" onClick={onClose}>Cancel</Button>
           <Button variant="primary" className="flex-1" onClick={handleDeposit}
-                  disabled={selected === null || (selected !== null && permanentIds.includes(selected))}
+                  disabled={selected === null || (selected !== null && (permanentIds.includes(selected) || expiredIds.includes(selected)))}
                   isLoading={status.type === 'loading'}>
             Lock and mint veBYND
           </Button>

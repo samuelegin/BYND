@@ -48,7 +48,7 @@ const EMPTY_EPOCH: EpochState = {
   canExtendLocks: false,
 };
 const EMPTY_POSITION: UserPosition = {
-  veMezoTokenIds: [], lockedAmounts: {}, permanentIds: [], veByndBalance: '0',
+  veMezoTokenIds: [], lockedAmounts: {}, permanentIds: [], expiredIds: [], veByndBalance: '0',
   stakedBalance: '0', claimableRewards: [],
 };
 
@@ -350,13 +350,26 @@ export function useProtocol(
       });
     }
     const permanent: number[] = [];
+    const expired: number[] = [];
+    const now = Math.floor(Date.now() / 1000);
     if (lockedData) {
       ownedTokenIds.forEach((id, i) => {
         const result = lockedData[i]?.result as [bigint, bigint, boolean] | undefined;
-        if (result?.[2]) permanent.push(id); // isPermanent = true
+        if (!result) return;
+        const [, end, isPermanent] = result;
+        if (isPermanent) {
+          permanent.push(id); // isPermanent = true
+        } else if (Number(end) <= now) {
+          // Vault requires (isPermanent || end > now) — an expired,
+          // non-permanent lock will revert on deposit() until extended.
+          // This is the exact case that silently failed before we added
+          // proper receipt-status checking: the tx would look "successful"
+          // in the UI with the old code, but nothing actually deposited.
+          expired.push(id);
+        }
       });
     }
-    setPosition(prev => ({ ...prev, veMezoTokenIds: ownedTokenIds, lockedAmounts: amounts, permanentIds: permanent }));
+    setPosition(prev => ({ ...prev, veMezoTokenIds: ownedTokenIds, lockedAmounts: amounts, permanentIds: permanent, expiredIds: expired }));
   }, [ownedTokenIds, lockedData]);
 
   // ── Read reward token symbol ────────────────────────────────────────────

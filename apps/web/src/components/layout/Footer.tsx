@@ -14,13 +14,13 @@ const FOOT_LINKS = [
   { label: "Terminal", href: "/terminal" },
   { label: "Keeper", href: "/keeper" },
   { label: "Analytics", href: "/analytics" },
-  { label: "Docs", href: "https://docs.mezo.org" },
+  { label: "Docs", href: "/docs" },
   { label: "Explorer", href: "https://explorer.test.mezo.org" },
   { label: "Mezo Swap", href: "https://app.mezo.org" },
 ];
 
 const SOCIALS = [
-  { icon: XIcon, href: "https://x.com", label: "X" },
+  { icon: XIcon, href: "https://x.com/byndxyz", label: "X" },
   { icon: TelegramIcon, href: "https://t.me", label: "Telegram" },
   { icon: DiscordIcon, href: "https://discord.com", label: "Discord" },
 ];
@@ -132,9 +132,7 @@ export function Footer() {
         <div className="flex flex-col items-start sm:items-end gap-2">
           <div className="flex items-center gap-6 text-sm text-white/60">
             <a
-              href="https://docs.mezo.org"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/docs"
               className="hover:text-white/[.87] transition-colors"
             >
               Docs

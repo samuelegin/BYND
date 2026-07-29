@@ -10,11 +10,20 @@ const NAV_LINKS = [
   { href: '/terminal',  label: 'Terminal'  },
   { href: '/keeper',    label: 'Keeper'    },
   { href: '/analytics', label: 'Analytics' },
+  { href: '/docs',      label: 'Docs'      },
 ];
 
 export function Navbar() {
   const location = useLocation();
   const pathname = location.pathname;
+  // Sub-routes (e.g. /docs/quickstart) should still highlight their parent
+  // nav item — exact match wins, otherwise fall back to the longest
+  // matching non-root prefix.
+  const activeHref = pathname === '/'
+    ? '/'
+    : NAV_LINKS
+        .filter((l) => l.href !== '/' && pathname.startsWith(l.href))
+        .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? pathname;
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const headerRef = useRef<HTMLElement>(null);
@@ -39,12 +48,12 @@ export function Navbar() {
   }
 
   useEffect(() => {
-    moveTo(pathname);
-    const onResize = () => moveTo(pathname);
+    moveTo(activeHref);
+    const onResize = () => moveTo(activeHref);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [activeHref]);
 
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -109,10 +118,10 @@ export function Navbar() {
               ref={(el) => { linkRefs.current[link.href] = el; }}
               to={link.href}
               onMouseEnter={() => moveTo(link.href)}
-              onMouseLeave={() => moveTo(pathname)}
+              onMouseLeave={() => moveTo(activeHref)}
               className={clsx(
                 'relative z-[1] rounded-full px-4 py-2.5 text-sm transition-colors',
-                pathname === link.href ? 'text-gold' : 'text-white/60 hover:text-white/90'
+                activeHref === link.href ? 'text-gold' : 'text-white/60 hover:text-white/90'
               )}
             >
               {link.label}
@@ -187,7 +196,7 @@ export function Navbar() {
               onClick={() => setMobileOpen(false)}
               className={clsx(
                 'block rounded-xl px-4 py-3 text-[15px] transition-colors',
-                pathname === link.href ? 'text-gold' : 'text-white/60 hover:bg-white/5 hover:text-white/[.87]'
+                activeHref === link.href ? 'text-gold' : 'text-white/60 hover:bg-white/5 hover:text-white/[.87]'
               )}
             >
               {link.label}

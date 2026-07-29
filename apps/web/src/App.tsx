@@ -6,6 +6,7 @@ import HomePage from '@/pages/Home';
 import TerminalPage from '@/pages/Terminal';
 import AnalyticsPage from '@/pages/Analytics';
 import KeeperPage from '@/pages/Keeper';
+import DocsPage from '@/pages/Docs';
 
 export function App() {
   const location = useLocation();
@@ -21,6 +22,8 @@ export function App() {
           <Route path="/terminal"  element={<TerminalPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/keeper"    element={<KeeperPage />} />
+          <Route path="/docs"      element={<DocsPage />} />
+          <Route path="/docs/:slug" element={<DocsPage />} />
         </Routes>
       </main>
       <Footer />

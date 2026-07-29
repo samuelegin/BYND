@@ -3,9 +3,9 @@ import { AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
 import type { DocBlock } from './types';
 
 function Prose({ text }: { text: string }) {
-  // Minimal inline formatting: `code` spans and **bold** — enough for
-  // technical docs without pulling in a markdown renderer.
-  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
+  // Minimal inline formatting: `code` spans, **bold**, and [text](url)
+  // links — enough for technical docs without pulling in a markdown lib.
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
   return (
     <>
       {parts.map((part, i) => {
@@ -18,6 +18,22 @@ function Prose({ text }: { text: string }) {
         }
         if (part.startsWith('**') && part.endsWith('**')) {
           return <strong key={i} className="font-medium text-white/[.87]">{part.slice(2, -2)}</strong>;
+        }
+        const linkMatch = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part);
+        if (linkMatch) {
+          const [, label, href] = linkMatch;
+          const external = /^https?:\/\//.test(href);
+          return (
+            <a
+              key={i}
+              href={href}
+              target={external ? '_blank' : undefined}
+              rel={external ? 'noopener noreferrer' : undefined}
+              className="text-gold underline decoration-gold/30 underline-offset-2 transition-colors hover:decoration-gold"
+            >
+              {label}
+            </a>
+          );
         }
         return <React.Fragment key={i}>{part}</React.Fragment>;
       })}

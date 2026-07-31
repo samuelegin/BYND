@@ -91,7 +91,7 @@ Unstake anytime. Exit liquidity via the veBYND/MEZO pool on Mezo Swap.
 
 | Contract | Role |
 |---|---|
-| `ByNdVault` | Custodies veMEZO NFTs (UUPS upgradeable) · mints veBYND 1:1 · batched `extendLocks()`/`claimRebases()` (≤200 tokenIds/call) so gas never scales with vault size |
+| `ByNdVault` | Custodies veMEZO NFTs (UUPS upgradeable) · mints veBYND 1:1 · every deposit after the first is merged into a single canonical veMEZO NFT via `merge()`, so `extendLocks()`/`claimRebases()` take no arguments and gas never scales with vault size |
 | `VeBYND` | Liquid ERC-20 receipt token, `AccessControl`-gated `mint`/`burn` (`MINTER_ROLE`/`BURNER_ROLE`), UUPS upgradeable via `UPGRADER_ROLE` |
 | `ByNdStaking` | Multi-token reward distributor (Synthetix `rewardPerToken` pattern, unlimited simultaneous reward tokens) · `claimAll()` / `claimReward(token)` |
 | `ByNdVoter` | Epoch state machine · on-chain gauge optimiser or governance-set gauge list · batched bribe claiming · 5-way keeper bounty split · optional protocol fee · emergency epoch escape hatch |
@@ -102,7 +102,7 @@ Unstake anytime. Exit liquidity via the veBYND/MEZO pool on Mezo Swap.
 
 ### Stream 1 — veMEZO Rebase (auto-compounds into boost power)
 
-Mezo's RewardsDistributor pays a rebase to veMEZO holders each epoch. A keeper calls `ByNdVault.claimRebases(tokenIds)` (batched, ≤200 tokenIds per call) which triggers `distributor.claimMany(tokenIds)`. The distributor calls `ve.depositFor(tokenId, amount)` for each NFT, compounding the rebase directly back into BynD's locked MEZO balance.
+Mezo's RewardsDistributor pays a rebase to veMEZO holders each epoch. A keeper calls `ByNdVault.claimRebases()` — no arguments needed — which triggers `distributor.claimMany(tokenIds)` against whatever the vault currently manages (almost always just the single canonical veMEZO NFT every deposit gets merged into). The distributor calls `ve.depositFor(tokenId, amount)`, compounding the rebase directly back into BynD's locked MEZO balance.
 
 **No liquid tokens leave the vault.** Stakers benefit indirectly: more locked MEZO → larger aggregated boost block → larger share of gauge bribe incentives each epoch.
 
@@ -127,11 +127,11 @@ A token that hasn't cleared its harvest threshold (global `minHarvestThreshold`,
 None of these are time-gated — every step is callable at any time; the only ordering constraint is on-chain state (you can't vote twice in an epoch, and you can't harvest before claiming). This removes the fixed "vote window" from BynD v1 in favor of a purely state-driven epoch machine.
 
 ```
-Step 1  claimRebases(tokenIds)     Compounds the veMEZO rebase into a batch of deposits (≤200/call)
-                                    No epoch gate — call any time, page through in batches
+Step 1  claimRebases()             Compounds the veMEZO rebase into whatever the vault currently manages
+                                    No epoch gate, no arguments — call any time
 
-Step 2  extendLocks(tokenIds)      Extends a batch of deposited locks toward the 4-year maximum (≤200/call)
-                                    Harmless no-op for any tokenId that doesn't need it
+Step 2  extendLocks()              Extends the vault's managed lock(s) toward the 4-year maximum
+                                    No arguments — harmless no-op for any tokenId that doesn't need it
 
 Step 3  optimiseAndVote()          Routes all managed veMEZO to either governance-set gauges, or the
                                     single highest-claimable alive gauge if none are set
@@ -227,11 +227,11 @@ pnpm --filter @bynd/web dev
 
 ### Keeper operations (via `cast`, each epoch)
 ```bash
-# Step 1 — any time, batched
-cast send <ByNdVault> "claimRebases(uint256[])" "[<tokenIds>]" --private-key <KEY> --rpc-url <RPC>
+# Step 1 — any time, no arguments
+cast send <ByNdVault> "claimRebases()" --private-key <KEY> --rpc-url <RPC>
 
-# Step 2 — any time, batched
-cast send <ByNdVault> "extendLocks(uint256[])" "[<tokenIds>]" --private-key <KEY> --rpc-url <RPC>
+# Step 2 — any time, no arguments
+cast send <ByNdVault> "extendLocks()" --private-key <KEY> --rpc-url <RPC>
 
 # Step 3 — once per epoch
 cast send <ByNdVoter> "optimiseAndVote()" --private-key <KEY> --rpc-url <RPC>

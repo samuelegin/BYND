@@ -3,5 +3,8 @@
   "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @bynd/web build",
   "outputDirectory": "dist",
   "installCommand": "echo 'skip - handled in buildCommand'",
-  "framework": "vite"
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

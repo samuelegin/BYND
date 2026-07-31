@@ -100,7 +100,11 @@ describe("ByNdVault", function () {
       expect(await veBYND.balanceOf(alice.address)).to.equal(
         ethers.parseEther("3000")
       );
-      expect(await vault.totalDeposited()).to.equal(3);
+      // veBYND minting is unaffected by consolidation (still 1:1 per
+      // deposit), but the 2nd and 3rd NFTs get merged into the first
+      // (canonical) one, so only 1 tokenId is actually still managed.
+      expect(await vault.totalDeposited()).to.equal(1);
+      expect(await vault.canonicalTokenId()).to.equal(1n);
     });
 
     it("reverts on an empty array", async () => {
@@ -125,7 +129,7 @@ describe("ByNdVault", function () {
       const tokenId = await mintAndDeposit(ctx, alice);
       const before = await veMEZO.locked(tokenId);
 
-      await vault.extendLocks([tokenId]);
+      await vault.extendLocks();
       const after = await veMEZO.locked(tokenId);
       expect(after.end).to.be.gt(before.end);
 
@@ -134,32 +138,25 @@ describe("ByNdVault", function () {
       // that same tiny amount rather than being byte-identical; it's a
       // no-op in spirit (no meaningful re-extension), not a no-op to the
       // wei/second.
-      await expect(vault.extendLocks([tokenId])).to.not.be.reverted;
+      await expect(vault.extendLocks()).to.not.be.reverted;
       const afterSecond = await veMEZO.locked(tokenId);
       expect(afterSecond.end - after.end).to.be.lte(5n);
     });
 
-    it("is callable by anyone (permissionless keeper step)", async () => {
+    it("is callable by anyone (permissionless keeper step), and now takes no arguments — it always processes every currently-managed tokenId itself", async () => {
       const { vault, stranger, alice } = ctx;
-      const tokenId = await mintAndDeposit(ctx, alice);
-      await expect(vault.connect(stranger).extendLocks([tokenId])).to.not.be
-        .reverted;
+      await mintAndDeposit(ctx, alice);
+      await expect(vault.connect(stranger).extendLocks()).to.not.be.reverted;
     });
 
-    it("reverts on an empty batch", async () => {
-      const { vault } = ctx;
-      await expect(vault.extendLocks([])).to.be.revertedWith(
-        "ByNdVault: empty batch"
-      );
-    });
-
-    it("reverts above the MAX_BATCH cap", async () => {
-      const { vault } = ctx;
-      const ids = Array.from({ length: 201 }, (_, i) => i + 1);
-      await expect(vault.extendLocks(ids)).to.be.revertedWith(
-        "ByNdVault: batch too large"
-      );
-    });
+    // NOTE: extendLocks() no longer takes a caller-supplied tokenId array
+    // (see ByNdVault's class-level comment on merge-consolidation), so the
+    // old "empty batch" / "batch too large" revert-message tests no longer
+    // apply — there's no batch argument left to validate. The MAX_BATCH
+    // constant still exists as an internal defensive cap on allTokenIds
+    // (in case merge() failures ever pile up stragglers at scale), but it's
+    // not externally observable as a revert; it just silently caps how many
+    // tokenIds a single call processes.
   });
 
   describe("claimRebases", () => {
@@ -171,26 +168,85 @@ describe("ByNdVault", function () {
         [await ctx.veMEZO.getAddress(), await ctx.veBYND.getAddress()],
         { kind: "uups" }
       );
-      await expect(freshVault.claimRebases([1])).to.be.revertedWith(
+      await expect(freshVault.claimRebases()).to.be.revertedWith(
         "ByNdVault: distributor not set"
       );
     });
 
-    it("reverts on an empty batch", async () => {
-      const { vault } = ctx;
-      await expect(vault.claimRebases([])).to.be.revertedWith(
-        "ByNdVault: empty batch"
+    it("reverts if there's nothing deposited yet", async () => {
+      const ByNdVault = await ethers.getContractFactory("ByNdVault");
+      const { upgrades } = require("hardhat");
+      const freshVault = await upgrades.deployProxy(
+        ByNdVault,
+        [await ctx.veMEZO.getAddress(), await ctx.veBYND.getAddress()],
+        { kind: "uups" }
+      );
+      await freshVault.setRewardsDistributor(
+        await ctx.rewardsDistributor.getAddress()
+      );
+      await expect(freshVault.claimRebases()).to.be.revertedWith(
+        "ByNdVault: nothing to claim"
       );
     });
 
     it("succeeds once there is at least one deposit and notifies the voter", async () => {
       const { vault, voter, alice, keeper } = ctx;
-      const tokenId = await mintAndDeposit(ctx, alice);
-      await expect(vault.connect(keeper).claimRebases([tokenId]))
+      await mintAndDeposit(ctx, alice);
+      await expect(vault.connect(keeper).claimRebases())
         .to.emit(vault, "RebasesClaimed")
         .withArgs(keeper.address, 1);
       expect(await voter.epochRebasesClaimed(0)).to.equal(true);
       expect(await voter.epochKeeperClaimRebases(0)).to.equal(keeper.address);
+    });
+  });
+
+  describe("merge-consolidation into a single canonical NFT", () => {
+    it("merges every deposit after the first into canonicalTokenId, so allTokenIds stays at length 1", async () => {
+      const { vault, alice, bob } = ctx;
+      const tokenIdAlice = await mintAndDeposit(ctx, alice);
+      expect(await vault.canonicalTokenId()).to.equal(tokenIdAlice);
+      expect((await vault.getAllTokenIds()).length).to.equal(1);
+
+      const tokenIdBob = await mintAndDeposit(ctx, bob);
+      // Bob's deposit should have been merged into (burned into) Alice's
+      // canonical tokenId rather than added as a second managed NFT.
+      expect(await vault.canonicalTokenId()).to.equal(tokenIdAlice);
+      const all = await vault.getAllTokenIds();
+      expect(all.length).to.equal(1);
+      expect(all[0]).to.equal(tokenIdAlice);
+
+      // Both users still got veBYND minted 1:1 for what they deposited —
+      // consolidation only affects the underlying voting NFT, not accounting.
+      expect(await ctx.veBYND.balanceOf(alice.address)).to.be.gt(0);
+      expect(await ctx.veBYND.balanceOf(bob.address)).to.be.gt(0);
+      // tokenIdBob no longer exists as an NFT — it was burned by merge().
+      await expect(ctx.veMEZO.ownerOf(tokenIdBob)).to.be.reverted;
+    });
+
+    it("falls back to individually managing a deposit that merge() rejects (e.g. already voted this epoch), rather than losing it", async () => {
+      const { vault, veMEZO, alice, bob } = ctx;
+      const tokenIdAlice = await mintAndDeposit(ctx, alice);
+
+      // Mint Bob a lock but mark it as already-voted so the mock's merge()
+      // rejects it, exactly like Mezo's real Escrow.merge() would for an NFT
+      // that already voted elsewhere this epoch.
+      await veMEZO.mint(bob.address, 0);
+      const tokenIdBob = tokenIdAlice + 1n;
+      await veMEZO.setVotedForTest(tokenIdBob, true);
+      await veMEZO.connect(bob).approve(await vault.getAddress(), tokenIdBob);
+
+      await expect(vault.connect(bob).deposit(tokenIdBob))
+        .to.emit(vault, "MergeFailedFallback")
+        .withArgs(tokenIdBob);
+
+      // Both tokenIds are now individually managed — nothing was lost.
+      const all = await vault.getAllTokenIds();
+      expect(all.length).to.equal(2);
+      expect(all).to.include(tokenIdAlice);
+      expect(all).to.include(tokenIdBob);
+      // tokenIdBob still exists as a real NFT (not burned) since it was
+      // never actually merged.
+      expect(await veMEZO.ownerOf(tokenIdBob)).to.equal(await vault.getAddress());
     });
   });
 

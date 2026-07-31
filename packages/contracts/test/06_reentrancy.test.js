@@ -37,7 +37,7 @@ describe("Security: reentrancy & trust-boundary tests", function () {
       // tokenId's increaseUnlockTime() call is individually try/caught, so
       // that revert is swallowed. The outer batch call still succeeds as a
       // whole; only this tokenId's extension is skipped.
-      await expect(vault.extendLocks([1]))
+      await expect(vault.extendLocks())
         .to.emit(vault, "LockExtendSkipped")
         .withArgs(1);
       const after = await malVeMEZO.locked(1);
@@ -54,7 +54,7 @@ describe("Security: reentrancy & trust-boundary tests", function () {
       const relayer = await RelayerCaller.deploy();
 
       // alice (EOA, tx.origin) calls through the relayer contract (msg.sender to the vault)
-      await relayer.connect(alice).relayExtendLocks(await vault.getAddress(), [tokenId]);
+      await relayer.connect(alice).relayExtendLocks(await vault.getAddress());
 
       expect(await voter.epochKeeperExtendLocks(0)).to.equal(alice.address);
       // NOTE: this means any keeper-bounty logic keyed off markLocksExtended's
@@ -151,8 +151,8 @@ describe("Security: reentrancy & trust-boundary tests", function () {
   describe("MockRewardsDistributor no-op safety", () => {
     it("claimRebases() succeeds against a no-op distributor without reverting", async () => {
       const { vault, alice } = ctx;
-      const tokenId = await mintAndDeposit(ctx, alice);
-      await expect(vault.claimRebases([tokenId])).to.not.be.reverted;
+      await mintAndDeposit(ctx, alice);
+      await expect(vault.claimRebases()).to.not.be.reverted;
     });
   });
 });

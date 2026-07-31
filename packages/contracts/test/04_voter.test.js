@@ -30,7 +30,7 @@ describe("ByNdVoter", function () {
     it("cannot be marked twice in the same epoch", async () => {
       const { vault, voter, alice } = ctx;
       const tokenId = await mintAndDeposit(ctx, alice);
-      await vault.claimRebases([tokenId]);
+      await vault.claimRebases();
       expect(await voter.epochRebasesClaimed(0)).to.equal(true);
       // second claimRebases in the same epoch should not revert the vault call
       // (claimRebases has no epoch gate itself) but the voter-side flag is

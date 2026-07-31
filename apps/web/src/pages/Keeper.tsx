@@ -50,23 +50,15 @@ export default function KeeperPage() {
     setClaimingRebases(true);
     try {
       await withTx(async () => {
-        // claimRebases() takes a batch of tokenIds (max 200/call) — fetch
-        // every NFT the vault holds and pass it in. See VAULT_ABI comment.
-        const tokenIds = (await publicClient?.readContract({
-          address: addrs.ByNdVault,
-          abi: VAULT_ABI,
-          functionName: "getAllTokenIds",
-        })) as readonly bigint[] | undefined;
-
-        if (!tokenIds || tokenIds.length === 0) {
-          throw new Error("No deposited veMEZO NFTs to claim rebases for.");
-        }
-
+        // Every deposit after the first gets merged into a single canonical
+        // veMEZO NFT (see ByNdVault.canonicalTokenId), so claimRebases() no
+        // longer takes a tokenIds argument — it just processes whatever it's
+        // currently managing itself. No pre-fetch needed anymore.
         return writeContractAsync({
           address: addrs.ByNdVault,
           abi: VAULT_ABI,
           functionName: "claimRebases",
-          args: [tokenIds.slice(0, 200) as bigint[]],
+          args: [],
         });
       });
     } finally {
@@ -78,21 +70,9 @@ export default function KeeperPage() {
     setExtendingLocks(true);
     try {
       await withTx(async () => {
-        // extendLocks() takes a batch of tokenIds (max 200/call) — use the
-        // contract's own paging helper to fetch exactly the ones that still
-        // need extending. See VAULT_ABI comment.
-        const result = (await publicClient?.readContract({
-          address: addrs.ByNdVault,
-          abi: VAULT_ABI,
-          functionName: "tokensNeedingExtend",
-          args: [0n, 200n],
-        })) as readonly [readonly bigint[], bigint] | undefined;
-
-        const tokenIds = result?.[0];
-        if (!tokenIds || tokenIds.length === 0) {
-          throw new Error("No locks currently need extending.");
-        }
-
+        // Same as claimRebases() above — no tokenIds argument needed
+        // post-consolidation.
+        //
         // ByNdVault.extendLocks() already calls voter.markLocksExtended()
         // internally as msg.sender == vault — a separate frontend call to
         // markLocksExtended() would always revert, since ByNdVoter requires
@@ -101,7 +81,7 @@ export default function KeeperPage() {
           address: addrs.ByNdVault,
           abi: VAULT_ABI,
           functionName: "extendLocks",
-          args: [tokenIds as bigint[]],
+          args: [],
         });
       });
     } finally {

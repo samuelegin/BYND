@@ -240,21 +240,11 @@ export default function TerminalPage() {
     setExtendingLocks(true);
     try {
       await withTx(async () => {
-        // extendLocks() takes a batch of tokenIds (max 200/call) — use the
-        // contract's own paging helper to fetch exactly the ones that still
-        // need extending. See VAULT_ABI comment in lib/contracts.ts.
-        const result = (await publicClient?.readContract({
-          address: addrs.ByNdVault,
-          abi: VAULT_ABI,
-          functionName: "tokensNeedingExtend",
-          args: [0n, 200n],
-        })) as readonly [readonly bigint[], bigint] | undefined;
-
-        const tokenIds = result?.[0];
-        if (!tokenIds || tokenIds.length === 0) {
-          throw new Error("No locks currently need extending.");
-        }
-
+        // Every deposit after the first gets merged into a single canonical
+        // veMEZO NFT (see ByNdVault.canonicalTokenId), so extendLocks() no
+        // longer takes a tokenIds argument — it just processes whatever it's
+        // currently managing itself. No pre-fetch needed anymore.
+        //
         // ByNdVault.extendLocks() already calls voter.markLocksExtended()
         // internally as msg.sender == vault — a separate frontend call to
         // markLocksExtended() would always revert, since ByNdVoter requires
@@ -263,7 +253,7 @@ export default function TerminalPage() {
           address: addrs.ByNdVault,
           abi: VAULT_ABI,
           functionName: "extendLocks",
-          args: [tokenIds as bigint[]],
+          args: [],
         });
       });
     } finally {

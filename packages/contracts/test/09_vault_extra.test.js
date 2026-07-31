@@ -9,19 +9,29 @@ describe("ByNdVault — extra coverage", function () {
     ctx = await deployAll();
   });
 
-  it("tracks depositorOf, getUserTokens and getAllTokenIds correctly across multiple users", async () => {
+  it("tracks depositorOf and getUserTokens as a full historical record across multiple users, even though t2 and t3 get merged away", async () => {
     const { vault, alice, bob } = ctx;
-    const t1 = await mintAndDeposit(ctx, alice);
-    const t2 = await mintAndDeposit(ctx, bob);
-    const t3 = await mintAndDeposit(ctx, alice);
+    const t1 = await mintAndDeposit(ctx, alice); // becomes canonicalTokenId
+    const t2 = await mintAndDeposit(ctx, bob);   // merged into t1 (Vault owns
+    const t3 = await mintAndDeposit(ctx, alice); // both sides of every merge,
+    // regardless of which user originally deposited which NFT — merge()'s
+    // ownership check is on the caller (the Vault), not the original
+    // depositor, so cross-user consolidation works exactly like same-user
+    // consolidation.)
 
+    // Historical "who deposited what" record is untouched by later merges —
+    // this is display/bookkeeping data, not the live-management list.
     expect(await vault.depositorOf(t1)).to.equal(alice.address);
     expect(await vault.depositorOf(t2)).to.equal(bob.address);
     expect(await vault.depositorOf(t3)).to.equal(alice.address);
     expect(await vault.getUserTokens(alice.address)).to.deep.equal([t1, t3]);
     expect(await vault.getUserTokens(bob.address)).to.deep.equal([t2]);
-    expect(await vault.getAllTokenIds()).to.deep.equal([t1, t2, t3]);
-    expect(await vault.totalDeposited()).to.equal(3);
+
+    // But the live-management list only ever has the canonical NFT — t2 and
+    // t3 were merged into t1 and burned, so they don't appear here.
+    expect(await vault.getAllTokenIds()).to.deep.equal([t1]);
+    expect(await vault.totalDeposited()).to.equal(1);
+    expect(await vault.canonicalTokenId()).to.equal(t1);
   });
 
   it("emits Deposited with the correct minted amount", async () => {

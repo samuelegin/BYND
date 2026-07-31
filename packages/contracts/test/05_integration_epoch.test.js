@@ -24,19 +24,27 @@ describe("Integration: one full BynD epoch", function () {
     // gauge configuration
     await setupSingleGauge(ctx, musd);
 
-    // Step 00: claimRebases (permissionless, batched over the vault's tokenIds)
-    await expect(vault.connect(keeper).claimRebases([tokenIdAlice, tokenIdBob]))
-      .to.emit(vault, "RebasesClaimed")
-      .withArgs(keeper.address, 2);
+    // Bob's deposit above got merged into Alice's canonical veMEZO NFT
+    // (MockVeMEZO implements merge() the same way Mezo's real Escrow.sol
+    // does), so the vault only ever manages ONE tokenId from here on —
+    // extendLocks()/claimRebases() no longer take a tokenId array at all;
+    // they just process whatever's currently in allTokenIds (length 1).
+    expect((await vault.getAllTokenIds()).length).to.equal(1);
+    expect(await vault.canonicalTokenId()).to.equal(tokenIdAlice);
 
-    // Step 01: extendLocks (permissionless, batched, no cooldown — safe to
-    // call as often as needed since it's a no-op once a lock is maxed)
+    // Step 00: claimRebases (permissionless, now O(1) regardless of how many
+    // people deposited, since everything's consolidated into one NFT)
+    await expect(vault.connect(keeper).claimRebases())
+      .to.emit(vault, "RebasesClaimed")
+      .withArgs(keeper.address, 1);
+
+    // Step 01: extendLocks (permissionless, no cooldown — safe to call as
+    // often as needed since it's a no-op once a lock is maxed)
     const lockBefore = await veMEZO.locked(tokenIdAlice);
-    await vault.connect(keeper).extendLocks([tokenIdAlice, tokenIdBob]);
+    await vault.connect(keeper).extendLocks();
     const lockAfter = await veMEZO.locked(tokenIdAlice);
     expect(lockAfter.end).to.be.gt(lockBefore.end);
-    await expect(vault.connect(keeper).extendLocks([tokenIdAlice, tokenIdBob])).to
-      .not.be.reverted;
+    await expect(vault.connect(keeper).extendLocks()).to.not.be.reverted;
 
     // Step 02: castVotes / optimiseAndVote — fast-forward into the vote window
     await jumpInsideVoteWindow(voter);

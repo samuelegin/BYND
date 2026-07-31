@@ -52,4 +52,30 @@ contract MockVeMEZO is ERC721 {
     function depositFor(uint256 tokenId, uint256 amount) external {
         _locked[tokenId].amount += int128(int256(amount));
     }
+
+    mapping(uint256 => bool) private _voted;
+    mapping(uint256 => bool) private _permanentFlagForMergeTest;
+
+    /// @dev Test hook: lets a test mark a tokenId as having already voted
+    /// this epoch, or as permanent, to exercise merge()'s revert paths.
+    function setVotedForTest(uint256 tokenId, bool voted_) external {
+        _voted[tokenId] = voted_;
+    }
+
+    /// @notice Minimal stand-in for Mezo's real Escrow.merge(): burns `_from`,
+    /// folds its locked amount into `_to`. Mirrors the real preconditions
+    /// that matter for BynD's fallback logic (voted / isPermanent), but
+    /// deliberately omits grant-vesting checks since this mock has no grant
+    /// concept.
+    function merge(uint256 _from, uint256 _to) external {
+        require(_from != _to, "MockVeMEZO: same NFT");
+        require(!_voted[_from], "MockVeMEZO: already voted");
+        require(!_locked[_from].isPermanent, "MockVeMEZO: permanent lock");
+        LockedBalance memory to = _locked[_to];
+        require(to.end > block.timestamp || to.isPermanent, "MockVeMEZO: lock expired");
+
+        _locked[_to].amount += _locked[_from].amount;
+        delete _locked[_from];
+        _burn(_from);
+    }
 }

@@ -17,7 +17,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 //whole, and only this tokenId's extension is skipped (LockExtendSkipped).
 
 interface IExtendLocksCallback {
-    function extendLocks(uint256[] calldata tokenIds) external;
+    function extendLocks() external;
 }
 
 contract MaliciousVeMEZO is ERC721 {
@@ -63,9 +63,7 @@ contract MaliciousVeMEZO is ERC721 {
     function increaseUnlockTime(uint256 tokenId, uint256 newEnd) external {
         if (armed) {
             armed = false;
-            uint256[] memory ids = new uint256[](1);
-            ids[0] = tokenId;
-            IExtendLocksCallback(reentryTarget).extendLocks(ids);
+            IExtendLocksCallback(reentryTarget).extendLocks();
         }
         require(_locked[tokenId].end < newEnd, "MaliciousVeMEZO: new end not later");
         _locked[tokenId].end = newEnd;
@@ -80,12 +78,12 @@ contract MaliciousVeMEZO is ERC721 {
 // Minimal pass-through that models a Gelato job, Chainlink Automation task, or smart-contract wallet routing extendLocks() on behalf of a keeper EOA Used to show that markLocksExtended() records tx.origin, not msg.sender.
 
 interface IExtendable {
-    function extendLocks(uint256[] calldata tokenIds) external;
+    function extendLocks() external;
 }
 
 contract RelayerCaller {
-    function relayExtendLocks(address vault, uint256[] calldata tokenIds) external {
-        IExtendable(vault).extendLocks(tokenIds);
+    function relayExtendLocks(address vault) external {
+        IExtendable(vault).extendLocks();
     }
 }
 

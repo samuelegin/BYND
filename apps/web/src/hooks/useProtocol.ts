@@ -6,7 +6,7 @@ import { formatEther, type Address } from 'viem';
 import type { ProtocolStats, EpochState, UserPosition, GaugeAllocation } from '@/types';
 import {
   VAULT_ABI, STAKING_ABI, VOTER_ABI, VEMEZO_ABI, ERC20_ABI,
-  VALIDATORS_VOTER_ABI, VALIDATORS_VOTER_ADDRESS,
+  BOOST_VOTER_ABI, BOOST_VOTER_ADDRESS,
   getAddresses, isDeployed, SUPPORTED_CHAIN_IDS,
 } from '@/lib/contracts';
 import { MATSNET_CHAIN_ID } from '@/lib/passport';
@@ -235,8 +235,8 @@ export function useProtocol(
   const nowForEpochRead = Math.floor(Date.now() / 1000);
   const { data: matsnetEpochData, refetch: refetchMatsnetEpoch } = useReadContracts({
     contracts: [
-      { address: VALIDATORS_VOTER_ADDRESS, abi: VALIDATORS_VOTER_ABI, functionName: 'epochStart', args: [BigInt(nowForEpochRead)] }, // 0
-      { address: VALIDATORS_VOTER_ADDRESS, abi: VALIDATORS_VOTER_ABI, functionName: 'epochNext',  args: [BigInt(nowForEpochRead)] }, // 1
+      { address: BOOST_VOTER_ADDRESS, abi: BOOST_VOTER_ABI, functionName: 'epochStart', args: [BigInt(nowForEpochRead)] }, // 0
+      { address: BOOST_VOTER_ADDRESS, abi: BOOST_VOTER_ABI, functionName: 'epochNext',  args: [BigInt(nowForEpochRead)] }, // 1
     ],
     query: { enabled: enabled || publicClientAvailable, refetchInterval: 15_000 },
   });
@@ -319,8 +319,8 @@ export function useProtocol(
   const gaugeAddresses = gauges.map(g => g.gauge);
   const { data: bribeClaimableData } = useReadContracts({
     contracts: gaugeAddresses.map(addr => ({
-      address:      VALIDATORS_VOTER_ADDRESS,
-      abi:          VALIDATORS_VOTER_ABI,
+      address:      BOOST_VOTER_ADDRESS,
+      abi:          BOOST_VOTER_ABI,
       functionName: 'claimable' as const,
       args:         [addr as Address] as [Address],
     })),

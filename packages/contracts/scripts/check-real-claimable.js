@@ -3,8 +3,6 @@ const { ethers, network } = require("hardhat");
 const BOOST_VOTER_ABI = [
   "function claimable(address) view returns (uint256)",
   "function isAlive(address) view returns (bool)",
-];
-const VALIDATORS_VOTER_ABI = [
   "function periodFinish() view returns (uint256)",
   "function activePeriod() view returns (uint256)",
   "function epochVoteEnd() view returns (uint256)",
@@ -25,11 +23,10 @@ async function main() {
 
   // Try to read Mezo's real period clock, if this contract exposes it
   try {
-    const validatorsVoter = await ethers.getContractAt(VALIDATORS_VOTER_ABI, boostVoterAddr);
     const now = Math.floor(Date.now() / 1000);
-    const periodFinish = await validatorsVoter.periodFinish().catch(() => null);
-    const activePeriod = await validatorsVoter.activePeriod().catch(() => null);
-    const epochVoteEnd = await validatorsVoter.epochVoteEnd().catch(() => null);
+    const periodFinish = await boostVoter.periodFinish().catch(() => null);
+    const activePeriod = await boostVoter.activePeriod().catch(() => null);
+    const epochVoteEnd = await boostVoter.epochVoteEnd().catch(() => null);
     console.log(`\nMezo's real period clock:`);
     console.log(`  now             : ${now}`);
     if (periodFinish) console.log(`  periodFinish    : ${periodFinish} (${Number(periodFinish) > now ? "in the future" : "already passed"})`);

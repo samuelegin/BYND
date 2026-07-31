@@ -18,10 +18,10 @@ async function deployAll() {
   const rewardTokenB = await MockERC20.deploy("Bribe Token B", "BRBB", 18);
   const musd = await MockERC20.deploy("Mezo USD", "MUSD", 18);
 
-  const MockValidatorsVoter = await ethers.getContractFactory(
-    "MockValidatorsVoter"
+  const MockBoostVoter = await ethers.getContractFactory(
+    "MockBoostVoter"
   );
-  const boostVoter = await MockValidatorsVoter.deploy(
+  const boostVoter = await MockBoostVoter.deploy(
     await rewardTokenA.getAddress()
   );
 

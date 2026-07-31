@@ -37,7 +37,7 @@ BYND/
 
 All dependencies are installed once from the repo root with `pnpm install` — pnpm hoists every package into a single content-addressed store under the root `node_modules/.pnpm`, and each workspace only receives symlinks to its declared dependencies. Common tasks run from the root via Turborepo (`pnpm build`, `pnpm test`, `pnpm compile`), or against a single workspace with `pnpm --filter @bynd/web <script>` / `pnpm --filter bynd-v2-contracts <script>`.
 
-The frontend targets Mezo Matsnet (Chain ID `31611`) and integrates with the real veMEZO, MUSD, RewardsDistributor, and ValidatorsVoter contracts live on Matsnet, with Mezo Passport for native wallet support across MetaMask, OKX, Unisat, and Xverse. The contracts package also ships mocks (`MockVeMEZO`, `MockERC20`, `MockValidatorsVoter`, `MockRewardsDistributor`) for a Matsnet dry-run against `chainId 31337`.
+The frontend targets Mezo Matsnet (Chain ID `31611`) and integrates with the real veMEZO, MUSD, RewardsDistributor, and BoostVoter contracts live on Matsnet, with Mezo Passport for native wallet support across MetaMask, OKX, Unisat, and Xverse. The contracts package also ships mocks (`MockVeMEZO`, `MockERC20`, `MockBoostVoter`, `MockRewardsDistributor`) for a Matsnet dry-run against `chainId 31337`.
 
 ---
 
@@ -71,19 +71,35 @@ BynD aggregates veMEZO positions into a single coordinated boost block and autom
 ## Screenshots
 
 ### Lock veMEZO & Mint veBYND
-Deposit a veMEZO NFT to receive veBYND 1:1. The vault keeps deposited locks extended toward the 4-year maximum for highest governance weight.
+Deposit a veMEZO NFT to receive veBYND 1:1. The vault keeps deposited locks extended toward the 4-year maximum for highest governance weight, and every deposit after the first is merged into a single canonical veMEZO NFT so the vault's gas cost never scales with how many people deposit.
 
-![Lock veMEZO and Mint veBYND](docs/lock_vemezo_and_mint_vebynd.png)
+![Lock veMEZO and Mint veBYND](docs/lock_and_mint.png)
+![Lock confirmation](docs/lock_confirm_modal.png)
 
-### Stake veBYND
-Stake veBYND to activate your share of MUSD + ERC-20 bribe yield. No unbonding period.
+### Stake & Unstake veBYND
+Stake veBYND to activate your share of MUSD + ERC-20 bribe yield, unstake anytime with no unbonding period, and claim accrued rewards — all from one panel.
 
-![Stake veBYND](docs/stake.png)
+![Stake and Unstake veBYND](docs/stake_and_unstake.png)
 
-### Unstake veBYND
-Unstake anytime. Exit liquidity via the veBYND/MEZO pool on Mezo Swap.
+### Keeper Dashboard
+Every epoch step is permissionless and callable by anyone — extend locks, cast the epoch vote, and harvest rewards for a keeper bounty. The dashboard also surfaces live gauge votes and the current epoch's timing.
 
-![Unstake veBYND](docs/ustake.png)
+![Keeper Dashboard](docs/keeper_dashboard.png)
+
+### Epoch Flow
+The 4-step, gas-bounded epoch machine: `claimRebases()` → `extendLocks()` → `optimiseAndVote()` → `harvestAndDistribute()`. None are time-gated beyond on-chain state ordering — any keeper can call any ready step at any time.
+
+![Epoch Flow](docs/epoch_flow.png)
+
+### Harvest & Distribute
+Claims the epoch's keeper bounty and forwards the remainder of harvested bribes to veBYND stakers, pro-rata.
+
+![Harvest and Distribute](docs/harvest_modal.png)
+
+### Analytics
+Live protocol metrics read directly from Mezo Matsnet — TVL, veBYND supply, staking ratio, pooled veMEZO, and gauge vote allocation.
+
+![Analytics](docs/analytics.png)
 
 ---
 
@@ -155,7 +171,7 @@ Any wallet can call any step. The four keeper roles (rebases / locks / vote / ha
 | Contract | Address |
 |---|---|
 | veMEZO (native) | `0xaCE816CA2bcc9b12C59799dcC5A959Fb9b98111b` |
-| ValidatorsVoter (native) | `0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1` |
+| BoostVoter (native) | `0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1` |
 | RewardsDistributor (native) | `0x2962E8817ae716019F759d098e2caE658bDcAd04` |
 | **VeBYND** | `0x9988bD1a255b2d8CeE01F27DA7f7D8A2630F937E` |
 | **ByNdVault** | `0x558969087977FeDb15d7941BB71227948C0497fA` |
@@ -209,11 +225,11 @@ The deploy script:
 - Wires `MINTER_ROLE` on veBYND, the rewards distributor, and the voter/vault link
 - Saves addresses to `packages/contracts/deployments/mezotestnet-<timestamp>.json`
 
-> `deploy-matsnet.js` also accepts `chainId 31337` (a local Hardhat network) as a dry-run target — in that mode it deploys `MockVeMEZO`, `MockERC20`, `MockValidatorsVoter`, and `MockRewardsDistributor` in place of live Mezo infra instead of touching Matsnet.
+> `deploy-matsnet.js` also accepts `chainId 31337` (a local Hardhat network) as a dry-run target — in that mode it deploys `MockVeMEZO`, `MockERC20`, `MockBoostVoter`, and `MockRewardsDistributor` in place of live Mezo infra instead of touching Matsnet.
 
 ### Other keeper/ops scripts
 ```bash
-pnpm --filter bynd-v2-contracts scan:gauges    # scan ValidatorsVoter for alive gauges
+pnpm --filter bynd-v2-contracts scan:gauges    # scan BoostVoter for alive gauges
 pnpm --filter bynd-v2-contracts check:gauge    # inspect a single gauge's status
 pnpm --filter bynd-v2-contracts run:epoch      # deposit → configure gauge → vote → claim → harvest, end to end
 ```

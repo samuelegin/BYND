@@ -159,7 +159,7 @@ export const ERC20_ABI = [
 // (all reverted). The real functions are epochStart(timestamp) and
 // epochNext(timestamp) — pure Velodrome-style calendar math, no stored
 // counter: epochStart(t) = t - (t % WEEK), epochNext(t) = epochStart(t) + WEEK.
-export const VALIDATORS_VOTER_ABI = [
+export const BOOST_VOTER_ABI = [
   { name: 'epochStart', type: 'function', stateMutability: 'view', inputs: [{ name: '_timestamp', type: 'uint256' }], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'epochNext',  type: 'function', stateMutability: 'view', inputs: [{ name: '_timestamp', type: 'uint256' }], outputs: [{ name: '', type: 'uint256' }] },
   // Confirmed live via scripts/fund-bribe.js: BoostVoter.claimable(gauge)
@@ -168,4 +168,4 @@ export const VALIDATORS_VOTER_ABI = [
   { name: 'claimable',  type: 'function', stateMutability: 'view', inputs: [{ name: '_gauge', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
 ] as const;
 
-export const VALIDATORS_VOTER_ADDRESS = '0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1' as const;
+export const BOOST_VOTER_ADDRESS = '0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1' as const;

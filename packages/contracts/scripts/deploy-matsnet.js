@@ -4,7 +4,7 @@ const path = require("path");
 
 const MATSNET_DEFAULTS = {
   VeMEZO: "0xaCE816CA2bcc9b12C59799dcC5A959Fb9b98111b",
-  ValidatorsVoter: "0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1",
+  BoostVoter: "0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1",
   RewardsDistributor: "0x2962E8817ae716019F759d098e2caE658bDcAd04",
 };
 
@@ -53,8 +53,8 @@ async function main() {
     const bribeToken = await MockERC20.deploy("Bribe Token", "BRB", 18);
     await bribeToken.waitForDeployment();
 
-    const MockValidatorsVoter = await ethers.getContractFactory("MockValidatorsVoter");
-    const boostVoter = await MockValidatorsVoter.deploy(await bribeToken.getAddress());
+    const MockBoostVoter = await ethers.getContractFactory("MockBoostVoter");
+    const boostVoter = await MockBoostVoter.deploy(await bribeToken.getAddress());
     await boostVoter.waitForDeployment();
     boostVoterAddr = await boostVoter.getAddress();
 
@@ -64,14 +64,14 @@ async function main() {
     rewardsDistributorAddr = await rewardsDistributor.getAddress();
 
     console.log(`Mock veMEZO             : ${veMEZOAddr}`);
-    console.log(`Mock ValidatorsVoter    : ${boostVoterAddr}`);
+    console.log(`Mock BoostVoter         : ${boostVoterAddr}`);
     console.log(`Mock RewardsDistributor : ${rewardsDistributorAddr}`);
   } else {
     veMEZOAddr = requiredEnvOrDefault("VEMEZO_ADDRESS", MATSNET_DEFAULTS.VeMEZO, "veMEZO");
     boostVoterAddr = requiredEnvOrDefault(
       "BOOST_VOTER_ADDRESS",
-      MATSNET_DEFAULTS.ValidatorsVoter,
-      "ValidatorsVoter"
+      MATSNET_DEFAULTS.BoostVoter,
+      "BoostVoter"
     );
     rewardsDistributorAddr = requiredEnvOrDefault(
       "REWARDS_DISTRIBUTOR_ADDRESS",
@@ -80,7 +80,7 @@ async function main() {
     );
     console.log("\nUsing Matsnet native addresses:");
     console.log(`veMEZO             : ${veMEZOAddr}`);
-    console.log(`ValidatorsVoter    : ${boostVoterAddr}`);
+    console.log(`BoostVoter         : ${boostVoterAddr}`);
     console.log(`RewardsDistributor : ${rewardsDistributorAddr}`);
   }
 

@@ -82,8 +82,8 @@ describe("ByNdVoter — extra coverage", function () {
     expect(await voter.treasury()).to.equal(alice.address);
 
     // point it at a fresh mock so we can prove the write actually landed
-    const MockValidatorsVoter = await ethers.getContractFactory("MockValidatorsVoter");
-    const newBoostVoter = await MockValidatorsVoter.deploy(await ctx.rewardTokenA.getAddress());
+    const MockBoostVoter = await ethers.getContractFactory("MockBoostVoter");
+    const newBoostVoter = await MockBoostVoter.deploy(await ctx.rewardTokenA.getAddress());
     await voter.connect(deployer).setBoostVoter(await newBoostVoter.getAddress());
     expect(await voter.boostVoter()).to.equal(await newBoostVoter.getAddress());
   });

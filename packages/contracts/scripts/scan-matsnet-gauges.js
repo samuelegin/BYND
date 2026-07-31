@@ -1,6 +1,6 @@
 const { ethers, network } = require("hardhat");
 
-const VALIDATORS_VOTER_ABI = [
+const BOOST_VOTER_ABI = [
   "function length() view returns (uint256)",
   "function gauges(uint256) view returns (address)",
   "function gaugeToBribe(address) view returns (address)",
@@ -8,7 +8,7 @@ const VALIDATORS_VOTER_ABI = [
   "function claimable(address) view returns (uint256)",
 ];
 
-const DEFAULT_VALIDATORS_VOTER = "0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1";
+const DEFAULT_BOOST_VOTER = "0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1";
 
 async function main() {
   const chainId = (await ethers.provider.getNetwork()).chainId;
@@ -19,11 +19,11 @@ async function main() {
     );
   }
 
-  const validatorsVoterAddr = process.env.BOOST_VOTER_ADDRESS || DEFAULT_VALIDATORS_VOTER;
-  console.log(`Scanning ValidatorsVoter at ${validatorsVoterAddr} on ${network.name}...\n`);
+  const boostVoterAddr = process.env.BOOST_VOTER_ADDRESS || DEFAULT_BOOST_VOTER;
+  console.log(`Scanning BoostVoter at ${boostVoterAddr} on ${network.name}...\n`);
 
-  const validatorsVoter = await ethers.getContractAt(VALIDATORS_VOTER_ABI, validatorsVoterAddr);
-  const total = await validatorsVoter.length();
+  const boostVoter = await ethers.getContractAt(BOOST_VOTER_ABI, boostVoterAddr);
+  const total = await boostVoter.length();
   console.log(`Total gauges registered: ${total}\n`);
 
   let aliveCount = 0;
@@ -31,18 +31,18 @@ async function main() {
   const funded = [];
 
   for (let i = 0n; i < total; i++) {
-    const gauge = await validatorsVoter.gauges(i);
-    const alive = await validatorsVoter.isAlive(gauge);
+    const gauge = await boostVoter.gauges(i);
+    const alive = await boostVoter.isAlive(gauge);
     if (!alive) continue;
     aliveCount++;
 
     let claimableAmt = 0n;
     try {
-      claimableAmt = await validatorsVoter.claimable(gauge);
+      claimableAmt = await boostVoter.claimable(gauge);
     } catch {
     }
 
-    const bribe = await validatorsVoter.gaugeToBribe(gauge);
+    const bribe = await boostVoter.gaugeToBribe(gauge);
     const status = claimableAmt > 0n ? "FUNDED" : "empty";
     console.log(`[${i}] gauge=${gauge}  bribe=${bribe}  alive=yes  claimable=${claimableAmt.toString()}  (${status})`);
 

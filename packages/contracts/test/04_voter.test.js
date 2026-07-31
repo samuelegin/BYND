@@ -71,7 +71,7 @@ describe("ByNdVoter", function () {
       const gHigh = ethers.Wallet.createRandom().address;
       await boostVoter.addGauge(gLow, ethers.Wallet.createRandom().address);
       await boostVoter.addGauge(gHigh, ethers.Wallet.createRandom().address);
-      // MockValidatorsVoter.claimable() reads claimableAmount which is only set
+      // MockBoostVoter.claimable() reads claimableAmount which is only set
       // by seedBribe; fake it by seeding bribes with the reward token
       const { rewardTokenA } = ctx;
       await rewardTokenA.mint(deployer.address, ethers.parseEther("500"));

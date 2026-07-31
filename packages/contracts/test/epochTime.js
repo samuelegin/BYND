@@ -2,7 +2,7 @@ const { ethers } = require("hardhat");
 
 const WEEK = 7 * 24 * 3600;
 
-// Mirrors MockValidatorsVoter.epochNext(): pure floor-to-week-boundary math,
+// Mirrors MockBoostVoter.epochNext(): pure floor-to-week-boundary math,
 // same grid as real Mezo (Unix epoch 0 is a Thursday, so this lines up with
 // real Thursday 00:00 UTC boundaries without needing any anchor date).
 function nextBoundary(ts) {

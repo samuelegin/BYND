@@ -152,7 +152,7 @@ export const DOCS_NAV: DocGroup[] = [
           table(
             ['Call', 'Gating', 'Who benefits'],
             [
-              ['`optimiseAndVote()`', 'Callable anytime; reverts if already voted this epoch', 'Keeps the pool\'s votes routed to the best gauge'],
+              ['`optimiseAndVote()`', 'Only callable in the final `voteWindow` (4h default) before Mezo\'s real epoch boundary; reverts if called earlier, or if already voted this epoch', 'Keeps the pool\'s votes routed to the best gauge, cast as late as possible so most of that epoch\'s bribes have already landed'],
               ['`harvestAndDistribute()`', 'Once per epoch', 'Pays the caller a bounty (see below)'],
               ['`markLocksExtended()`', 'Once per epoch', 'Confirms lock-extension bookkeeping for the epoch'],
               ['`extendLocks()`', 'No epoch gate, no arguments', 'Keeps managed veMEZO from decaying toward expiry'],
@@ -237,7 +237,7 @@ export const DOCS_NAV: DocGroup[] = [
         blocks: [
           p('The Keeper page exposes every permissionless maintenance call in call order, with live status on what\'s currently eligible to run.'),
           steps([
-            { title: 'Cast votes', body: 'Run `optimiseAndVote()` first each epoch if it hasn\'t been called yet. Everything downstream depends on the pool\'s votes being current.' },
+            { title: 'Cast votes', body: 'Run `optimiseAndVote()` — but only once the vote window is actually open (the final 4h before Mezo\'s epoch boundary by default). It\'ll revert if called earlier, deliberately, so votes are cast as late as possible and most of the epoch\'s bribes have already been posted before we commit to a gauge. Everything downstream depends on the pool\'s votes being current.' },
             { title: 'Harvest & distribute', body: 'Once the epoch\'s gauges have paid out, call `harvestAndDistribute()`. This is the step that pays you a bounty: 1% of every token swept.' },
             { title: 'Extend locks', body: 'Run `extendLocks()` — no arguments needed. It automatically pushes every currently-managed lock (almost always just the single canonical NFT) back toward the 4-year max so voting power keeps compounding instead of decaying toward expiry.' },
             { title: 'Claim rebases', body: 'Not epoch-gated. Run `claimRebases()` — no arguments needed — whenever convenient to compound accrued MEZO rebases back into the vault\'s managed lock(s).' },

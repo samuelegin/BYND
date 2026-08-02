@@ -63,27 +63,78 @@ describe("ByNdVoter", function () {
       );
     });
 
-    it("falls back to on-chain gauge selection (highest claimable) when no gauges are configured", async () => {
-      const { voter, boostVoter, deployer } = ctx;
+    it("ranks gauges by bribeReferenceToken via each gauge's own bribe contract, not the old (likely-always-zero on the real chain) claimable(gauge)", async () => {
+      const { voter, boostVoter, deployer, musd } = ctx;
       await voter.connect(deployer).setManagedTokenId(1);
+      await voter.connect(deployer).setBribeReferenceToken(await musd.getAddress());
 
+      const MockReward = await ethers.getContractFactory("MockReward");
       const gLow = ethers.Wallet.createRandom().address;
       const gHigh = ethers.Wallet.createRandom().address;
-      await boostVoter.addGauge(gLow, ethers.Wallet.createRandom().address);
-      await boostVoter.addGauge(gHigh, ethers.Wallet.createRandom().address);
-      // MockBoostVoter.claimable() reads claimableAmount which is only set
-      // by seedBribe; fake it by seeding bribes with the reward token
-      const { rewardTokenA } = ctx;
-      await rewardTokenA.mint(deployer.address, ethers.parseEther("500"));
-      await rewardTokenA.approve(await boostVoter.getAddress(), ethers.parseEther("500"));
-      const bribeHigh = await boostVoter.gaugeToBribe(gHigh);
-      await boostVoter.seedBribe(bribeHigh, ethers.parseEther("500"));
+      const bribeLow = await MockReward.deploy();
+      const bribeHigh = await MockReward.deploy();
+      await boostVoter.addGauge(gLow, await bribeLow.getAddress());
+      await boostVoter.addGauge(gHigh, await bribeHigh.getAddress());
+
+      await bribeLow.setTokenRewardsPerEpoch(await musd.getAddress(), ethers.parseEther("100"));
+      await bribeHigh.setTokenRewardsPerEpoch(await musd.getAddress(), ethers.parseEther("500"));
 
       await fastForwardToVoteWindow();
       await expect(voter.optimiseAndVote())
         .to.emit(voter, "GaugesOptimised")
         .withArgs(0, gHigh, ethers.parseEther("500"));
       expect(await voter.epochVoted(0)).to.equal(true);
+    });
+
+    it("does NOT get fooled by a large amount of a DIFFERENT token — this is the actual bug that was fixed (a gauge holding a big pile of an unrelated token used to be indistinguishable from one holding real bribeReferenceToken value)", async () => {
+      const { voter, boostVoter, deployer, musd, rewardTokenA } = ctx;
+      await voter.connect(deployer).setManagedTokenId(1);
+      await voter.connect(deployer).setBribeReferenceToken(await musd.getAddress());
+
+      const MockReward = await ethers.getContractFactory("MockReward");
+      const gWrongToken = ethers.Wallet.createRandom().address;
+      const gRealMusd = ethers.Wallet.createRandom().address;
+      const bribeWrongToken = await MockReward.deploy();
+      const bribeRealMusd = await MockReward.deploy();
+      await boostVoter.addGauge(gWrongToken, await bribeWrongToken.getAddress());
+      await boostVoter.addGauge(gRealMusd, await bribeRealMusd.getAddress());
+
+      // gWrongToken has a HUGE amount of rewardTokenA (not the reference
+      // token) and ZERO musd. Old logic comparing raw claimable() numbers
+      // with no token awareness could easily have picked this gauge. Fixed
+      // logic must ignore it entirely for ranking purposes.
+      await bribeWrongToken.setTokenRewardsPerEpoch(await rewardTokenA.getAddress(), ethers.parseEther("1000000"));
+      await bribeRealMusd.setTokenRewardsPerEpoch(await musd.getAddress(), ethers.parseEther("50"));
+
+      await fastForwardToVoteWindow();
+      await expect(voter.optimiseAndVote())
+        .to.emit(voter, "GaugesOptimised")
+        .withArgs(0, gRealMusd, ethers.parseEther("50"));
+    });
+
+    it("falls back to first-alive-gauge if bribeReferenceToken is unset (e.g. an upgraded — not freshly deployed — proxy, before governance calls setBribeReferenceToken)", async () => {
+      const { voter, boostVoter, deployer } = ctx;
+      await voter.connect(deployer).setManagedTokenId(1);
+      // Fresh deploys now set this via initialize() (see fixtures.js), so
+      // explicitly clear it here to exercise the upgraded-proxy scenario,
+      // where it defaults to zero until governance sets it post-upgrade.
+      await voter.connect(deployer).setBribeReferenceToken(ethers.ZeroAddress);
+      expect(await voter.bribeReferenceToken()).to.equal(ethers.ZeroAddress);
+
+      const gOnly = ethers.Wallet.createRandom().address;
+      await boostVoter.addGauge(gOnly, ethers.Wallet.createRandom().address);
+
+      await fastForwardToVoteWindow();
+      await expect(voter.optimiseAndVote())
+        .to.emit(voter, "GaugesOptimised")
+        .withArgs(0, gOnly, 0);
+    });
+
+    it("setBribeReferenceToken is governance-only", async () => {
+      const { voter, alice, musd } = ctx;
+      await expect(
+        voter.connect(alice).setBribeReferenceToken(await musd.getAddress())
+      ).to.be.reverted;
     });
 
     it("uses the governance-configured gauge list when present", async () => {

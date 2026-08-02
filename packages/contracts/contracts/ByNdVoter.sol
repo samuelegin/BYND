@@ -17,21 +17,14 @@ interface IBoostVoter {
     function gaugeToBribe(address gauge) external view returns (address);
     function isAlive(address gauge) external view returns (bool);
     function claimable(address gauge) external view returns (uint256);
-    /// @dev Pure calendar function on Mezo's real BoostVoter — returns the
-    /// absolute timestamp the epoch containing `_timestamp` ends. No stored
-    /// state, so this can never drift: epochNext(t) = epochStart(t) + 7 days.
     function epochNext(uint256 _timestamp) external view returns (uint256);
+    function epochStart(uint256 _timestamp) external view returns (uint256);
 }
 
-/// @title  ByNdVoter v2 — Voting and reward distribution engine (UUPS upgradeable)
-/// @notice Permissionless keeper functions each epoch, all callable anytime
-/// (no time windows) and all batched so gas cost never grows with the
-/// vault's size:
-///   Step 00  claimRebases()         — on ByNdVault, notifies voter
-///   Step 01  markLocksExtended()    — signalled by ByNdVault.extendLocks()
-///   Step 02  optimiseAndVote()      — on-chain scan + vote ALL managed tokenIds
-///   Step 03  claimBribesBatch()     — page through managed tokenIds claiming bribes, repeat until claimProgress().readyToHarvest
-///   Step 04  harvestAndDistribute() — finalizes the epoch, 5-way bounty split, per-token dust threshold
+interface IReward {
+    function tokenRewardsPerEpoch(address token, uint256 epochStart) external view returns (uint256);
+}
+
 contract ByNdVoter is
     Initializable,
     ReentrancyGuardUpgradeable,
@@ -53,15 +46,6 @@ contract ByNdVoter is
     uint256 public epochDuration;
     uint256 public lastVoteTimestamp;
     uint256 public currentEpoch;
-    /// @dev How close to Mezo's real epoch boundary (boostVoter.epochNext())
-    /// optimiseAndVote() must be called. Voting is only allowed in the final
-    /// `voteWindow` seconds before that real Thursday 00:00 UTC boundary —
-    /// this is what stops a keeper from voting right at epoch start and then
-    /// immediately harvesting $0, since Mezo's gauge/bribe contracts only
-    /// release incentives once the real epoch actually ends. Anchored to
-    /// boostVoter.epochNext() (Mezo's own clock) rather than our internal
-    /// lastVoteTimestamp cadence, so it can't drift out of sync the way a
-    /// purely-internal timer could.
     uint256 public voteWindow;
 
     mapping(uint256 => bool) public epochVoted;
@@ -71,20 +55,12 @@ contract ByNdVoter is
     mapping(uint256 => address) public epochKeeperClaimRebases;
     mapping(uint256 => address) public epochKeeperExtendLocks;
     mapping(uint256 => address) public epochKeeperOptimise;
-
-    /// @dev Per-epoch batched bribe-claim bookkeeping. claimBribesBatch()
-    /// pages through managedTokenIds MAX_CLAIM_BATCH at a time instead of
-    /// harvestAndDistribute() looping every managed tokenId in one call.
     mapping(uint256 => bool) public epochSnapshotTaken;
     mapping(uint256 => uint256) public epochClaimCursor;
     mapping(uint256 => address[]) private epochUniqueTokens;
     mapping(uint256 => mapping(address => uint256)) private epochBalanceBefore;
     uint256 public constant MAX_CLAIM_BATCH = 200;
 
-    /// @dev Optional per-token override of minHarvestThreshold. A single
-    /// global threshold can't sensibly apply to both e.g. WBTC and a
-    /// low-decimal stablecoin, so governance can set a specific floor per
-    /// token; 0 means "use the global minHarvestThreshold default".
     mapping(address => uint256) public tokenMinHarvestThreshold;
 
     uint256[] public managedTokenIds;
@@ -98,6 +74,8 @@ contract ByNdVoter is
         address[] tokens;
     }
     Gauge[] public gauges;
+
+    address public bribeReferenceToken;
 
     event VotesCast(uint256 indexed epoch, uint256 tokenCount, uint256 gaugeCount);
     event GaugesOptimised(uint256 indexed epoch, address topGauge, uint256 claimableAmount);
@@ -114,6 +92,7 @@ contract ByNdVoter is
     event TokenMinThresholdUpdated(address indexed token, uint256 newThreshold);
     event ProtocolFeeUpdated(uint256 newFeeBps);
     event VoteWindowUpdated(uint256 newWindow);
+    event BribeReferenceTokenUpdated(address indexed newToken);
     event ProtocolFeeCollected(uint256 indexed epoch, address indexed token, uint256 amount);
     event BribesClaimBatch(uint256 indexed epoch, uint256 processed, uint256 cursor, uint256 total);
     event HarvestSkippedBelowThreshold(uint256 indexed epoch, address indexed token, uint256 harvested);
@@ -126,7 +105,8 @@ contract ByNdVoter is
     function initialize(
         address _staking,
         address _boostVoter,
-        address _treasury
+        address _treasury,
+        address _bribeReferenceToken
     ) public initializer {
         __ReentrancyGuard_init();
         __Ownable_init(); 
@@ -135,11 +115,11 @@ contract ByNdVoter is
         require(_staking != address(0), "ByNdVoter: zero staking");
         require(_boostVoter != address(0), "ByNdVoter: zero boostVoter");
         require(_treasury != address(0), "ByNdVoter: zero treasury");
-
         staking = ByNdStaking(_staking);
         boostVoter = IBoostVoter(_boostVoter);
         governance = msg.sender;
         treasury   = _treasury;
+        bribeReferenceToken = _bribeReferenceToken;
         lastVoteTimestamp = block.timestamp;
 
         bountyBps = 100;
@@ -166,14 +146,6 @@ contract ByNdVoter is
     }
 
     function optimiseAndVote() external nonReentrant {
-        // Only callable in the final `voteWindow` seconds before Mezo's real
-        // epoch boundary (boostVoter.epochNext()) — voting any earlier would
-        // let harvestAndDistribute() run right after with $0 to distribute,
-        // since Mezo's gauge/bribe contracts only release incentives once
-        // the real epoch actually ends. The only thing preventing a
-        // double-vote within that window is epochVoted[currentEpoch], which
-        // only clears again once harvestAndDistribute() advances to the
-        // next epoch.
         require(
             block.timestamp >= boostVoter.epochNext(block.timestamp) - voteWindow,
             "ByNdVoter: vote window not open"
@@ -219,11 +191,24 @@ contract ByNdVoter is
         address bestGauge;
         uint256 bestScore;
 
-        for (uint256 i = 0; i < total; i++) {
-            address g = boostVoter.gauges(i);
-            if (!boostVoter.isAlive(g)) continue;
-            uint256 c = boostVoter.claimable(g);
-            if (c > bestScore) { bestScore = c; bestGauge = g; }
+        if (bribeReferenceToken != address(0)) {
+            uint256 refEpochStart = boostVoter.epochStart(block.timestamp);
+            for (uint256 i = 0; i < total; i++) {
+                address g = boostVoter.gauges(i);
+                if (!boostVoter.isAlive(g)) continue;
+
+                address bribeContract = boostVoter.gaugeToBribe(g);
+                if (bribeContract == address(0)) continue;
+                if (bribeContract.code.length == 0) continue;
+
+                try IReward(bribeContract).tokenRewardsPerEpoch(
+                    bribeReferenceToken,
+                    refEpochStart
+                ) returns (uint256 c) {
+                    if (c > bestScore) { bestScore = c; bestGauge = g; }
+                } catch {
+                }
+            }
         }
 
         if (bestGauge == address(0)) {
@@ -245,12 +230,6 @@ contract ByNdVoter is
         emit GaugesOptimised(currentEpoch, bestGauge, bestScore);
     }
 
-    /// @notice Step 1 of harvesting: claims bribes for a batch of managed
-    /// tokenIds (up to MAX_CLAIM_BATCH per call). Call this repeatedly,
-    /// paging through all managedTokenIds, before calling
-    /// harvestAndDistribute() to finalize and pay out the epoch. Splitting
-    /// claiming from distribution is what keeps every single call's gas cost
-    /// bounded, no matter how many NFTs the vault has ever managed.
     function claimBribesBatch(uint256 limit) external nonReentrant {
         uint256 epoch = currentEpoch;
         require(epochVoted[epoch], "ByNdVoter: votes not cast");
@@ -286,9 +265,6 @@ contract ByNdVoter is
         emit BribesClaimBatch(epoch, end - cursor, end, total);
     }
 
-    /// @notice Read-only helper: how many of the current epoch's managed
-    /// tokenIds still need claimBribesBatch() called on them before
-    /// harvestAndDistribute() is allowed to run.
     function claimProgress() external view returns (uint256 cursor, uint256 total, bool readyToHarvest) {
         uint256 epoch = currentEpoch;
         total = managedTokenIds.length;
@@ -324,9 +300,6 @@ contract ByNdVoter is
         epochSnapshotTaken[epoch] = true;
     }
 
-    /// @notice Step 2 of harvesting: finalizes the epoch and pays out. Requires
-    /// claimBribesBatch() to have already processed every managed tokenId for
-    /// this epoch (or, if there are none, just takes the snapshot itself).
     function harvestAndDistribute() external nonReentrant {
         uint256 epoch = currentEpoch;
         require(epochVoted[epoch], "ByNdVoter: votes not cast");
@@ -387,10 +360,6 @@ contract ByNdVoter is
                 : minHarvestThreshold;
 
             if (harvested < threshold) {
-                // Leave it sitting in the contract rather than force a
-                // dust distribution — it simply becomes part of next
-                // epoch's "before" balance and combines with whatever
-                // comes in next time, until it clears the threshold.
                 emit HarvestSkippedBelowThreshold(epoch, token, harvested);
                 continue;
             }
@@ -434,14 +403,6 @@ contract ByNdVoter is
         }
     }
 
-    /// @notice Emergency-only escape hatch: closes out the current epoch
-    /// without requiring any token to clear its harvest threshold. Exists
-    /// solely so a misconfigured (too-high) threshold can never permanently
-    /// stall the protocol — once bribes for an epoch are fully claimed, there
-    /// is no way to claim more for that same epoch, so if nothing clears the
-    /// threshold, harvestAndDistribute() would revert forever without this.
-    /// All already-claimed balances remain in the contract and simply roll
-    /// into the next epoch's snapshot as before.
     function forceCloseEpoch() external onlyGovernance {
         uint256 epoch = currentEpoch;
         require(!epochHarvested[epoch], "ByNdVoter: already harvested");
@@ -498,10 +459,6 @@ contract ByNdVoter is
         return gauges.length;
     }
 
-    /// @notice Seconds until optimiseAndVote()'s window opens, 0 if it's
-    /// already open. Mirrors the exact gate in optimiseAndVote() (anchored
-    /// to boostVoter.epochNext(), Mezo's real clock) so this can never
-    /// drift out of sync with what actually gates the call.
     function timeUntilNextVote() external view returns (uint256) {
         uint256 windowOpensAt = boostVoter.epochNext(block.timestamp) - voteWindow;
         if (block.timestamp >= windowOpensAt) return 0;
@@ -637,6 +594,11 @@ contract ByNdVoter is
         treasury = _treasury;
     }
 
+    function setBribeReferenceToken(address token) external onlyGovernance {
+        bribeReferenceToken = token;
+        emit BribeReferenceTokenUpdated(token);
+    }
+
     function setBountyBps(uint256 bps) external onlyGovernance {
         require(bps <= 500, "ByNdVoter: max 5%");
         bountyBps = bps;
@@ -653,8 +615,6 @@ contract ByNdVoter is
         emit MinThresholdUpdated(threshold);
     }
 
-    /// @param threshold 0 clears the override and falls back to the global
-    /// minHarvestThreshold for this token.
     function setTokenMinHarvestThreshold(address token, uint256 threshold) external onlyGovernance {
         require(token != address(0), "ByNdVoter: zero address");
         tokenMinHarvestThreshold[token] = threshold;
@@ -666,9 +626,6 @@ contract ByNdVoter is
         epochDuration = duration;
     }
 
-    /// @dev Capped at half the epoch duration so the window can never
-    /// swallow the whole epoch (which would make optimiseAndVote() callable
-    /// anytime again, defeating the point of gating it).
     function setVoteWindow(uint256 newWindow) external onlyGovernance {
         require(newWindow <= epochDuration / 2, "ByNdVoter: window too large");
         voteWindow = newWindow;

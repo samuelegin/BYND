@@ -58,6 +58,7 @@ async function deployAll() {
       await staking.getAddress(),
       await boostVoter.getAddress(),
       treasury.address,
+      await musd.getAddress(),
     ],
     { kind: "uups" }
   );
@@ -117,7 +118,18 @@ async function mintAndDeposit(ctx, user, mintFn = "mint") {
 async function setupSingleGauge(ctx, token) {
   const { boostVoter, voter, deployer } = ctx;
   const gauge = ethers.Wallet.createRandom().address;
-  const bribe = ethers.Wallet.createRandom().address;
+
+  // Real gauges each have their OWN separate bribe/reward contract instance
+  // (that's exactly why a single gauge can hold several different tokens'
+  // bribes at once — confirmed live on Matsnet). A random EOA address here
+  // used to be fine when the old auto-select logic only ever called
+  // claimable(gauge) on the voter itself, but the fixed logic calls
+  // gaugeToBribe(gauge) and then tokenRewardsPerEpoch() directly ON that
+  // address — it needs to actually be a contract implementing IReward.
+  const MockReward = await ethers.getContractFactory("MockReward");
+  const bribeContract = await MockReward.deploy();
+  const bribe = await bribeContract.getAddress();
+
   await boostVoter.addGauge(gauge, bribe);
   await voter
     .connect(deployer)
@@ -128,7 +140,13 @@ async function setupSingleGauge(ctx, token) {
       [10000],
       [[await token.getAddress()]]
     );
-  return { gauge, bribe };
+  return { gauge, bribe, bribeContract };
 }
 
-module.exports = { deployAll, mintAndDeposit, setupSingleGauge };
+/// @dev Seeds a specific token's tokenRewardsPerEpoch() amount on a gauge's
+/// mock bribe contract, for testing the auto-select ranking fix.
+async function seedGaugeReward(bribeContract, token, amount) {
+  await bribeContract.setTokenRewardsPerEpoch(await token.getAddress(), amount);
+}
+
+module.exports = { deployAll, mintAndDeposit, setupSingleGauge, seedGaugeReward };

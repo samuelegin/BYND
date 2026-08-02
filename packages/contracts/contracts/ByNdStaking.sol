@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-/// @title  ByNdStaking v2 Multi-token staking for veBYND holders
+/// @title  ByNdStaking multi-token staking for veBYND holders
 /// @notice Users stake veBYND to earn any ERC-20 rewards harvested from gauge fees and supports unlimited simultaneous reward tokens (Synthetix rewardPerToken pattern).
 contract ByNdStaking is
     Initializable,

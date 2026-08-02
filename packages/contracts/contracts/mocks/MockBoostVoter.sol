@@ -4,8 +4,6 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @dev Mock BoostVoter for local testing.
-///Tracks gauge registrations and simulates bribe claiming governance adds gauges via addGauge() tests seed bribes via seedBribe().
 contract MockBoostVoter {
     using SafeERC20 for IERC20;
 
@@ -117,5 +115,9 @@ contract MockBoostVoter {
     function epochNext(uint256 _timestamp) external pure returns (uint256) {
         uint256 start = _timestamp - (_timestamp % WEEK);
         return start + WEEK;
+    }
+
+    function epochStart(uint256 _timestamp) external pure returns (uint256) {
+        return _timestamp - (_timestamp % WEEK);
     }
 }

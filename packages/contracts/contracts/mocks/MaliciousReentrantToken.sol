@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// @dev Simulates a non-standard "reward/bribe" ERC20 that executes arbitrary code as part of transfer()/transferFrom() — e.g. ERC777 tokensReceived, a fee-on-transfer-with-callback token, or any other asset whose movement triggers external code. Bynd's harvest pipeline treats any whitelisted gauge token as plain ERC20, so this is the realistic vector for Category 1 (Reentrancy) scenarios that involve "a malicious reward token". The attack is one-shot and filterable by recipient (`requiredTo`) so tests can target a *specific* transfer in a multi-transfer flow (e.g. only the ByNdVoter -> ByNdStaking leg of harvestAndDistribute, not the bribe -> ByNdVoter leg that happens earlier in the same tx).
 contract MaliciousReentrantToken is ERC20 {
     address public attackTarget;
     bytes public attackCalldata;

@@ -2,20 +2,6 @@
 pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-// AttackMocks.sol — three helper contracts for the reentrancy test suite.
-
-//1.MaliciousVeMEZO
-// veMEZO-shaped ERC721 whose increaseUnlockTime() can reenter ByNdVault.extendLocks()
-//• mint() sets a 30-day lock (not MAXTIME) so the vault's
-//  `if (lock.end < newEndTime)` condition is always true and
-//  increaseUnlockTime() is always called during extendLocks().
-// arm(target) makes the next increaseUnlockTime() call vault.extendLocks()
-//before doing anything else. extendLocks() is nonReentrant, so the inner
-//call reverts with "ReentrancyGuard: reentrant call" — but because the
-//outer loop wraps each increaseUnlockTime() call in try/catch, that revert
-//is swallowed rather than bubbling up: the outer batch still succeeds as a
-//whole, and only this tokenId's extension is skipped (LockExtendSkipped).
-
 interface IExtendLocksCallback {
     function extendLocks() external;
 }
@@ -74,9 +60,6 @@ contract MaliciousVeMEZO is ERC721 {
     }
 }
 
-//2. RelayerCaller
-// Minimal pass-through that models a Gelato job, Chainlink Automation task, or smart-contract wallet routing extendLocks() on behalf of a keeper EOA Used to show that markLocksExtended() records tx.origin, not msg.sender.
-
 interface IExtendable {
     function extendLocks() external;
 }
@@ -86,9 +69,6 @@ contract RelayerCaller {
         IExtendable(vault).extendLocks();
     }
 }
-
-//3. MockRewardsDistributor
-// No-op IRewardsDistributor so tests can call ByNdVault.claimRebases() without wiring up real Mezo rebase infrastructure.
 
 contract MockRewardsDistributor {
     function claim(uint256) external pure returns (uint256) { return 0; }

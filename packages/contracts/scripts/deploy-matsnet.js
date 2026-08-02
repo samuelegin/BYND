@@ -6,6 +6,7 @@ const MATSNET_DEFAULTS = {
   VeMEZO: "0xaCE816CA2bcc9b12C59799dcC5A959Fb9b98111b",
   BoostVoter: "0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1",
   RewardsDistributor: "0x2962E8817ae716019F759d098e2caE658bDcAd04",
+  MUSD: "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
 };
 
 function requiredEnvOrDefault(envVar, fallback, label) {
@@ -40,7 +41,7 @@ async function main() {
   }
   const isLocalDryRun = chainId === 31337n;
 
-  let veMEZOAddr, boostVoterAddr, rewardsDistributorAddr;
+  let veMEZOAddr, boostVoterAddr, rewardsDistributorAddr, musdAddr;
 
   if (isLocalDryRun) {
     console.log("\nLocal dry-run — deploying mocks in place of live Mezo infra...");
@@ -52,6 +53,9 @@ async function main() {
     const MockERC20 = await ethers.getContractFactory("MockERC20");
     const bribeToken = await MockERC20.deploy("Bribe Token", "BRB", 18);
     await bribeToken.waitForDeployment();
+    // Reused as the mock bribeReferenceToken too — conceptually the same
+    // role (the reward/reference token MockBoostVoter is configured with).
+    musdAddr = await bribeToken.getAddress();
 
     const MockBoostVoter = await ethers.getContractFactory("MockBoostVoter");
     const boostVoter = await MockBoostVoter.deploy(await bribeToken.getAddress());
@@ -66,6 +70,7 @@ async function main() {
     console.log(`Mock veMEZO             : ${veMEZOAddr}`);
     console.log(`Mock BoostVoter         : ${boostVoterAddr}`);
     console.log(`Mock RewardsDistributor : ${rewardsDistributorAddr}`);
+    console.log(`Mock MUSD (bribe ref)   : ${musdAddr}`);
   } else {
     veMEZOAddr = requiredEnvOrDefault("VEMEZO_ADDRESS", MATSNET_DEFAULTS.VeMEZO, "veMEZO");
     boostVoterAddr = requiredEnvOrDefault(
@@ -78,10 +83,12 @@ async function main() {
       MATSNET_DEFAULTS.RewardsDistributor,
       "RewardsDistributor"
     );
+    musdAddr = requiredEnvOrDefault("MUSD_ADDRESS", MATSNET_DEFAULTS.MUSD, "MUSD");
     console.log("\nUsing Matsnet native addresses:");
     console.log(`veMEZO             : ${veMEZOAddr}`);
     console.log(`BoostVoter         : ${boostVoterAddr}`);
     console.log(`RewardsDistributor : ${rewardsDistributorAddr}`);
+    console.log(`MUSD               : ${musdAddr}`);
   }
 
   const treasuryAddr = process.env.TREASURY_ADDRESS && ethers.isAddress(process.env.TREASURY_ADDRESS)
@@ -119,7 +126,7 @@ async function main() {
   const ByNdVoter = await ethers.getContractFactory("ByNdVoter");
   const voter = await upgrades.deployProxy(
     ByNdVoter,
-    [stakingAddr, boostVoterAddr, treasuryAddr],
+    [stakingAddr, boostVoterAddr, treasuryAddr, musdAddr],
     { kind: "uups" }
   );
   await voter.waitForDeployment();

@@ -9,4 +9,4 @@ export { Toast } from './Toast';
 export { SectionHeader } from './SectionHeader';
 export { LiveDot } from './LiveDot';
 export { PixelArt } from './PixelArt';
-export { formatNum, formatTime, formatWAT, shortAddr } from './format';
+export { formatNum, formatTime, formatWAT, shortAddr, formatBribe } from './format';

@@ -44,17 +44,12 @@ export const VAULT_ABI = [
   // tokensNeedingExtend() was a paging helper for an O(n) batch that no
   // longer exists post-consolidation — removed.
   //
-  // lastExtendTimestamp() is left in for now, but flagging clearly: it does
-  // NOT exist on the actual deployed ByNdVault (never has), and there is no
-  // EXTEND_COOLDOWN gate on extendLocks() in the real contract — it's
-  // permissionless and callable anytime, confirmed by the test suite. The
-  // multicall read below (and the cooldown-timer logic built on top of it in
-  // useProtocol.ts) has been silently failing this whole time. This is a
-  // separate pre-existing issue, not something introduced by the merge-
-  // consolidation fix — worth a deliberate decision (add a real cooldown to
-  // the contract, or drop the frontend's cooldown-timer feature) rather than
-  // a silent fix.
-  { name: 'lastExtendTimestamp', type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  // lastExtendTimestamp() used to be declared here and read in useProtocol's
+  // multicall to drive a 7-day "extend cooldown" timer. It never existed on
+  // the deployed ByNdVault, so that read silently failed and the timer was
+  // fiction. extendLocks() now has a real on-chain gate instead — a time
+  // window plus once-per-epoch — read from ByNdVoter.extendWindow() /
+  // extendWindowOpen() / epochLocksExtended() below.
 ] as const;
 
 export const STAKING_ABI = [
@@ -100,6 +95,13 @@ export const VOTER_ABI = [
   { name: 'currentEpoch',         type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'epochDuration',        type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'voteWindow',           type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  // extendWindow: how long before the epoch boundary extendLocks() opens
+  // (default 24h; 0 disables the time gate). There is deliberately no
+  // timeUntilExtendWindow() view on-chain — ByNdVoter is close to the
+  // EIP-170 size limit, so the countdown is derived client-side as
+  // `epochNext(now) - extendWindow`, the same way the vote window already is.
+  { name: 'extendWindow',         type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'extendWindowOpen',     type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'bool' }] },
   { name: 'bountyBps',            type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   // protocolFeeBps: new in v2, the fee taken off the top before the staker
   // split. Not yet displayed anywhere in the UI — worth surfacing.
@@ -108,13 +110,24 @@ export const VOTER_ABI = [
   { name: 'lastVoteTimestamp',    type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'getGaugeCount',        type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   {
+    // Second return value is a value-WEIGHTED score, not a token amount: each
+    // gauge's bribes are summed across every valued token after scaling by
+    // that token's governance-set bps weight. Denominated in the reference
+    // token (the one weighted 10000 bps), so 100 of a token worth 5x beats
+    // 400 of the reference.
     name: 'previewOptimalGauge', type: 'function', stateMutability: 'view',
     inputs: [],
     outputs: [
-      { name: 'bestGauge',     type: 'address' },
-      { name: 'bestClaimable', type: 'uint256' },
+      { name: 'bestGauge', type: 'address' },
+      { name: 'bestScore', type: 'uint256' },
     ],
   },
+  // The tokens the ranking prices, and their bps weights. 10000 bps == 1x ==
+  // the reference token. A token with no weight scores zero and is ignored.
+  { name: 'getValuedTokenCount', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'valuedTokens',        type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'uint256' }],  outputs: [{ name: '', type: 'address' }] },
+  { name: 'tokenWeights',        type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }],  outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'bribeReferenceToken', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
   { name: 'epochVoted',           type: 'function', stateMutability: 'view',       inputs: [{ name: 'epoch', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
   { name: 'epochHarvested',       type: 'function', stateMutability: 'view',       inputs: [{ name: 'epoch', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
   { name: 'epochLocksExtended',   type: 'function', stateMutability: 'view',       inputs: [{ name: 'epoch', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
@@ -150,6 +163,25 @@ export const ERC20_ABI = [
   { name: 'approve',     type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],      outputs: [{ name: '', type: 'bool' }] },
   { name: 'allowance',   type: 'function', stateMutability: 'view',       inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],       outputs: [{ name: '', type: 'uint256' }] },
   { name: 'symbol',      type: 'function', stateMutability: 'view',       inputs: [],                                                                                outputs: [{ name: '', type: 'string' }] },
+  // decimals: needed to format bribe amounts correctly. Do NOT assume 18 —
+  // Mezo's bribe tokens are mixed (MUSD is 18dp, but BTC-denominated ones are
+  // not), and formatting a non-18dp amount with formatEther silently shows a
+  // number that is orders of magnitude wrong.
+  { name: 'decimals',    type: 'function', stateMutability: 'view',       inputs: [],                                                                                outputs: [{ name: '', type: 'uint8' }] },
+] as const;
+
+// ── Mezo bribe / reward contract ────────────────────────────────────────────
+// Every gauge has its OWN bribe contract instance, which is why one gauge can
+// hold several different tokens' bribes at once. tokenRewardsPerEpoch(token,
+// epochStart) is the per-token amount posted for that epoch — the same source
+// ByNdVoter's gauge ranking reads, so the UI and the contract agree on what a
+// gauge is worth.
+export const BRIBE_ABI = [
+  {
+    name: 'tokenRewardsPerEpoch', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'token', type: 'address' }, { name: 'epochStart', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
 ] as const;
 
 // ── Matsnet BoostVoter ABI ──────────────────────────────────────────────────

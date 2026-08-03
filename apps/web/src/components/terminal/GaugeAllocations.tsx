@@ -1,5 +1,5 @@
 import React from 'react';
-import { Panel, PixelArt, shortAddr } from '@/components/ui';
+import { Panel, PixelArt, shortAddr, formatBribe } from '@/components/ui';
 import type { GaugeAllocation } from '@/types';
 import iconBoostWebp from '@/assets/illustrations/icons/icon-boost.webp';
 import iconBoostPng from '@/assets/illustrations/icons/icon-boost.png';
@@ -59,11 +59,23 @@ export function GaugeAllocations({ gauges }: { gauges: GaugeAllocation[] }) {
                   </span>
                   <span className="text-[11px] text-white/60">
                     Bribes available:{' '}
-                    <span className="text-gold font-medium">
-                      {g.bribeAmount != null
-                        ? Number(g.bribeAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                        : '–'}
-                    </span>
+                    {/* One entry per token, each with its own symbol. Bribes
+                        are posted in different tokens and 100 MUSD is not 100
+                        BTC, so these are never summed into a single number. */}
+                    {g.bribes == null ? (
+                      <span className="text-gold font-medium">–</span>
+                    ) : g.bribes.length === 0 ? (
+                      <span className="text-white/[.38]">none this epoch</span>
+                    ) : (
+                      g.bribes.map((b, bi) => (
+                        <React.Fragment key={b.token}>
+                          {bi > 0 && <span className="text-white/[.38]"> + </span>}
+                          <span className="text-gold font-medium">
+                            {formatBribe(b.amount)} {b.symbol}
+                          </span>
+                        </React.Fragment>
+                      ))
+                    )}
                   </span>
                 </div>
               </div>

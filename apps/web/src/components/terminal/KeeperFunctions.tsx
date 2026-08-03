@@ -38,10 +38,10 @@ export function KeeperFunctions({
                 </p>
                 <p className="text-xs text-white/60">
                   {epoch.epochLocksExtended
-                    ? 'Reset all veMEZO to 4-yr max'
+                    ? 'Already done this epoch'
                     : canExtend
                       ? 'Reset all veMEZO to 4-yr max'
-                      : `Cooldown, ready in ${formatTime(Math.max(0, epoch.extendCooldownEndsAt - Math.floor(Date.now() / 1000)))}`}
+                      : `Available in ${formatTime(epoch.timeUntilExtendWindow)}`}
                 </p>
               </div>
             </div>

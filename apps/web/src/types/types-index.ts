@@ -55,11 +55,15 @@ export interface EpochState {
   // by more than an hour — i.e. optimiseAndVote() will actually unlock at
   // a different time than the "real Mezo" times shown above.
   clockDrifted: boolean;
-  // Real on-chain extendLocks() cooldown (ByNdVault: 7 days from
-  // lastExtendTimestamp), independent of the per-epoch epochLocksExtended
-  // flag — a call can be blocked by this even when epochLocksExtended is
-  // false for the current epoch.
-  extendCooldownEndsAt: number;
+  // extendLocks() is gated two ways, both enforced on-chain:
+  //   1. a time window — the last `extendWindow` seconds before Mezo's epoch
+  //      boundary (default 24h, so it contains the 4h vote window), and
+  //   2. once per epoch — only the first caller is credited a keeper slot,
+  //      so later callers are rejected instead of burning gas for nothing.
+  // extendWindow == 0 disables (1) only; (2) always applies.
+  extendWindow: number;
+  extendWindowOpensAt: number;
+  timeUntilExtendWindow: number;
   canExtendLocks: boolean;
 }
 

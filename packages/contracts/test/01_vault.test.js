@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { deployAll, mintAndDeposit } = require("./fixtures");
+const { jumpInsideExtendWindow, jumpOutsideVoteWindow } = require("./epochTime");
 
 describe("ByNdVault", function () {
   let ctx;
@@ -124,28 +125,39 @@ describe("ByNdVault", function () {
   });
 
   describe("extendLocks", () => {
-    it("extends every managed lock toward the new 4-year max and is a harmless no-op once it's already there", async () => {
-      const { veMEZO, vault, alice } = ctx;
+    it("extends every managed lock toward the new 4-year max, then refuses a second call in the same epoch", async () => {
+      const { veMEZO, vault, voter, alice } = ctx;
       const tokenId = await mintAndDeposit(ctx, alice);
       const before = await veMEZO.locked(tokenId);
 
+      await jumpInsideExtendWindow(voter);
       await vault.extendLocks();
       const after = await veMEZO.locked(tokenId);
       expect(after.end).to.be.gt(before.end);
 
-      // no cooldown — callable again immediately. Each mined block advances
-      // block.timestamp by ~1s, so the target end time nudges forward by
-      // that same tiny amount rather than being byte-identical; it's a
-      // no-op in spirit (no meaningful re-extension), not a no-op to the
-      // wei/second.
-      await expect(vault.extendLocks()).to.not.be.reverted;
+      // Only the first caller each epoch is credited a keeper slot, so a
+      // second call is now rejected up front rather than silently burning
+      // gas on a full loop whose markLocksExtended() would be swallowed.
+      await expect(vault.extendLocks()).to.be.revertedWith(
+        "ByNdVault: locks already extended this epoch"
+      );
       const afterSecond = await veMEZO.locked(tokenId);
-      expect(afterSecond.end - after.end).to.be.lte(5n);
+      expect(afterSecond.end).to.equal(after.end);
+    });
+
+    it("is closed outside the extend window", async () => {
+      const { vault, alice } = ctx;
+      await mintAndDeposit(ctx, alice);
+      await jumpOutsideVoteWindow(); // 1h past a boundary — a whole week early
+      await expect(vault.extendLocks()).to.be.revertedWith(
+        "ByNdVault: extend window not open"
+      );
     });
 
     it("is callable by anyone (permissionless keeper step), and now takes no arguments — it always processes every currently-managed tokenId itself", async () => {
-      const { vault, stranger, alice } = ctx;
+      const { vault, voter, stranger, alice } = ctx;
       await mintAndDeposit(ctx, alice);
+      await jumpInsideExtendWindow(voter);
       await expect(vault.connect(stranger).extendLocks()).to.not.be.reverted;
     });
 

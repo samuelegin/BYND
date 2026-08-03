@@ -91,6 +91,18 @@ export const VOTER_ABI = [
   // configured one explicitly (see setGauges below).
   { name: 'optimiseAndVote',      type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { name: 'harvestAndDistribute', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  // claimBribesBatch must be called (cursor reaches total) before
+  // harvestAndDistribute() will succeed. MAX_CLAIM_BATCH=200 on-chain, so
+  // passing 200 covers any realistic managedTokenIds count in one tx.
+  { name: 'claimBribesBatch', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'limit', type: 'uint256' }], outputs: [] },
+  {
+    name: 'claimProgress', type: 'function', stateMutability: 'view', inputs: [],
+    outputs: [
+      { name: 'cursor',         type: 'uint256' },
+      { name: 'total',          type: 'uint256' },
+      { name: 'readyToHarvest', type: 'bool'    },
+    ],
+  },
   { name: 'markLocksExtended',    type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { name: 'currentEpoch',         type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'epochDuration',        type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },

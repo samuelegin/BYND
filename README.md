@@ -311,7 +311,7 @@ cast send <ByNdVoter> "claimBribesBatch(uint256)" 200 --private-key <KEY> --rpc-
 cast send <ByNdVoter> "harvestAndDistribute()" --private-key <KEY> --rpc-url <RPC>
 ```
 
-The web app's **Keeper dashboard** (`apps/web/src/pages/Keeper.tsx`) exposes `claimRebases`, `extendLocks`, `optimiseAndVote`, and `harvestAndDistribute` as one-click buttons; `claimBribesBatch` is currently only wired up in `scripts/run-test-epoch.js`, not yet in the UI.
+The web app's **Keeper dashboard** (`apps/web/src/pages/Keeper.tsx`) exposes all five steps as one-click buttons. `claimBribesBatch` is sent with `limit = 200` (the on-chain `MAX_CLAIM_BATCH`), so a single press covers any realistic number of managed tokenIds; the button stays live, showing `cursor/total`, until `claimProgress().readyToHarvest` flips. Harvest is gated on that same flag rather than on `epochVoted`, so it never offers a call that would revert.
 
 ---
 

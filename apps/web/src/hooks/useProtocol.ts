@@ -52,6 +52,9 @@ const EMPTY_EPOCH: EpochState = {
   extendWindowOpensAt: 0,
   timeUntilExtendWindow: EXTEND_WINDOW,
   canExtendLocks: false,
+  claimBribesCursor: 0,
+  claimBribesTotal: 0,
+  claimBribesReady: false,
 };
 const EMPTY_POSITION: UserPosition = {
   veMezoTokenIds: [], lockedAmounts: {}, permanentIds: [], expiredIds: [], veByndBalance: '0',
@@ -269,6 +272,11 @@ export function useProtocol(
       { address: addrs.ByNdVoter as Address, abi: VOTER_ABI, functionName: 'epochVoted',        args: [currentEpochNum!] },
       { address: addrs.ByNdVoter as Address, abi: VOTER_ABI, functionName: 'epochHarvested',     args: [currentEpochNum!] },
       { address: addrs.ByNdVoter as Address, abi: VOTER_ABI, functionName: 'epochLocksExtended', args: [currentEpochNum!] },
+      // 3 — claimBribesBatch() progress. harvestAndDistribute() reverts with
+      // "call claimBribesBatch first" / "bribes not fully claimed" unless
+      // readyToHarvest is true, so the harvest button gates on this, not on
+      // epochVoted alone. Reads currentEpoch internally — no arg needed.
+      { address: addrs.ByNdVoter as Address, abi: VOTER_ABI, functionName: 'claimProgress' },
     ],
     query: { enabled: (contractsEnabled || readOnlyContractsEnabled) && currentEpochNum !== undefined, refetchInterval: 5_000 },
   });
@@ -571,6 +579,11 @@ export function useProtocol(
         : undefined;
       const extendWindowIsOpen = timeUntilExtendWindow != null ? timeUntilExtendWindow === 0 : undefined;
       const locksAlreadyExtended = (epochFlags?.[2]?.result as boolean | undefined) ?? false;
+      // claimProgress() -> (cursor, total, readyToHarvest). total is
+      // managedTokenIds.length, so a protocol with no deposits yet reports
+      // 0/0 — in that case harvestAndDistribute() takes the snapshot itself
+      // and readyToHarvest comes back true, so no special-casing needed here.
+      const claimProgressResult = epochFlags?.[3]?.result as [bigint, bigint, boolean] | undefined;
 
       setEpoch(prev => ({
         ...prev,
@@ -596,6 +609,9 @@ export function useProtocol(
         epochVoted:         (epochFlags?.[0]?.result as boolean) ?? prev.epochVoted,
         epochHarvested:     (epochFlags?.[1]?.result as boolean) ?? prev.epochHarvested,
         epochLocksExtended:  (epochFlags?.[2]?.result as boolean) ?? prev.epochLocksExtended,
+        claimBribesCursor:   claimProgressResult ? Number(claimProgressResult[0]) : prev.claimBribesCursor,
+        claimBribesTotal:    claimProgressResult ? Number(claimProgressResult[1]) : prev.claimBribesTotal,
+        claimBribesReady:    claimProgressResult ? claimProgressResult[2]         : prev.claimBribesReady,
         lastVoteTimestamp:   lastVoteTs != null ? Number(lastVoteTs) : prev.lastVoteTimestamp,
       }));
     }

@@ -14,11 +14,17 @@ interface HarvestModalProps {
   bountyBps: number;
   epochVoted: boolean;
   epochHarvested: boolean;
+  // claimProgress() state — harvestAndDistribute() reverts on-chain unless
+  // the epoch snapshot is taken and every managed NFT's bribes are claimed.
+  bribesClaimed: boolean;
+  claimCursor: number;
+  claimTotal: number;
   onHarvest: () => Promise<void>;
 }
 
 export const HarvestModal: React.FC<HarvestModalProps> = ({
-  isOpen, onClose, pendingIncentives, bountyBps, epochVoted, epochHarvested, onHarvest,
+  isOpen, onClose, pendingIncentives, bountyBps, epochVoted, epochHarvested,
+  bribesClaimed, claimCursor, claimTotal, onHarvest,
 }) => {
   const [status, setStatus] = useState<TxStatus>({ type: null, message: null });
   const bounty = (parseFloat(pendingIncentives.replace(/[$,]/g, '')) * bountyBps / 10000).toFixed(2);
@@ -34,7 +40,7 @@ export const HarvestModal: React.FC<HarvestModalProps> = ({
     }
   };
 
-  const canHarvest = epochVoted && !epochHarvested;
+  const canHarvest = epochVoted && !epochHarvested && bribesClaimed;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Harvest and distribute" subtitle="Claim keeper bounty · forward MUSD to stakers">
@@ -42,7 +48,16 @@ export const HarvestModal: React.FC<HarvestModalProps> = ({
         {!epochVoted && (
           <div className="rounded-control p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">
             <AlertTriangle size={14} className="text-orange-400 shrink-0" />
-            <p className="text-sm text-orange-400">castVotes() must be called before harvesting.</p>
+            <p className="text-sm text-orange-400">optimiseAndVote() must be called before harvesting.</p>
+          </div>
+        )}
+        {epochVoted && !epochHarvested && !bribesClaimed && (
+          <div className="rounded-control p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">
+            <AlertTriangle size={14} className="text-orange-400 shrink-0" />
+            <p className="text-sm text-orange-400">
+              claimBribesBatch() must finish first — {claimCursor}/{claimTotal} managed
+              NFTs claimed. Harvesting now would revert.
+            </p>
           </div>
         )}
         {epochHarvested && (

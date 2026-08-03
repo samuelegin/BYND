@@ -32,6 +32,9 @@ interface IByNdVoter {
     function addManagedTokenId(uint256 tokenId) external;
     function markRebasesClaimed(address keeper) external;
     function markLocksExtended() external;
+    function extendWindowOpen() external view returns (bool);
+    function epochLocksExtended(uint256 epoch) external view returns (bool);
+    function currentEpoch() external view returns (uint256);
 }
 
 contract ByNdVault is
@@ -134,6 +137,14 @@ contract ByNdVault is
     }
 
     function extendLocks() external nonReentrant {
+        // Gate first, cheaply, so a second caller this epoch doesn't pay gas
+        // for a full loop the vote-marking would just swallow. The voter owns
+        // the epoch clock, so it decides both sides of the gate here.
+        if (address(voter) != address(0)) {
+            require(!voter.epochLocksExtended(voter.currentEpoch()), "ByNdVault: locks already extended this epoch");
+            require(voter.extendWindowOpen(), "ByNdVault: extend window not open");
+        }
+
         uint256 newEndTime = block.timestamp + MAXTIME;
         uint256 extendedCount;
 

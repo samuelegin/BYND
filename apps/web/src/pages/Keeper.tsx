@@ -116,7 +116,14 @@ export default function KeeperPage() {
   };
 
   const canClaimRebases = true;
-  const canExtend = !epoch.epochLocksExtended;
+  // extendLocks() has a real on-chain gate on BOTH counts, so check both:
+  //   - a time window (last `extendWindow` secs before the epoch boundary,
+  //     24h by default), and
+  //   - once per epoch — only the first caller is credited a keeper slot, so
+  //     the vault rejects later callers instead of letting them waste gas.
+  // canExtendLocks from useProtocol already ANDs these together.
+  const canExtend = epoch.canExtendLocks;
+  const extendWindowOpen = epoch.timeUntilExtendWindow <= 0;
   // optimiseAndVote() DOES have a real on-chain time gate — it only opens
   // in the final `voteWindow` seconds before Mezo's real epoch boundary
   // (see ByNdVoter.sol's require on boostVoter.epochNext()). Confirmed by
@@ -149,8 +156,11 @@ export default function KeeperPage() {
       can: canExtend,
       done: epoch.epochLocksExtended,
       isLoading: extendingLocks,
-      description:
-        "Resets all protocol-held veMEZO to the 4-year maximum, ensuring permanent max governance weight.",
+      description: epoch.epochLocksExtended
+        ? "Resets all protocol-held veMEZO to the 4-year maximum, ensuring permanent max governance weight."
+        : extendWindowOpen
+          ? "Resets all protocol-held veMEZO to the 4-year maximum, ensuring permanent max governance weight. Extend window is open now. Only the first keeper to call it each epoch is credited a keeper slot."
+          : `Resets all protocol-held veMEZO to the 4-year maximum, ensuring permanent max governance weight. Only callable in the final window before the epoch boundary. Opens in ${formatTime(epoch.timeUntilExtendWindow)}.`,
       onClick: handleExtendLocks,
       badge: epoch.epochLocksExtended
         ? "Done"

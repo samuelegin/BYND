@@ -34,10 +34,10 @@ export function KeeperPanel({
       fn: 'extendLocks()',
       title: 'Extend locks',
       detail: epoch.epochLocksExtended
-        ? 'Reset all veMEZO to 4-yr max'
+        ? 'Already done this epoch'
         : canExtend
           ? 'Reset all veMEZO to 4-yr max'
-          : `Cooldown · ready in ${formatTime(Math.max(0, epoch.extendCooldownEndsAt - Math.floor(Date.now() / 1000)))}`,
+          : `Available in ${formatTime(epoch.timeUntilExtendWindow)}`,
       status: epoch.epochLocksExtended ? 'Done' : canExtend ? 'Ready' : 'Wait',
       variant: epoch.epochLocksExtended ? 'muted' : canExtend ? 'acid' : 'muted',
       onClick: onExtendLocks,

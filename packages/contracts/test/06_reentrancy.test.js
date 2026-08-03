@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 const { deployAll, mintAndDeposit, setupSingleGauge } = require("./fixtures");
+const { jumpInsideExtendWindow } = require("./epochTime");
 
 describe("Security: reentrancy & trust-boundary tests", function () {
   let ctx;
@@ -54,6 +55,7 @@ describe("Security: reentrancy & trust-boundary tests", function () {
       const relayer = await RelayerCaller.deploy();
 
       // alice (EOA, tx.origin) calls through the relayer contract (msg.sender to the vault)
+      await jumpInsideExtendWindow(voter);
       await relayer.connect(alice).relayExtendLocks(await vault.getAddress());
 
       expect(await voter.epochKeeperExtendLocks(0)).to.equal(alice.address);

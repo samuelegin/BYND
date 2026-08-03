@@ -73,6 +73,17 @@ BynD aggregates veMEZO positions into a single coordinated boost block and autom
 ### Lock veMEZO & Mint veBYND
 Deposit a veMEZO NFT to receive veBYND 1:1. The vault keeps deposited locks extended toward the 4-year maximum for highest governance weight, and every deposit after the first is merged into a single canonical veMEZO NFT so the vault's gas cost never scales with how many people deposit.
 
+Merging is **confirmed working on Matsnet**. Deposits of tokenIds `864` and `869` both emitted `MergedIntoCanonical(tokenId, 860)`: each NFT was burned by veMEZO's `merge()`, its locked MEZO folded into canonical tokenId `860`, and `veBYND` still minted 1:1 to the depositor. `getAllTokenIds()` did not grow, so the pool's per-epoch work is unchanged by those deposits — which is the entire point of consolidation.
+
+```
+block 14693953  Deposited  tokenId=864 minted=100.0
+block 14693953  MergedIntoCanonical  tokenId=864 -> canonical=860
+block 14694004  Deposited  tokenId=869 minted=100.0
+block 14694004  MergedIntoCanonical  tokenId=869 -> canonical=860
+```
+
+> **Reading the vault's history:** tokenIds `857`, `829`, `859`, `866` and `860` are each tracked separately in `getAllTokenIds()` because they were deposited **before** the canonical-merge logic shipped, when the vault had no `canonicalTokenId` to merge into. `860` became canonical simply by being the first deposit after that upgrade, while `canonicalTokenId` was still `0`. Those five pre-existing positions are not retro-merged; they stay as managed stragglers and every new deposit merges into `860`. Absence of a `MergeFailedFallback` event for them is the tell — they never attempted a merge at all.
+
 ![Lock veMEZO and Mint veBYND](docs/lock_and_mint.png)
 ![Lock confirmation](docs/lock_confirm_modal.png)
 
@@ -87,7 +98,7 @@ Every epoch step is permissionless and callable by anyone — extend locks, cast
 ![Keeper Dashboard](docs/keeper_dashboard.png)
 
 ### Epoch Flow
-The 4-step, gas-bounded epoch machine: `claimRebases()` → `extendLocks()` → `optimiseAndVote()` → `harvestAndDistribute()`. Two of the four are time-gated to the run-up to Mezo's Thursday 00:00 UTC epoch boundary — `extendLocks()` opens in the final 24h and `optimiseAndVote()` in the final 3h — and each is creditable to only one keeper per epoch. The dashboard counts down to each window so nobody wastes gas racing a call that would revert.
+The 5-step, gas-bounded epoch machine: `claimRebases()` → `extendLocks()` → `optimiseAndVote()` → `claimBribesBatch()` → `harvestAndDistribute()`. Two of the five are time-gated to the run-up to Mezo's Thursday 00:00 UTC epoch boundary — `extendLocks()` opens in the final 24h and `optimiseAndVote()` in the final 3h — and each gated step is creditable to only one keeper per epoch. The dashboard counts down to each window so nobody wastes gas racing a call that would revert.
 
 ![Epoch Flow](docs/epoch_flow.png)
 
@@ -107,7 +118,7 @@ Live protocol metrics read directly from Mezo Matsnet — TVL, veBYND supply, st
 
 | Contract | Role |
 |---|---|
-| `ByNdVault` | Custodies veMEZO NFTs (UUPS upgradeable) · mints veBYND 1:1 · every deposit after the first is merged into a single canonical veMEZO NFT via `merge()`, so `extendLocks()`/`claimRebases()` take no arguments and gas never scales with vault size |
+| `ByNdVault` | Custodies veMEZO NFTs (UUPS upgradeable) · mints veBYND 1:1 · every deposit after the first is merged into a single canonical veMEZO NFT via `merge()`, so `extendLocks()`/`claimRebases()` take no arguments and gas never scales with vault size · a deposit whose `merge()` reverts is kept as a separately-managed straggler rather than failing the deposit |
 | `VeBYND` | Liquid ERC-20 receipt token, `AccessControl`-gated `mint`/`burn` (`MINTER_ROLE`/`BURNER_ROLE`), UUPS upgradeable via `UPGRADER_ROLE` |
 | `ByNdStaking` | Multi-token reward distributor (Synthetix `rewardPerToken` pattern, unlimited simultaneous reward tokens) · `claimAll()` / `claimReward(token)` |
 | `ByNdVoter` | Epoch state machine · on-chain gauge optimiser or governance-set gauge list · batched bribe claiming · 5-way keeper bounty split · optional protocol fee · emergency epoch escape hatch |
@@ -168,7 +179,9 @@ Step 3  optimiseAndVote()          Routes all managed veMEZO to either governanc
                                     each scaled by that token's bps weight — so 100 of a 5x token
                                     beats 400 of the reference token. Scan is capped at 300 gauges.
                                     Once per epoch, and only in the final 3h before the epoch boundary —
-                                    votes land as late as possible, after most bribes have been posted
+                                    votes land as late as possible, after most bribes have been posted.
+                                    A single tokenId whose vote reverts is tolerated (VoteCastFailed);
+                                    if EVERY vote reverts the whole call reverts, leaving the epoch open
 
 Step 4  claimBribesBatch(limit)    Pages through managed tokenIds (≤200/call) claiming bribes from all
                                     configured gauges — call repeatedly until claimProgress().readyToHarvest
@@ -182,6 +195,22 @@ The four keeper roles (rebases / locks / vote / harvest) are each paid independe
 **Recommended keeper cadence:** one run per epoch inside the final 24h before Thursday 00:00 UTC. `claimRebases()` then `extendLocks()` as soon as the 24h window opens, then wait for the 3h vote window to call `optimiseAndVote()`, then `claimBribesBatch()` → `harvestAndDistribute()`. Every gated step is claimed by exactly one keeper per epoch, so being early in the window is what wins the slot — calling before it opens only reverts. Note the vote window ends **1 hour before** the epoch boundary: Mezo's BoostVoter rejects votes in the final hour of each epoch, so a call in the last hour would cast zero votes yet still burn the epoch's vote slot.
 
 **Governance escape hatch:** if a misconfigured (too-high) harvest threshold would otherwise stall the protocol forever — bribes for an epoch can only be claimed once — `forceCloseEpoch()` lets governance close out the epoch without any token clearing its threshold. Already-claimed balances stay in the contract and roll into the next epoch's snapshot.
+
+### Failure handling: a vote that lands nowhere must not close the epoch
+
+`optimiseAndVote()` wraps each `boostVoter.vote(tokenId, …)` in `try/catch` so one bad lock can't block the rest of the pool. A **partial** failure stays tolerated: the bad tokenId emits `VoteCastFailed` and the others still vote.
+
+An **all-fail sweep** is different, and it reverts:
+
+```solidity
+require(anySucceeded, "ByNdVoter: votes not cast");
+```
+
+Without that line the epoch was marked voted even though nothing reached a bribe contract. Everything downstream then behaved correctly on empty inputs and the epoch was unrecoverable: `claimBribesBatch()` claimed 0 while still advancing its cursor to `total`, and `harvestAndDistribute()` could only ever revert on `_distribute`'s `require(anyValue)` — "nothing harvested this epoch" — with no way back short of governance calling `forceCloseEpoch()`.
+
+This was not hypothetical. It stranded 1000 MUSD on Matsnet: `ByNdVault` held the veMEZO NFTs but had not yet approved `ByNdVoter` to vote with them, so `isApprovedOrOwner(voter, tokenId)` was false and all five votes reverted silently. Reverting instead leaves the epoch open, so a keeper can fix the cause (missing vault approval, dead gauge) and retry inside the same window.
+
+> If `optimiseAndVote()` reverts with `ByNdVoter: votes not cast`, that is the guard working. Check `veMEZO.isApprovedOrOwner(<ByNdVoter>, <tokenId>)` first — `ByNdVault.grantVoterApproval()` re-grants it — and retry before the window closes.
 
 ### How the "highest paying" gauge is chosen
 
@@ -215,12 +244,18 @@ The scan is capped at `effectiveScanCap()` gauges (300 by default, governance-se
 | veMEZO (native) | `0xaCE816CA2bcc9b12C59799dcC5A959Fb9b98111b` |
 | BoostVoter (native) | `0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1` |
 | RewardsDistributor (native) | `0x2962E8817ae716019F759d098e2caE658bDcAd04` |
-| **VeBYND** | `0x9988bD1a255b2d8CeE01F27DA7f7D8A2630F937E` |
-| **ByNdVault** | `0x558969087977FeDb15d7941BB71227948C0497fA` |
-| **ByNdStaking** | `0xA224d206347d105C6F59869055496398111b1aaB` |
-| **ByNdVoter** | `0x6f47c26d42A22f05A4fc9aCFFBe4249A42d38f7B` |
+| MUSD (native) | `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` |
+| **VeBYND** | `0x0736B44A94b5f8d322D2f51A108e70e86589D91a` |
+| **ByNdVault** | `0xb7B1CD5c9D6d3deDE64F3c803826f6B6150a2B6C` |
+| **ByNdStaking** | `0xb95c341BD147FcD6c1a2Fe4B7Be1C68b830A416d` |
+| **ByNdVoter** | `0x76b7e2EbD2839c36802442931382032e8840218d` |
+| GaugeScan (library) | `0x3A55794Cab6c1119925f94A8B6F050977B61936f` |
 
 Addresses are re-generated on every `deploy:matsnet` run and written to `packages/contracts/deployments/<network>-<timestamp>.json` — the table above reflects the latest deployment record in that folder.
+
+`GaugeScan` is a stateless external library the voter reaches by `DELEGATECALL`. It exists because the gauge scan and scoring loops pushed `ByNdVoter` past EIP-170's 24576-byte limit; moving them out is what keeps the implementation deployable. It has to be linked by address at compile time, which is why `deploy-matsnet.js` and `upgrade-voter-gauge-selection-fix.js` both deploy or reuse it before building the `ByNdVoter` factory.
+
+> The four BynD contracts are UUPS proxies, so **these addresses do not change when the implementation is upgraded** — only the implementation behind them does. The current `ByNdVoter` implementation is `0x04F5473ff8eDC2019A8cd5796fF4400bdC60E9aE`; `packages/contracts/.openzeppelin/unknown-31611.json` is the authoritative record of every implementation ever deployed.
 
 ---
 
@@ -241,7 +276,7 @@ pnpm --filter bynd-v2-contracts compile
 pnpm --filter bynd-v2-contracts test
 ```
 
-The suite currently covers 16 test files / 150 tests: core behavior per contract (`01`–`04`), a full integration epoch (`05`), reentrancy attack mocks (`06`), economic/invariant checks — reward conservation, precision drift, bounty rounding, MEV-sniping documentation (`07`), extra coverage per contract (`08`–`11`), protocol fee accounting (`12`), the per-token harvest-threshold guard (`13`), BYND emissions (`14`), the stranded-value/liveness fixes (`15`), and the `extendLocks()` once-per-epoch window (`16`).
+The suite currently covers 16 test files / 157 tests: core behavior per contract (`01`–`04`), a full integration epoch (`05`), reentrancy attack mocks (`06`), economic/invariant checks — reward conservation, precision drift, bounty rounding, MEV-sniping documentation (`07`), extra coverage per contract (`08`–`11`), protocol fee accounting (`12`), the gauge/harvest guards and vote-failure visibility (`13`), BYND emissions (`14`), the stranded-value/liveness fixes (`15`), and the `extendLocks()` once-per-epoch window (`16`).
 
 ### Deploy / redeploy to Matsnet
 Contracts are already live at the addresses above — only redeploy if you need a fresh instance.
@@ -311,7 +346,9 @@ cast send <ByNdVoter> "claimBribesBatch(uint256)" 200 --private-key <KEY> --rpc-
 cast send <ByNdVoter> "harvestAndDistribute()" --private-key <KEY> --rpc-url <RPC>
 ```
 
-The web app's **Keeper dashboard** (`apps/web/src/pages/Keeper.tsx`) exposes all five steps as one-click buttons. `claimBribesBatch` is sent with `limit = 200` (the on-chain `MAX_CLAIM_BATCH`), so a single press covers any realistic number of managed tokenIds; the button stays live, showing `cursor/total`, until `claimProgress().readyToHarvest` flips. Harvest is gated on that same flag rather than on `epochVoted`, so it never offers a call that would revert.
+The web app's **Keeper dashboard** (`apps/web/src/pages/Keeper.tsx`) exposes all five steps as one-click buttons. `claimBribesBatch` is sent with `limit = 200` (the on-chain `MAX_CLAIM_BATCH`), so a single press covers any realistic number of managed tokenIds. The `cursor/total` counter is only surfaced when `total > 200` — below that it is always one press, so the numbers would be noise rather than a result. Harvest is gated on `claimProgress().readyToHarvest` rather than on `epochVoted`, so it never offers a call that would revert on "call claimBribesBatch first".
+
+One case the on-chain flags can't express: bribes that were fully *processed* but pulled in nothing still read as `readyToHarvest`, and harvest then reverts on `require(anyValue)`. The Harvest modal detects that (`gatesCleared && nothingToHarvest`), disables the button, and explains the likely cause — the votes never reached a bribe contract, or no bribe was funded for the epoch — instead of offering a transaction that is guaranteed to fail.
 
 ---
 

@@ -21,6 +21,10 @@ contract MockBoostVoter {
     address public rewardToken;
     bool public shouldRevertVote;
     bool public shouldRevertClaim;
+    /// @dev Per-tokenId revert control, so tests can exercise a PARTIAL vote
+    /// failure (some locks revert, others land). That path must stay tolerated;
+    /// only an all-fail sweep is meant to revert optimiseAndVote.
+    mapping(uint256 => bool) public shouldRevertVoteFor;
 
     constructor(address _rewardToken) {
         rewardToken = _rewardToken;
@@ -28,6 +32,10 @@ contract MockBoostVoter {
 
     function setShouldRevertVote(bool v) external {
         shouldRevertVote = v;
+    }
+
+    function setShouldRevertVoteFor(uint256 tokenId, bool v) external {
+        shouldRevertVoteFor[tokenId] = v;
     }
 
     function setShouldRevertClaim(bool v) external {
@@ -62,6 +70,7 @@ contract MockBoostVoter {
         uint256[] calldata weights
     ) external {
         require(!shouldRevertVote, "MockBoostVoter: vote reverted (test)");
+        require(!shouldRevertVoteFor[tokenId], "MockBoostVoter: vote reverted (test)");
         for (uint256 i = 0; i < _gauges.length; i++) {
             voteWeights[tokenId][_gauges[i]] = weights[i];
         }

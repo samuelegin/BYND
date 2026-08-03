@@ -181,7 +181,7 @@ contract ByNdVoter is
 
         require(_staking != address(0), "ByNdVoter: zero staking");
         require(_boostVoter != address(0), "ByNdVoter: zero boostVoter");
-        require(_treasury != address(0), "ByNdVoter: zero treasury");        staking = ByNdStaking(_staking);
+        require(_treasury != address(0), "ByNdVoter: zero treasury"); staking = ByNdStaking(_staking);
         boostVoter = IBoostVoter(_boostVoter);
         governance = msg.sender;
         treasury = _treasury;
@@ -242,12 +242,26 @@ contract ByNdVoter is
         }
 
         uint256 tokenCount = managedTokenIds.length;
+        bool anySucceeded;
         for (uint256 i = 0; i < tokenCount; i++) {
-            try boostVoter.vote(managedTokenIds[i], gaugeAddrs, weights) {}
+            try boostVoter.vote(managedTokenIds[i], gaugeAddrs, weights) {
+                anySucceeded = true;
+            }
             catch {
                 emit VoteCastFailed(currentEpoch, managedTokenIds[i]);
             }
         }
+
+        // Per-tokenId failures stay tolerated (one bad lock must not block the
+        // rest), but a clean sweep of failures means no vote reached any bribe
+        // contract. Marking the epoch voted anyway strands it permanently:
+        // claimBribesBatch then claims 0, and harvestAndDistribute reverts on
+        // "nothing harvested this epoch" with no way back short of governance
+        // calling forceCloseEpoch. Revert instead so the keeper can fix the
+        // cause (missing vault approval, dead gauge) and retry this epoch.
+        // Reuses an existing revert literal verbatim -- the contract sits ~60
+        // bytes under EIP-170, so a new string would push it over.
+        require(anySucceeded, "ByNdVoter: votes not cast");
 
         lastVoteTimestamp = block.timestamp;
         epochVoted[currentEpoch] = true;

@@ -156,6 +156,11 @@ export default function KeeperPage() {
   // once votes are cast, until the cursor reaches total.
   const bribesClaimed = epoch.claimBribesReady;
   const canClaimBribes = epoch.epochVoted && !epoch.epochHarvested && !bribesClaimed;
+  // The cursor/total counter is a paging detail, not a result: the button always
+  // sends limit=200 (on-chain MAX_CLAIM_BATCH), so with <=200 managed NFTs it is
+  // always one press and the numbers never tell the keeper anything actionable.
+  // Only surface them when paging genuinely takes more than one call.
+  const needsPaging = epoch.claimBribesTotal > 200;
   // harvestAndDistribute() requires epochSnapshotTaken && cursor >= total on
   // chain — gating on epochVoted alone advertised a call that always reverted
   // with "ByNdVoter: call claimBribesBatch first".
@@ -234,9 +239,9 @@ export default function KeeperPage() {
       done: bribesClaimed,
       isLoading: claimingBribes,
       description: bribesClaimed
-        ? `Bribes pulled in for all ${epoch.claimBribesTotal} managed veMEZO NFTs. Harvest is unlocked.`
+        ? "Bribes pulled in from every gauge's bribe contract. Harvest is unlocked."
         : epoch.epochVoted
-          ? `Pulls each managed veMEZO NFT's bribes out of every gauge's bribe contract and into the voter. Required before harvesting — ${epoch.claimBribesCursor}/${epoch.claimBribesTotal} claimed so far.`
+          ? `Pulls each managed veMEZO NFT's bribes out of every gauge's bribe contract and into the voter. Required before harvesting.${needsPaging ? ` ${epoch.claimBribesCursor}/${epoch.claimBribesTotal} processed — press again until Done.` : ""}`
           : "Pulls each managed veMEZO NFT's bribes out of every gauge's bribe contract and into the voter. Needs votes cast first.",
       onClick: handleClaimBribes,
       badge: bribesClaimed

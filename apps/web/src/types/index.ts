@@ -65,6 +65,11 @@ export interface EpochState {
   extendWindowOpensAt: number;
   timeUntilExtendWindow: number;
   canExtendLocks: boolean;
+  // claimBribesBatch() progress for the current epoch.
+  // readyToHarvest = epochSnapshotTaken && cursor >= total (mirrors on-chain).
+  claimBribesCursor: number;
+  claimBribesTotal: number;
+  claimBribesReady: boolean;
 }
 
 export interface ProtocolStats {

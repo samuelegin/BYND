@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { RefreshCw, Zap, Shield, Droplets } from "lucide-react";
+import { RefreshCw, Zap, Shield, Droplets, HandCoins } from "lucide-react";
 import { SectionHeader, formatTime } from "@/components/ui";
 import { CastVotesModal, HarvestModal } from "@/components/modals";
 import {
@@ -22,6 +22,7 @@ export default function KeeperPage() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [extendingLocks, setExtendingLocks] = useState(false);
   const [claimingRebases, setClaimingRebases] = useState(false);
+  const [claimingBribes, setClaimingBribes] = useState(false);
 
   // Epoch display + vote-window countdown now come from the shared
   // useProtocol hook — same Thursday-based global epoch number and
@@ -104,6 +105,25 @@ export default function KeeperPage() {
     );
   };
 
+  const handleClaimBribes = async () => {
+    setClaimingBribes(true);
+    try {
+      await withTx(() =>
+        writeContractAsync({
+          address: addrs.ByNdVoter,
+          abi: VOTER_ABI,
+          functionName: "claimBribesBatch",
+          // MAX_CLAIM_BATCH on-chain is 200 — one tx covers any realistic
+          // managedTokenIds count. If the protocol ever holds more than 200
+          // NFTs, this button just needs pressing again until Done.
+          args: [200n],
+        }),
+      );
+    } finally {
+      setClaimingBribes(false);
+    }
+  };
+
   const handleHarvest = async () => {
     await withTx(() =>
       writeContractAsync({
@@ -131,7 +151,15 @@ export default function KeeperPage() {
   // "ByNdVoter: vote window not open". Gate on both conditions.
   const voteWindowOpen = timeToVoteOpen <= 0;
   const canVote = !epoch.epochVoted && voteWindowOpen;
-  const canHarvest = epoch.epochVoted && !epoch.epochHarvested;
+  // claimBribesBatch() is a MANDATORY step between voting and harvesting: it
+  // takes the epoch snapshot and pulls each managed NFT's bribes in. Callable
+  // once votes are cast, until the cursor reaches total.
+  const bribesClaimed = epoch.claimBribesReady;
+  const canClaimBribes = epoch.epochVoted && !epoch.epochHarvested && !bribesClaimed;
+  // harvestAndDistribute() requires epochSnapshotTaken && cursor >= total on
+  // chain — gating on epochVoted alone advertised a call that always reverted
+  // with "ByNdVoter: call claimBribesBatch first".
+  const canHarvest = epoch.epochVoted && !epoch.epochHarvested && bribesClaimed;
 
   const steps: KeeperStepDef[] = [
     {
@@ -198,14 +226,43 @@ export default function KeeperPage() {
           : "muted") as BadgeVariant,
     },
     {
-      id: "harvest",
+      id: "claimBribes",
       step: "03",
+      label: "claimBribesBatch()",
+      icon: HandCoins,
+      can: canClaimBribes,
+      done: bribesClaimed,
+      isLoading: claimingBribes,
+      description: bribesClaimed
+        ? `Bribes pulled in for all ${epoch.claimBribesTotal} managed veMEZO NFTs. Harvest is unlocked.`
+        : epoch.epochVoted
+          ? `Pulls each managed veMEZO NFT's bribes out of every gauge's bribe contract and into the voter. Required before harvesting — ${epoch.claimBribesCursor}/${epoch.claimBribesTotal} claimed so far.`
+          : "Pulls each managed veMEZO NFT's bribes out of every gauge's bribe contract and into the voter. Needs votes cast first.",
+      onClick: handleClaimBribes,
+      badge: bribesClaimed
+        ? "Done"
+        : canClaimBribes
+          ? "Ready"
+          : "Locked",
+      badgeVariant: (bribesClaimed
+        ? "acid"
+        : canClaimBribes
+          ? "orange"
+          : "muted") as BadgeVariant,
+    },
+    {
+      id: "harvest",
+      step: "04",
       label: "harvestAndDistribute()",
       icon: Zap,
       can: canHarvest,
       done: epoch.epochHarvested,
       isLoading: false,
-      description: "Collects bribes from all gauges, any token.",
+      description: epoch.epochHarvested
+        ? "Splits the claimed bribes: protocol fee, keeper bounties, remainder to veBYND stakers."
+        : bribesClaimed
+          ? "Splits the claimed bribes: protocol fee, keeper bounties, remainder to veBYND stakers."
+          : "Splits the claimed bribes across fee, bounties and stakers. Reverts until claimBribesBatch() has finished — run step 03 first.",
       onClick: () => setActiveModal("harvest"),
       badge: epoch.epochHarvested ? "Done" : canHarvest ? "Ready" : "Locked",
       badgeVariant: (epoch.epochHarvested
@@ -253,6 +310,9 @@ export default function KeeperPage() {
         bountyBps={stats.bountyBps}
         epochVoted={epoch.epochVoted}
         epochHarvested={epoch.epochHarvested}
+        bribesClaimed={bribesClaimed}
+        claimCursor={epoch.claimBribesCursor}
+        claimTotal={epoch.claimBribesTotal}
         onHarvest={handleHarvest}
       />
     </div>

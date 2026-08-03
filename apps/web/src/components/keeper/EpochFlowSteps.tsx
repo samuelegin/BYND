@@ -23,7 +23,7 @@ export function EpochFlowSteps({ steps }: { steps: KeeperStepDef[] }) {
         Epoch flow. Call order
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-stretch">
         {steps.map((s) => {
           const Icon = s.icon;
           const active = s.can && !s.done;

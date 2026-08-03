@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Code2, RefreshCw, Shield, Zap } from 'lucide-react';
+import { Code2, HandCoins, RefreshCw, Shield, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Panel, Button, Badge, formatTime } from '@/components/ui';
 import type { EpochState, ProtocolStats } from '@/types';
@@ -12,6 +12,8 @@ interface KeeperPanelProps {
   timeToVoteOpen: number;
   onExtendLocks: () => void;
   onCastVotes: () => void;
+  onClaimBribes: () => void;
+  claimingBribes: boolean;
   onHarvest: () => void;
 }
 
@@ -20,13 +22,21 @@ interface KeeperPanelProps {
 // opts into developer mode — nobody needs to see optimiseAndVote() to
 // understand "Vote is available".
 export function KeeperPanel({
-  epoch, stats, canExtend, extendingLocks, timeToVoteOpen, onExtendLocks, onCastVotes, onHarvest,
+  epoch, stats, canExtend, extendingLocks, timeToVoteOpen, onExtendLocks, onCastVotes,
+  onClaimBribes, claimingBribes, onHarvest,
 }: KeeperPanelProps) {
   const [devMode, setDevMode] = useState(false);
 
   const voteWindowOpen = timeToVoteOpen <= 0;
   const canVote = !epoch.epochVoted && voteWindowOpen;
-  const canHarvest = epoch.epochVoted && !epoch.epochHarvested;
+  // claimBribesBatch() sits between voting and harvesting: it takes the epoch
+  // snapshot and pulls each managed NFT's bribes in.
+  const bribesClaimed = epoch.claimBribesReady;
+  const canClaimBribes = epoch.epochVoted && !epoch.epochHarvested && !bribesClaimed;
+  // harvestAndDistribute() requires epochSnapshotTaken && cursor >= total
+  // on-chain. Gating on epochVoted alone showed READY for a call that always
+  // reverted with "ByNdVoter: call claimBribesBatch first".
+  const canHarvest = epoch.epochVoted && !epoch.epochHarvested && bribesClaimed;
 
   const rows = [
     {
@@ -62,14 +72,32 @@ export function KeeperPanel({
       spin: canVote,
     },
     {
+      icon: HandCoins,
+      fn: 'claimBribesBatch(200)',
+      title: 'Claim bribes',
+      detail: bribesClaimed
+        ? 'Claimed this epoch'
+        : canClaimBribes
+          ? `Required before harvest · ${epoch.claimBribesCursor}/${epoch.claimBribesTotal}`
+          : 'Needs votes cast first',
+      status: bribesClaimed ? 'Done' : canClaimBribes ? 'Ready' : 'Wait',
+      variant: bribesClaimed ? 'muted' : canClaimBribes ? 'acid' : 'muted',
+      onClick: onClaimBribes,
+      disabled: !canClaimBribes,
+      loading: claimingBribes,
+      spin: false,
+    },
+    {
       icon: Zap,
       fn: 'harvestAndDistribute()',
       title: 'Harvest rewards',
       detail: epoch.epochHarvested
         ? `Earned ${stats.bountyBps / 100}% bounty`
-        : epoch.epochVoted
+        : canHarvest
           ? `Ready · earn ${stats.bountyBps / 100}% bounty`
-          : 'Needs votes cast first',
+          : epoch.epochVoted
+            ? 'Claim bribes first'
+            : 'Needs votes cast first',
       status: epoch.epochHarvested ? 'Done' : canHarvest ? 'Ready' : 'Wait',
       variant: epoch.epochHarvested ? 'muted' : canHarvest ? 'acid' : 'muted',
       onClick: onHarvest,

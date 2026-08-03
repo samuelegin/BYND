@@ -10,7 +10,7 @@ const NOTES = [
   {
     icon: Repeat,
     title: "Epoch-gated steps",
-    body: "Steps 01–03 each execute once per epoch. Repeat calls revert.",
+    body: "Steps 01, 02 and 04 each execute once per epoch — repeat calls revert. Step 03 is paged instead: call it until it reads Done.",
   },
   {
     icon: Coins,

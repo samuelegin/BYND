@@ -43,6 +43,7 @@ export default function TerminalPage() {
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [extendingLocks, setExtendingLocks] = useState(false);
+  const [claimingBribes, setClaimingBribes] = useState(false);
 
   // Countdown ticking now happens centrally inside useProtocol, so every
   // page reads the same live-updating clock — no local timer needed here.
@@ -185,6 +186,25 @@ export default function TerminalPage() {
         args: [],
       }),
     );
+  };
+
+  const handleClaimBribes = async () => {
+    setClaimingBribes(true);
+    try {
+      await withTx(() =>
+        writeContractAsync({
+          address: addrs.ByNdVoter,
+          abi: VOTER_ABI,
+          functionName: "claimBribesBatch",
+          // MAX_CLAIM_BATCH on-chain is 200 — one tx covers any realistic
+          // managedTokenIds count. Above that, press again until Done.
+          args: [200n],
+        }),
+        "claimBribesBatch",
+      );
+    } finally {
+      setClaimingBribes(false);
+    }
   };
 
   const handleHarvest = async () => {
@@ -333,6 +353,8 @@ export default function TerminalPage() {
                 timeToVoteOpen={timeToVoteOpen}
                 onExtendLocks={handleExtendLocks}
                 onCastVotes={() => setActiveModal("castVotes")}
+                onClaimBribes={handleClaimBribes}
+                claimingBribes={claimingBribes}
                 onHarvest={() => setActiveModal("harvest")}
               />
               <ActivityPanel gauges={gauges} />

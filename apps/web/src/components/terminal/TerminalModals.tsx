@@ -60,6 +60,9 @@ export function TerminalModals({
         bountyBps={stats.bountyBps}
         epochVoted={epoch.epochVoted}
         epochHarvested={epoch.epochHarvested}
+        bribesClaimed={epoch.claimBribesReady}
+        claimCursor={epoch.claimBribesCursor}
+        claimTotal={epoch.claimBribesTotal}
         onHarvest={onHarvest}
       />
     </>

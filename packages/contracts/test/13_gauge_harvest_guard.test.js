@@ -42,7 +42,7 @@ describe("ByNdVoter — gauge harvest guard & failure visibility", function () {
     await expect(voter.harvestAndDistribute()).to.not.be.reverted;
   });
 
-  it("emits VoteCastFailed instead of silently swallowing a reverted vote() call", async () => {
+  it("reverts rather than stranding the epoch when EVERY vote() call fails", async () => {
     const { voter, boostVoter, deployer } = ctx;
     await voter.connect(deployer).setManagedTokenId(1);
     const { gauge, bribe } = await setupSingleGauge(ctx, ctx.rewardTokenA);
@@ -52,9 +52,33 @@ describe("ByNdVoter — gauge harvest guard & failure visibility", function () {
     await boostVoter.setShouldRevertVote(true);
     await fastForwardToVoteWindow();
 
-    // the outer call still succeeds (the epoch is still marked voted) —
-    // only the underlying boostVoter.vote() call failed and is now visible
-    // via the event instead of disappearing into an empty catch block.
+    // Marking the epoch voted when nothing reached a bribe contract strands it
+    // permanently: claimBribesBatch claims 0, then harvestAndDistribute can
+    // only ever revert on "nothing harvested this epoch". Observed live on
+    // Matsnet epoch 0 — votes failed on a missing vault approval, and the epoch
+    // needed governance forceCloseEpoch() to recover.
+    await expect(voter.optimiseAndVote()).to.be.revertedWith(
+      "ByNdVoter: votes not cast"
+    );
+
+    // The epoch stays open, so the keeper can fix the cause and retry it.
+    expect(await voter.epochVoted(0)).to.equal(false);
+    expect(await voter.currentEpoch()).to.equal(0);
+
+    await boostVoter.setShouldRevertVote(false);
+    await expect(voter.optimiseAndVote()).to.not.be.reverted;
+    expect(await voter.epochVoted(0)).to.equal(true);
+  });
+
+  it("still tolerates a PARTIAL vote failure, emitting VoteCastFailed for the bad tokenId only", async () => {
+    const { voter, boostVoter, deployer } = ctx;
+    await voter.connect(deployer).addManagedTokenIds([1, 2]);
+    await setupSingleGauge(ctx, ctx.rewardTokenA);
+
+    // tokenId 1 reverts, tokenId 2 lands. One bad lock must not block the rest.
+    await boostVoter.setShouldRevertVoteFor(1, true);
+    await fastForwardToVoteWindow();
+
     await expect(voter.optimiseAndVote())
       .to.emit(voter, "VoteCastFailed")
       .withArgs(0, 1);

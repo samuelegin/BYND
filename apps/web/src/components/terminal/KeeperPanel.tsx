@@ -76,9 +76,13 @@ export function KeeperPanel({
       fn: 'claimBribesBatch(200)',
       title: 'Claim bribes',
       detail: bribesClaimed
-        ? 'Claimed this epoch'
+        ? 'Processed this epoch'
         : canClaimBribes
-          ? `Required before harvest · ${epoch.claimBribesCursor}/${epoch.claimBribesTotal}`
+          ? epoch.claimBribesTotal > 200
+            // Paging only matters above MAX_CLAIM_BATCH; below that it is always
+            // a single press, so the counter would be noise.
+            ? `Required before harvest · ${epoch.claimBribesCursor}/${epoch.claimBribesTotal}`
+            : 'Required before harvest'
           : 'Needs votes cast first',
       status: bribesClaimed ? 'Done' : canClaimBribes ? 'Ready' : 'Wait',
       variant: bribesClaimed ? 'muted' : canClaimBribes ? 'acid' : 'muted',

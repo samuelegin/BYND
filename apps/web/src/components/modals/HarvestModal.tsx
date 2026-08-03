@@ -40,7 +40,10 @@ export const HarvestModal: React.FC<HarvestModalProps> = ({
     }
   };
 
-  const canHarvest = epochVoted && !epochHarvested && bribesClaimed;
+  const nothingToHarvest = parseFloat(pendingIncentives.replace(/[$,]/g, '')) === 0;
+  // On-chain gates are met, but there may still be nothing to distribute.
+  const gatesCleared = epochVoted && !epochHarvested && bribesClaimed;
+  const canHarvest = gatesCleared && !nothingToHarvest;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Harvest and distribute" subtitle="Claim keeper bounty · forward MUSD to stakers">
@@ -55,8 +58,8 @@ export const HarvestModal: React.FC<HarvestModalProps> = ({
           <div className="rounded-control p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">
             <AlertTriangle size={14} className="text-orange-400 shrink-0" />
             <p className="text-sm text-orange-400">
-              claimBribesBatch() must finish first — {claimCursor}/{claimTotal} managed
-              NFTs claimed. Harvesting now would revert.
+              claimBribesBatch() must finish first{claimTotal > 200 ? ` — ${claimCursor}/${claimTotal} processed` : ""}.
+              Harvesting now would revert.
             </p>
           </div>
         )}
@@ -64,6 +67,21 @@ export const HarvestModal: React.FC<HarvestModalProps> = ({
           <div className="rounded-control p-3 border border-void-border flex gap-2">
             <CheckCircle2 size={14} className="text-gold shrink-0" />
             <p className="text-sm text-gold">Already harvested this epoch.</p>
+          </div>
+        )}
+        {/* A claim that processed every NFT but pulled in nothing still reads as
+            "Done", and harvestAndDistribute() then reverts on _distribute's
+            require(anyValue) — "nothing harvested this epoch". Seen live on
+            Matsnet epoch 0, where the votes had silently failed, so the bribe
+            contract owed the vault zero. Warn instead of offering the call. */}
+        {gatesCleared && nothingToHarvest && (
+          <div className="rounded-control p-3 border border-orange-500/20 bg-orange-500/5 flex gap-2">
+            <AlertTriangle size={14} className="text-orange-400 shrink-0" />
+            <p className="text-sm text-orange-400">
+              Bribes are claimed but nothing came in, so there is nothing to distribute
+              and harvesting would revert. Usually means the votes never reached a bribe
+              contract, or no bribe was funded for this epoch.
+            </p>
           </div>
         )}
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Panel, PixelArt, shortAddr } from '@/components/ui';
+import { Panel, PixelArt, shortAddr, formatBribe } from '@/components/ui';
 import type { GaugeAllocation } from '@/types';
 import iconBoostWebp from '@/assets/illustrations/icons/icon-boost.webp';
 import iconBoostPng from '@/assets/illustrations/icons/icon-boost.png';
@@ -50,9 +50,18 @@ export function ActivityPanel({ gauges }: { gauges: GaugeAllocation[] }) {
                 <div className="flex items-center justify-between gap-2 mt-1">
                   <span className="text-[10px] text-white/[.38]">Bribes available</span>
                   <span className="text-[11px] text-gold font-medium">
-                    {g.bribeAmount != null
-                      ? Number(g.bribeAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                      : '–'}
+                    {g.bribes == null ? (
+                      '–'
+                    ) : g.bribes.length === 0 ? (
+                      <span className="text-white/[.38]">none</span>
+                    ) : (
+                      g.bribes.map((b, bi) => (
+                        <React.Fragment key={b.token}>
+                          {bi > 0 && ' + '}
+                          {formatBribe(b.amount)} {b.symbol}
+                        </React.Fragment>
+                      ))
+                    )}
                   </span>
                 </div>
               </div>

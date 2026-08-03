@@ -25,11 +25,11 @@ export interface EpochState {
   // Mezo's real global epoch number — a new epoch starts every Thursday
   // 00:00 UTC, independent of our contract's internal counter.
   displayEpoch: number;
-  // Seconds until the 4-hour vote window opens (what actually gates
+  // Seconds until the vote window opens (what actually gates
   // optimiseAndVote()).
   timeUntilNextVote: number;
   // Seconds until the epoch itself ends — the vote window is the last
-  // 4 hours of this.
+  // `voteWindow` seconds of this.
   epochEndsIn: number;
   epochVoted: boolean;
   epochHarvested: boolean;
@@ -55,11 +55,15 @@ export interface EpochState {
   // by more than an hour — i.e. optimiseAndVote() will actually unlock at
   // a different time than the "real Mezo" times shown above.
   clockDrifted: boolean;
-  // Real on-chain extendLocks() cooldown (ByNdVault: 7 days from
-  // lastExtendTimestamp), independent of the per-epoch epochLocksExtended
-  // flag — a call can be blocked by this even when epochLocksExtended is
-  // false for the current epoch.
-  extendCooldownEndsAt: number;
+  // extendLocks() is gated two ways, both enforced on-chain:
+  //   1. a time window — the last `extendWindow` seconds before Mezo's epoch
+  //      boundary (default 24h, so it contains the 3h vote window), and
+  //   2. once per epoch — only the first caller is credited a keeper slot,
+  //      so later callers are rejected instead of burning gas for nothing.
+  // extendWindow == 0 disables (1) only; (2) always applies.
+  extendWindow: number;
+  extendWindowOpensAt: number;
+  timeUntilExtendWindow: number;
   canExtendLocks: boolean;
 }
 
@@ -79,6 +83,13 @@ export interface ProtocolStats {
   protocolFeeBps: number;
 }
 
+export interface GaugeBribe {
+  token: string;
+  symbol: string;
+  // Already scaled by the token's own decimals — never assume 18.
+  amount: string;
+}
+
 export interface GaugeAllocation {
   gauge: string;
   bribe: string;         // Mezo BoostVoter bribe contract address for this gauge
@@ -87,9 +98,15 @@ export interface GaugeAllocation {
   apr: string;
   pendingMUSD: string;
   boostedVeBTC?: string;
-  // Amount currently sitting in this gauge's bribe contract, read from
-  // Mezo's BoostVoter.claimable(gauge) — undefined until that read resolves.
-  bribeAmount?: string;
+  // Per-token bribes posted on this gauge for the current epoch, read from the
+  // gauge's own bribe contract via tokenRewardsPerEpoch() — the same source
+  // ByNdVoter ranks on, so the UI can't disagree with the contract's pick.
+  // Undefined until those reads resolve; empty means nothing is posted.
+  //
+  // Deliberately NOT a single number: bribes come in different tokens, and
+  // 100 MUSD is not 100 BTC. Summing them would be meaningless, so they are
+  // listed separately with their symbols.
+  bribes?: GaugeBribe[];
 }
 
 export interface EpochHistoryEntry {

@@ -63,10 +63,13 @@ describe("ByNdVoter", function () {
       );
     });
 
-    it("ranks gauges by bribeReferenceToken via each gauge's own bribe contract, not the old (likely-always-zero on the real chain) claimable(gauge)", async () => {
+    it("ranks gauges by value-weighted bribes via each gauge's own bribe contract, not the old (likely-always-zero on the real chain) claimable(gauge)", async () => {
       const { voter, boostVoter, deployer, musd } = ctx;
       await voter.connect(deployer).setManagedTokenId(1);
       await voter.connect(deployer).setBribeReferenceToken(await musd.getAddress());
+      // The valuation set is what the selector ranks on. MUSD is the value
+      // reference, so it weighs 10000 bps == 1x.
+      await voter.connect(deployer).setTokenWeights([await musd.getAddress()], [10_000]);
 
       const MockReward = await ethers.getContractFactory("MockReward");
       const gLow = ethers.Wallet.createRandom().address;
@@ -86,10 +89,11 @@ describe("ByNdVoter", function () {
       expect(await voter.epochVoted(0)).to.equal(true);
     });
 
-    it("does NOT get fooled by a large amount of a DIFFERENT token — this is the actual bug that was fixed (a gauge holding a big pile of an unrelated token used to be indistinguishable from one holding real bribeReferenceToken value)", async () => {
+    it("does NOT get fooled by a large amount of an UNVALUED token — a gauge holding a big pile of a token governance has not priced contributes nothing to its score", async () => {
       const { voter, boostVoter, deployer, musd, rewardTokenA } = ctx;
       await voter.connect(deployer).setManagedTokenId(1);
       await voter.connect(deployer).setBribeReferenceToken(await musd.getAddress());
+      await voter.connect(deployer).setTokenWeights([await musd.getAddress()], [10_000]);
 
       const MockReward = await ethers.getContractFactory("MockReward");
       const gWrongToken = ethers.Wallet.createRandom().address;
@@ -99,10 +103,9 @@ describe("ByNdVoter", function () {
       await boostVoter.addGauge(gWrongToken, await bribeWrongToken.getAddress());
       await boostVoter.addGauge(gRealMusd, await bribeRealMusd.getAddress());
 
-      // gWrongToken has a HUGE amount of rewardTokenA (not the reference
-      // token) and ZERO musd. Old logic comparing raw claimable() numbers
-      // with no token awareness could easily have picked this gauge. Fixed
-      // logic must ignore it entirely for ranking purposes.
+      // gWrongToken has a HUGE amount of rewardTokenA, which is NOT in the
+      // valuation set, and zero MUSD. Old logic comparing raw claimable()
+      // numbers with no token awareness could easily have picked it.
       await bribeWrongToken.setTokenRewardsPerEpoch(await rewardTokenA.getAddress(), ethers.parseEther("1000000"));
       await bribeRealMusd.setTokenRewardsPerEpoch(await musd.getAddress(), ethers.parseEther("50"));
 
@@ -112,14 +115,167 @@ describe("ByNdVoter", function () {
         .withArgs(0, gRealMusd, ethers.parseEther("50"));
     });
 
-    it("falls back to first-alive-gauge if bribeReferenceToken is unset (e.g. an upgraded — not freshly deployed — proxy, before governance calls setBribeReferenceToken)", async () => {
+    it("compares bribes ACROSS tokens by value, not raw amount — 100 of a 50x token beats 500 of the reference token", async () => {
+      const { voter, boostVoter, deployer, musd, rewardTokenA } = ctx;
+      await voter.connect(deployer).setManagedTokenId(1);
+      await voter.connect(deployer).setBribeReferenceToken(await musd.getAddress());
+      // rewardTokenA is priced at 50x the reference token per unit. This is
+      // the whole point: 100 MEZO, 100 sats and 100 MUSD are not the same
+      // value, so the selector must weigh them before comparing.
+      await voter.connect(deployer).setTokenWeights(
+        [await musd.getAddress(), await rewardTokenA.getAddress()],
+        [10_000, 500_000]
+      );
+
+      const MockReward = await ethers.getContractFactory("MockReward");
+      const gBigRawAmount = ethers.Wallet.createRandom().address;
+      const gHighValue = ethers.Wallet.createRandom().address;
+      const bribeBigRaw = await MockReward.deploy();
+      const bribeHighValue = await MockReward.deploy();
+      await boostVoter.addGauge(gBigRawAmount, await bribeBigRaw.getAddress());
+      await boostVoter.addGauge(gHighValue, await bribeHighValue.getAddress());
+
+      // 500 MUSD  -> 500 * 10000/10000  =  500 units of value
+      // 100 tokenA -> 100 * 500000/10000 = 5000 units of value  <-- wins
+      await bribeBigRaw.setTokenRewardsPerEpoch(await musd.getAddress(), ethers.parseEther("500"));
+      await bribeHighValue.setTokenRewardsPerEpoch(await rewardTokenA.getAddress(), ethers.parseEther("100"));
+
+      await fastForwardToVoteWindow();
+      await expect(voter.optimiseAndVote())
+        .to.emit(voter, "GaugesOptimised")
+        .withArgs(0, gHighValue, ethers.parseEther("5000"));
+    });
+
+    it("sums a gauge's value across every valued token, so a spread of small bribes can beat one big single-token bribe", async () => {
+      const { voter, boostVoter, deployer, musd, rewardTokenA } = ctx;
+      await voter.connect(deployer).setManagedTokenId(1);
+      await voter.connect(deployer).setBribeReferenceToken(await musd.getAddress());
+      await voter.connect(deployer).setTokenWeights(
+        [await musd.getAddress(), await rewardTokenA.getAddress()],
+        [10_000, 20_000]
+      );
+
+      const MockReward = await ethers.getContractFactory("MockReward");
+      const gSingle = ethers.Wallet.createRandom().address;
+      const gMixed = ethers.Wallet.createRandom().address;
+      const bribeSingle = await MockReward.deploy();
+      const bribeMixed = await MockReward.deploy();
+      await boostVoter.addGauge(gSingle, await bribeSingle.getAddress());
+      await boostVoter.addGauge(gMixed, await bribeMixed.getAddress());
+
+      // gSingle: 300 MUSD                      -> 300
+      // gMixed : 100 MUSD + 150 tokenA (2x)    -> 100 + 300 = 400  <-- wins
+      await bribeSingle.setTokenRewardsPerEpoch(await musd.getAddress(), ethers.parseEther("300"));
+      await bribeMixed.setTokenRewardsPerEpoch(await musd.getAddress(), ethers.parseEther("100"));
+      await bribeMixed.setTokenRewardsPerEpoch(await rewardTokenA.getAddress(), ethers.parseEther("150"));
+
+      await fastForwardToVoteWindow();
+      await expect(voter.optimiseAndVote())
+        .to.emit(voter, "GaugesOptimised")
+        .withArgs(0, gMixed, ethers.parseEther("400"));
+    });
+
+    it("previewOptimalGauge agrees with the gauge optimiseAndVote actually picks", async () => {
+      const { voter, boostVoter, deployer, musd, rewardTokenA } = ctx;
+      await voter.connect(deployer).setManagedTokenId(1);
+      await voter.connect(deployer).setBribeReferenceToken(await musd.getAddress());
+      await voter.connect(deployer).setTokenWeights(
+        [await musd.getAddress(), await rewardTokenA.getAddress()],
+        [10_000, 500_000]
+      );
+
+      const MockReward = await ethers.getContractFactory("MockReward");
+      const gLow = ethers.Wallet.createRandom().address;
+      const gWin = ethers.Wallet.createRandom().address;
+      const bribeLow = await MockReward.deploy();
+      const bribeWin = await MockReward.deploy();
+      await boostVoter.addGauge(gLow, await bribeLow.getAddress());
+      await boostVoter.addGauge(gWin, await bribeWin.getAddress());
+      await bribeLow.setTokenRewardsPerEpoch(await musd.getAddress(), ethers.parseEther("900"));
+      await bribeWin.setTokenRewardsPerEpoch(await rewardTokenA.getAddress(), ethers.parseEther("100"));
+
+      // The preview drives the dashboard; it must not disagree with the vote.
+      const [previewGauge, previewScore] = await voter.previewOptimalGauge();
+      expect(previewGauge).to.equal(gWin);
+      expect(previewScore).to.equal(ethers.parseEther("5000"));
+
+      await fastForwardToVoteWindow();
+      await expect(voter.optimiseAndVote())
+        .to.emit(voter, "GaugesOptimised")
+        .withArgs(0, previewGauge, previewScore);
+    });
+
+    it("setTokenWeights is governance-only, and rejects malformed valuations", async () => {
+      const { voter, deployer, alice, musd } = ctx;
+      await expect(
+        voter.connect(alice).setTokenWeights([await musd.getAddress()], [10_000])
+      ).to.be.reverted;
+      await expect(
+        voter.connect(deployer).setTokenWeights([await musd.getAddress()], [])
+      ).to.be.revertedWith("ByNdVoter: length mismatch");
+      await expect(
+        voter.connect(deployer).setTokenWeights([ethers.ZeroAddress], [10_000])
+      ).to.be.revertedWith("ByNdVoter: zero address");
+      await expect(
+        voter.connect(deployer).setTokenWeights([await musd.getAddress()], [0])
+      ).to.be.revertedWith("ByNdVoter: zero weight");
+    });
+
+    it("caps the gauge scan so a large gauge list cannot push the vote past the block gas limit", async () => {
+      const { voter, boostVoter, deployer, musd } = ctx;
+      await voter.connect(deployer).setManagedTokenId(1);
+      await voter.connect(deployer).setBribeReferenceToken(await musd.getAddress());
+      await voter.connect(deployer).setTokenWeights([await musd.getAddress()], [10_000]);
+
+      // An upgraded proxy has scanCap == 0, which must mean "the safe
+      // default", NOT "unlimited" — unlimited is the failure mode being
+      // guarded against (656 live gauges on Matsnet ~= 11.6M gas vs a 10M
+      // block limit).
+      expect(await voter.scanCap()).to.equal(0);
+      expect(await voter.effectiveScanCap()).to.equal(300);
+
+      await voter.connect(deployer).setScanCap(2);
+      expect(await voter.effectiveScanCap()).to.equal(2);
+
+      const MockReward = await ethers.getContractFactory("MockReward");
+      // Three gauges, but only the first two are scanned. The richest gauge
+      // sits third, so it must NOT win while the cap is 2.
+      const gauges = [];
+      for (let i = 0; i < 3; i++) {
+        const g = ethers.Wallet.createRandom().address;
+        const b = await MockReward.deploy();
+        await boostVoter.addGauge(g, await b.getAddress());
+        await b.setTokenRewardsPerEpoch(
+          await musd.getAddress(),
+          ethers.parseEther(i === 2 ? "9999" : String(10 * (i + 1)))
+        );
+        gauges.push(g);
+      }
+
+      const [capped] = await voter.previewOptimalGauge();
+      expect(capped).to.equal(gauges[1]);
+
+      // Raising the cap reveals the rich third gauge.
+      await voter.connect(deployer).setScanCap(10);
+      const [uncapped, score] = await voter.previewOptimalGauge();
+      expect(uncapped).to.equal(gauges[2]);
+      expect(score).to.equal(ethers.parseEther("9999"));
+    });
+
+    it("setScanCap is governance-only", async () => {
+      const { voter, alice } = ctx;
+      await expect(voter.connect(alice).setScanCap(50)).to.be.reverted;
+    });
+
+    it("falls back to first-alive-gauge if no valuation is configured (e.g. an upgraded — not freshly deployed — proxy, before governance calls setTokenWeights)", async () => {
       const { voter, boostVoter, deployer } = ctx;
       await voter.connect(deployer).setManagedTokenId(1);
-      // Fresh deploys now set this via initialize() (see fixtures.js), so
-      // explicitly clear it here to exercise the upgraded-proxy scenario,
-      // where it defaults to zero until governance sets it post-upgrade.
+      // An upgraded proxy starts with an empty valuation set, so no gauge can
+      // score. Rather than revert and strand the epoch, the selector votes for
+      // the first alive gauge until governance prices some tokens.
       await voter.connect(deployer).setBribeReferenceToken(ethers.ZeroAddress);
       expect(await voter.bribeReferenceToken()).to.equal(ethers.ZeroAddress);
+      expect(await voter.getValuedTokenCount()).to.equal(0);
 
       const gOnly = ethers.Wallet.createRandom().address;
       await boostVoter.addGauge(gOnly, ethers.Wallet.createRandom().address);
@@ -381,9 +537,20 @@ describe("ByNdVoter", function () {
     it("only governance can authorize an upgrade", async () => {
       const { voter, alice } = ctx;
       const { upgrades } = require("hardhat");
-      const ByNdVoterV2 = await ethers.getContractFactory("ByNdVoter", alice);
+      // ByNdVoter links the external GaugeScan library, so a factory for it
+      // can only be built once that library has an address to link against.
+      const gaugeScan = await (
+        await ethers.getContractFactory("GaugeScan")
+      ).deploy();
+      await gaugeScan.waitForDeployment();
+      const ByNdVoterV2 = await ethers.getContractFactory("ByNdVoter", {
+        signer: alice,
+        libraries: { GaugeScan: await gaugeScan.getAddress() },
+      });
       await expect(
-        upgrades.upgradeProxy(await voter.getAddress(), ByNdVoterV2)
+        upgrades.upgradeProxy(await voter.getAddress(), ByNdVoterV2, {
+          unsafeAllow: ["external-library-linking"],
+        })
       ).to.be.reverted;
     });
   });

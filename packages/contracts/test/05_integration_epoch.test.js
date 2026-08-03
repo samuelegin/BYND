@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { deployAll, mintAndDeposit, setupSingleGauge } = require("./fixtures");
-const { jumpInsideVoteWindow } = require("./epochTime");
+const { jumpInsideVoteWindow, jumpInsideExtendWindow } = require("./epochTime");
 
 describe("Integration: one full BynD epoch", function () {
   it("deposit -> extendLocks -> claimRebases -> optimiseAndVote -> harvestAndDistribute -> stake -> claimAll", async () => {
@@ -38,13 +38,17 @@ describe("Integration: one full BynD epoch", function () {
       .to.emit(vault, "RebasesClaimed")
       .withArgs(keeper.address, 1);
 
-    // Step 01: extendLocks (permissionless, no cooldown — safe to call as
-    // often as needed since it's a no-op once a lock is maxed)
+    // Step 01: extendLocks — permissionless, but gated to one call per epoch
+    // inside the last 24h before the boundary (only the first caller is
+    // credited a keeper slot, so a second call would be pure wasted gas).
+    await jumpInsideExtendWindow(voter);
     const lockBefore = await veMEZO.locked(tokenIdAlice);
     await vault.connect(keeper).extendLocks();
     const lockAfter = await veMEZO.locked(tokenIdAlice);
     expect(lockAfter.end).to.be.gt(lockBefore.end);
-    await expect(vault.connect(keeper).extendLocks()).to.not.be.reverted;
+    await expect(vault.connect(keeper).extendLocks()).to.be.revertedWith(
+      "ByNdVault: locks already extended this epoch"
+    );
 
     // Step 02: castVotes / optimiseAndVote — fast-forward into the vote window
     await jumpInsideVoteWindow(voter);

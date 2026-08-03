@@ -25,6 +25,62 @@ interface IReward {
     function tokenRewardsPerEpoch(address token, uint256 epochStart) external view returns (uint256);
 }
 
+/// @notice The gauge-selection scan, extracted into an external library so its
+/// bytecode is deployed once and DELEGATECALLed rather than inlined into
+/// ByNdVoter — which sits hard against the EIP-170 24576-byte limit.
+/// @dev Stateless: everything it needs is passed in, so linking a new copy
+/// changes only the ranking maths, never storage.
+library GaugeScan {
+    /// @param bv the BoostVoter to scan
+    /// @param cap max gauges to examine, so the loop stays under the block gas
+    /// limit (656 gauges live today; a full scan measures ~11.6M gas vs a 10M
+    /// block limit)
+    /// @param vt valued reward tokens
+    /// @param vw their weights in bps of the value reference, index-aligned
+    /// with `vt`
+    /// @return bestGauge highest-scoring gauge, or zero if none scored
+    /// @return bestScore its value-weighted bribe total
+    function best(
+        IBoostVoter bv,
+        uint256 cap,
+        address[] memory vt,
+        uint256[] memory vw
+    ) external view returns (address bestGauge, uint256 bestScore) {
+        uint256 total = bv.length();
+        if (total > cap) total = cap;
+        uint256 n = vt.length;
+        uint256 epoch = bv.epochStart(block.timestamp);
+
+        for (uint256 i = 0; i < total; i++) {
+            address g = bv.gauges(i);
+            if (!bv.isAlive(g)) continue;
+
+            address b = bv.gaugeToBribe(g);
+            if (b == address(0) || b.code.length == 0) continue;
+
+            uint256 score;
+            for (uint256 v = 0; v < n; v++) {
+                if (vw[v] == 0) continue;
+                try IReward(b).tokenRewardsPerEpoch(vt[v], epoch) returns (uint256 c) {
+                    score += (c * vw[v]) / 10_000;
+                } catch {
+                }
+            }
+            if (score > bestScore) { bestScore = score; bestGauge = g; }
+        }
+    }
+
+    /// @notice First alive gauge, used as the fallback when nothing scored.
+    function firstAlive(IBoostVoter bv) external view returns (address) {
+        uint256 total = bv.length();
+        for (uint256 i = 0; i < total; i++) {
+            address g = bv.gauges(i);
+            if (bv.isAlive(g)) return g;
+        }
+        return address(0);
+    }
+}
+
 contract ByNdVoter is
     Initializable,
     ReentrancyGuardUpgradeable,
@@ -60,6 +116,7 @@ contract ByNdVoter is
     mapping(uint256 => address[]) private epochUniqueTokens;
     mapping(uint256 => mapping(address => uint256)) private epochBalanceBefore;
     uint256 public constant MAX_CLAIM_BATCH = 200;
+    uint256 internal constant DEFAULT_SCAN_CAP = 300;
 
     mapping(address => uint256) public tokenMinHarvestThreshold;
 
@@ -76,6 +133,12 @@ contract ByNdVoter is
     Gauge[] public gauges;
 
     address public bribeReferenceToken;
+
+    mapping(address => uint256) public carriedOver;
+    uint256 public extendWindow;
+    uint256 public scanCap;
+    mapping(address => uint256) public tokenWeights;
+    address[] public valuedTokens;
 
     event VotesCast(uint256 indexed epoch, uint256 tokenCount, uint256 gaugeCount);
     event GaugesOptimised(uint256 indexed epoch, address topGauge, uint256 claimableAmount);
@@ -96,6 +159,10 @@ contract ByNdVoter is
     event ProtocolFeeCollected(uint256 indexed epoch, address indexed token, uint256 amount);
     event BribesClaimBatch(uint256 indexed epoch, uint256 processed, uint256 cursor, uint256 total);
     event HarvestSkippedBelowThreshold(uint256 indexed epoch, address indexed token, uint256 harvested);
+    event StakerRewardDeferred(uint256 indexed epoch, address indexed token, uint256 amount);
+    event ExtendWindowUpdated(uint256 newWindow);
+    event ScanCapUpdated(uint256 newCap);
+    event TokenWeightsUpdated(uint256 count);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -114,11 +181,10 @@ contract ByNdVoter is
 
         require(_staking != address(0), "ByNdVoter: zero staking");
         require(_boostVoter != address(0), "ByNdVoter: zero boostVoter");
-        require(_treasury != address(0), "ByNdVoter: zero treasury");
-        staking = ByNdStaking(_staking);
+        require(_treasury != address(0), "ByNdVoter: zero treasury");        staking = ByNdStaking(_staking);
         boostVoter = IBoostVoter(_boostVoter);
         governance = msg.sender;
-        treasury   = _treasury;
+        treasury = _treasury;
         bribeReferenceToken = _bribeReferenceToken;
         lastVoteTimestamp = block.timestamp;
 
@@ -126,7 +192,8 @@ contract ByNdVoter is
         protocolFeeBps = 0;
         minHarvestThreshold = 0;
         epochDuration = 7 days;
-        voteWindow = 4 hours;
+        voteWindow = 3 hours;
+        extendWindow = 24 hours;
     }
 
     function markRebasesClaimed(address keeper) external {
@@ -139,10 +206,16 @@ contract ByNdVoter is
 
     function markLocksExtended() external {
         require(msg.sender == vault, "ByNdVoter: only vault");
-        require(!epochLocksExtended[currentEpoch], "ByNdVoter: already marked");
+        require(!epochLocksExtended[currentEpoch], "ByNdVoter: already extended this epoch");
+        require(extendWindowOpen(), "ByNdVoter: extend window not open");
         epochLocksExtended[currentEpoch]     = true;
         epochKeeperExtendLocks[currentEpoch] = tx.origin;
         emit LocksExtendedMarked(currentEpoch, tx.origin);
+    }
+
+    function extendWindowOpen() public view returns (bool) {
+        if (extendWindow == 0) return true;
+        return block.timestamp >= boostVoter.epochNext(block.timestamp) - extendWindow;
     }
 
     function optimiseAndVote() external nonReentrant {
@@ -183,39 +256,34 @@ contract ByNdVoter is
         emit VotesCast(currentEpoch, tokenCount, gaugeAddrs.length);
     }
 
+    function _scanBest() internal view returns (address bestGauge, uint256 bestScore) {
+        uint256 n = valuedTokens.length;
+        if (n == 0) return (address(0), 0);
+
+        address[] memory vt = new address[](n);
+        uint256[] memory vw = new uint256[](n);
+        for (uint256 v = 0; v < n; v++) {
+            address t = valuedTokens[v];
+            vt[v] = t;
+            vw[v] = tokenWeights[t];
+        }
+
+        return GaugeScan.best(
+            boostVoter,
+            effectiveScanCap(),
+            vt,
+            vw
+        );
+    }
+
     function _selectOptimalGauges()
         internal
         returns (address[] memory gaugeAddrs, uint256[] memory weights)
     {
-        uint256 total = boostVoter.length();
-        address bestGauge;
-        uint256 bestScore;
-
-        if (bribeReferenceToken != address(0)) {
-            uint256 refEpochStart = boostVoter.epochStart(block.timestamp);
-            for (uint256 i = 0; i < total; i++) {
-                address g = boostVoter.gauges(i);
-                if (!boostVoter.isAlive(g)) continue;
-
-                address bribeContract = boostVoter.gaugeToBribe(g);
-                if (bribeContract == address(0)) continue;
-                if (bribeContract.code.length == 0) continue;
-
-                try IReward(bribeContract).tokenRewardsPerEpoch(
-                    bribeReferenceToken,
-                    refEpochStart
-                ) returns (uint256 c) {
-                    if (c > bestScore) { bestScore = c; bestGauge = g; }
-                } catch {
-                }
-            }
-        }
+        (address bestGauge, uint256 bestScore) = _scanBest();
 
         if (bestGauge == address(0)) {
-            for (uint256 i = 0; i < total; i++) {
-                address g = boostVoter.gauges(i);
-                if (boostVoter.isAlive(g)) { bestGauge = g; break; }
-            }
+            bestGauge = GaugeScan.firstAlive(boostVoter);
         }
 
         if (bestGauge == address(0)) {
@@ -281,6 +349,11 @@ contract ByNdVoter is
 
         for (uint256 i = 0; i < gLen; i++) {
             address[] memory toks = gauges[i].tokens;
+            if (uniqueCount + toks.length > buf.length) {
+                address[] memory bigger = new address[](uniqueCount + toks.length);
+                for (uint256 b = 0; b < uniqueCount; b++) bigger[b] = buf[b];
+                buf = bigger;
+            }
             for (uint256 j = 0; j < toks.length; j++) {
                 address t = toks[j];
                 bool found;
@@ -348,27 +421,30 @@ contract ByNdVoter is
         uint256[] memory balancesBefore,
         address[5] memory keepers
     ) internal returns (uint256 totalBountyPaid) {
-        bool anyDistributed;
+        bool anyValue;
 
         for (uint256 i = 0; i < uniqueCount; i++) {
             address token = uniqueTokens[i];
             uint256 harvested = IERC20Upgradeable(token).balanceOf(address(this)) - balancesBefore[i];
-            if (harvested == 0) continue;
+            uint256 available = harvested + carriedOver[token];
+            if (available == 0) continue;
+            anyValue = true;
 
             uint256 threshold = tokenMinHarvestThreshold[token] > 0
                 ? tokenMinHarvestThreshold[token]
                 : minHarvestThreshold;
 
-            if (harvested < threshold) {
-                emit HarvestSkippedBelowThreshold(epoch, token, harvested);
+            if (available < threshold) {
+                carriedOver[token] = available;
+                emit HarvestSkippedBelowThreshold(epoch, token, available);
                 continue;
             }
 
-            anyDistributed = true;
-            totalBountyPaid += _settleHarvestedToken(epoch, token, harvested, keepers);
+            carriedOver[token] = 0;
+            totalBountyPaid += _settleHarvestedToken(epoch, token, available, keepers);
         }
 
-        require(anyDistributed, "ByNdVoter: nothing cleared the harvest threshold this epoch");
+        require(anyValue, "ByNdVoter: nothing harvested this epoch");
     }
 
     function _settleHarvestedToken(
@@ -398,18 +474,26 @@ contract ByNdVoter is
         }
 
         if (stakerAmount > 0) {
-            IERC20Upgradeable(token).forceApprove(address(staking), stakerAmount);
-            staking.notifyRewardAmount(token, stakerAmount);
+            if (staking.totalStaked() == 0) {
+                carriedOver[token] += stakerAmount;
+                emit StakerRewardDeferred(epoch, token, stakerAmount);
+            } else {
+                IERC20Upgradeable(token).forceApprove(address(staking), stakerAmount);
+                staking.notifyRewardAmount(token, stakerAmount);
+            }
         }
     }
 
     function forceCloseEpoch() external onlyGovernance {
         uint256 epoch = currentEpoch;
         require(!epochHarvested[epoch], "ByNdVoter: already harvested");
-        require(
-            epochSnapshotTaken[epoch] && epochClaimCursor[epoch] >= managedTokenIds.length,
-            "ByNdVoter: bribes not fully claimed yet"
-        );
+        address[] memory toks = epochUniqueTokens[epoch];
+        for (uint256 i = 0; i < toks.length; i++) {
+            uint256 delta = IERC20Upgradeable(toks[i]).balanceOf(address(this))
+                - epochBalanceBefore[epoch][toks[i]];
+            if (delta > 0) carriedOver[toks[i]] += delta;
+        }
+
         epochHarvested[epoch] = true;
         currentEpoch++;
         emit Harvested(epoch, msg.sender, 0);
@@ -465,66 +549,21 @@ contract ByNdVoter is
         return windowOpensAt - block.timestamp;
     }
 
-    function fetchLiveGauges() external view returns (
-        address[] memory gaugeAddrs,
-        address[] memory bribeAddrs,
-        uint256[] memory claimableAmounts
-    ) {
-        uint256 total = boostVoter.length();
-        uint256 aliveCount;
-        for (uint256 i = 0; i < total; i++) {
-            if (boostVoter.isAlive(boostVoter.gauges(i))) aliveCount++;
-        }
-        gaugeAddrs = new address[](aliveCount);
-        bribeAddrs = new address[](aliveCount);
-        claimableAmounts = new uint256[](aliveCount);
-        uint256 j;
-        for (uint256 i = 0; i < total; i++) {
-            address g = boostVoter.gauges(i);
-            if (boostVoter.isAlive(g)) {
-                gaugeAddrs[j] = g;
-                bribeAddrs[j] = boostVoter.gaugeToBribe(g);
-                claimableAmounts[j] = boostVoter.claimable(g);
-                j++;
-            }
-        }
+    function previewOptimalGauge() external view returns (address bestGauge, uint256 bestScore) {
+        return _scanBest();
     }
 
-    function previewOptimalGauge() external view returns (address bestGauge, uint256 bestClaimable) {
-        uint256 total = boostVoter.length();
-        for (uint256 i = 0; i < total; i++) {
-            address g = boostVoter.gauges(i);
-            if (!boostVoter.isAlive(g)) continue;
-            uint256 c = boostVoter.claimable(g);
-            if (c > bestClaimable) { bestClaimable = c; bestGauge = g; }
-        }
-    }
-
-    function getEpochKeepers(uint256 epoch) external view returns (
-        address claimRebasesKeeper,
-        address extendLocksKeeper,
-        address optimiseKeeper,
-        address treasuryAddress
-    ) {
-        return (
-            epochKeeperClaimRebases[epoch],
-            epochKeeperExtendLocks[epoch],
-            epochKeeperOptimise[epoch],
-            treasury
-        );
-    }
-
-    function isGaugeAlive(address gauge) external view returns (bool) {
-        return boostVoter.isAlive(gauge);
-    }
-
-    function getBribeForGauge(address gauge) external view returns (address) {
-        return boostVoter.gaugeToBribe(gauge);
+    function getValuedTokenCount() external view returns (uint256) {
+        return valuedTokens.length;
     }
 
     modifier onlyGovernance() {
         require(msg.sender == governance, "ByNdVoter: not governance");
         _;
+    }
+
+    function _nz(address a) internal pure {
+        require(a != address(0), "ByNdVoter: zero address");
     }
 
     function setGauges(
@@ -580,23 +619,50 @@ contract ByNdVoter is
     }
 
     function setVault(address _vault) external onlyGovernance {
-        require(_vault != address(0), "ByNdVoter: zero address");
+        _nz(_vault);
         vault = _vault;
     }
 
     function setBoostVoter(address _voter) external onlyGovernance {
-        require(_voter != address(0), "ByNdVoter: zero address");
+        _nz(_voter);
         boostVoter = IBoostVoter(_voter);
     }
 
     function setTreasury(address _treasury) external onlyGovernance {
-        require(_treasury != address(0), "ByNdVoter: zero address");
+        _nz(_treasury);
         treasury = _treasury;
     }
 
     function setBribeReferenceToken(address token) external onlyGovernance {
         bribeReferenceToken = token;
         emit BribeReferenceTokenUpdated(token);
+    }
+
+    function setTokenWeights(
+        address[] calldata _tokens,
+        uint256[] calldata _weights
+    ) external onlyGovernance {
+        require(
+            _tokens.length == _weights.length,
+            "ByNdVoter: length mismatch"
+        );
+        delete valuedTokens;
+        for (uint256 i = 0; i < _tokens.length; i++) {
+            _nz(_tokens[i]);
+            require(_weights[i] > 0, "ByNdVoter: zero weight");
+            tokenWeights[_tokens[i]] = _weights[i];
+            valuedTokens.push(_tokens[i]);
+        }
+        emit TokenWeightsUpdated(_tokens.length);
+    }
+
+    function setScanCap(uint256 cap) external onlyGovernance {
+        scanCap = cap;
+        emit ScanCapUpdated(cap);
+    }
+
+    function effectiveScanCap() public view returns (uint256) {
+        return scanCap == 0 ? DEFAULT_SCAN_CAP : scanCap;
     }
 
     function setBountyBps(uint256 bps) external onlyGovernance {
@@ -616,7 +682,7 @@ contract ByNdVoter is
     }
 
     function setTokenMinHarvestThreshold(address token, uint256 threshold) external onlyGovernance {
-        require(token != address(0), "ByNdVoter: zero address");
+        _nz(token);
         tokenMinHarvestThreshold[token] = threshold;
         emit TokenMinThresholdUpdated(token, threshold);
     }
@@ -632,12 +698,23 @@ contract ByNdVoter is
         emit VoteWindowUpdated(newWindow);
     }
 
+    function setExtendWindow(uint256 newWindow) external onlyGovernance {
+        require(newWindow <= epochDuration / 2, "ByNdVoter: window too large");
+        require(newWindow == 0 || newWindow >= voteWindow, "ByNdVoter: window below voteWindow");
+        extendWindow = newWindow;
+        emit ExtendWindowUpdated(newWindow);
+    }
+
     function transferGovernance(address newGov) external onlyGovernance {
-        require(newGov != address(0), "ByNdVoter: zero address");
+        _nz(newGov);
         governance = newGov;
     }
 
     function setManagedTokenId(uint256 _tokenId) external onlyGovernance {
+        uint256 len = managedTokenIds.length;
+        for (uint256 i = 0; i < len; i++) {
+            delete tokenIdIndex[managedTokenIds[i]];
+        }
         delete managedTokenIds;
         managedTokenIds.push(_tokenId);
         tokenIdIndex[_tokenId] = 1;

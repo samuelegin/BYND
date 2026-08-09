@@ -17,9 +17,24 @@ interface IVeMEZO is IERC721 {
     }
     function locked(uint256 tokenId) external view returns (LockedBalance memory);
     function votingPowerOfNFT(uint256 tokenId) external view returns (uint256);
-    function increaseUnlockTime(uint256 tokenId, uint256 newEndTime) external;
+    /// @param duration seconds FROM NOW, not an absolute end timestamp. veMEZO
+    /// rounds `block.timestamp + duration` down to a week boundary, requires the
+    /// result to be strictly later than the current end, and caps the total at
+    /// 208 weeks. Passing an absolute timestamp here reverts with
+    /// LockDurationTooLong() every time -- see BYND-14.
+    function increaseUnlockTime(uint256 tokenId, uint256 duration) external;
     function depositFor(uint256 tokenId, uint256 amount) external;
     function merge(uint256 _from, uint256 _to) external;
+}
+
+/// @notice Only the vote-clearing entry point is needed here. The vault holds
+/// the ve NFTs, so it is the address BoostVoter accepts a reset from -- verified
+/// by staticcalling reset() as the vault against the live contract on Matsnet.
+interface IBoostVoterReset {
+    /// Clears any live gauge vote for `tokenId`, releasing veMEZO's AlreadyVoted
+    /// block on merge. Extension is NOT gated on this -- a voted token extends
+    /// fine (BYND-15).
+    function reset(uint256 tokenId) external;
 }
 
 interface IRewardsDistributor {
@@ -49,7 +64,12 @@ contract ByNdVault is
     OwnableUpgradeable,
     UUPSUpgradeable
 {
-    uint256 public constant MAXTIME = 4 * 365 days;
+    /// The longest lock veMEZO accepts. Measured against the live contract on
+    /// Matsnet rather than assumed: 208 weeks is accepted, and `4 * 365 days`
+    /// (345600s longer) is rejected with LockDurationTooLong(). The old value
+    /// here was `4 * 365 days`, so every extension attempt reverted (BYND-14).
+    uint256 public constant MAXTIME = 208 weeks;
+    uint256 public constant WEEK = 1 weeks;
     uint256 public constant MAX_BATCH = 200;
 
     IVeMEZO public veMEZO;
@@ -96,6 +116,12 @@ contract ByNdVault is
     /// precondition against the real implementation and set accordingly.
     bool public rejectPermanentLocks;
 
+    /// BoostVoter, used only to clear a straggler's gauge vote so it can merge.
+    /// Appended last: this is a live UUPS proxy and storage is append-only.
+    /// Optional -- when unset, retryMerge simply skips the reset and attempts the
+    /// merge as before, so an un-migrated proxy keeps working (BYND-15).
+    IBoostVoterReset public boostVoter;
+
     event Deposited(address indexed user, uint256 indexed tokenId, uint256 veByndMinted);
     event BatchDeposited(address indexed user, uint256 tokenCount, uint256 totalVeByndMinted);
     event MergedIntoCanonical(uint256 indexed tokenId, uint256 indexed canonicalTokenId);
@@ -117,6 +143,12 @@ contract ByNdVault is
     /// on-chain to show it (BYND-09).
     event VoterCallFailed(bytes4 selector, uint256 tokenId);
     event RejectPermanentLocksSet(bool reject);
+    event BoostVoterSet(address indexed boostVoter);
+    /// A straggler's gauge vote was cleared so it could merge (BYND-15).
+    event StragglerVoteReset(uint256 indexed tokenId);
+    /// reset() refused. Swallowed, since the merge below may still succeed and
+    /// its revert is the more informative one.
+    event VoteResetFailed(uint256 indexed tokenId);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -202,6 +234,18 @@ contract ByNdVault is
     /// not fail because veMEZO refused a merge -- but nothing retried them, so
     /// a lock that failed once stayed a separate NFT permanently. That costs
     /// gas on every vote and every rebase claim, forever (BYND-01).
+    ///
+    /// CALLERS MUST SET AN EXPLICIT GAS LIMIT WITH HEADROOM -- do not rely on
+    /// eth_estimateGas. Measured on Matsnet consolidating token 859: the
+    /// estimate returned 664,258 and the transaction reverted at that limit
+    /// having burned only 429,812, while the same call with a 4x limit
+    /// succeeded using 1,328,516. The estimator's binary search settles on a
+    /// limit at which the swallowed reset() below runs out of the 63/64 it is
+    /// forwarded, is caught, and the run still simulates as cheaper than the
+    /// path a real call takes once reset() actually lands. A try/catch around a
+    /// call this expensive is inherently hard to estimate; 2-4x the estimate is
+    /// the safe range. Nothing is lost by over-providing, since unused gas is
+    /// refunded.
     function retryMerge(uint256 tokenId) external nonReentrant {
         require(canonicalTokenId != 0, "ByNdVault: no canonical lock");
         require(tokenId != canonicalTokenId, "ByNdVault: token is canonical");
@@ -214,6 +258,24 @@ contract ByNdVault is
             if (allTokenIds[i] == tokenId) { idx = i; break; }
         }
         require(idx != type(uint256).max, "ByNdVault: not a straggler");
+
+        // A live gauge vote makes veMEZO reject the merge with AlreadyVoted(),
+        // which is the state token 829 sat in on Matsnet: mergeable in every
+        // respect except that it had voted. Clearing the vote first is what
+        // makes the retry able to succeed at all (BYND-15).
+        //
+        // Swallowed deliberately: reset() failing is not itself a reason to
+        // abandon the retry -- the merge below may still be possible, and if it
+        // is not, its own revert is the more useful error. Only ever called on a
+        // token this vault already custodies, so it cannot clear a third party's
+        // vote.
+        if (address(boostVoter) != address(0)) {
+            try boostVoter.reset(tokenId) {
+                emit StragglerVoteReset(tokenId);
+            } catch {
+                emit VoteResetFailed(tokenId);
+            }
+        }
 
         // Let this revert rather than swallowing it: the caller chose to retry,
         // so the reason it still cannot merge is the useful part of the result.
@@ -241,8 +303,14 @@ contract ByNdVault is
             require(voter.extendWindowOpen(), "ByNdVault: extend window not open");
         }
 
-        uint256 newEndTime = block.timestamp + MAXTIME;
+        // veMEZO takes a DURATION and week-rounds `now + duration` down, so the
+        // end a full-length extension actually lands on is this. Computed here
+        // only to decide which locks are already long enough to skip -- the call
+        // itself passes MAXTIME, not this value (BYND-14).
+        uint256 resultingEnd = ((block.timestamp + MAXTIME) / WEEK) * WEEK;
         uint256 extendedCount;
+        uint256 failedCount;
+        uint256 skippedCount;
 
         uint256 total = allTokenIds.length;
         require(total > 0, "ByNdVault: nothing to extend");
@@ -259,19 +327,42 @@ contract ByNdVault is
             uint256 tokenId = allTokenIds[from + i];
             IVeMEZO.LockedBalance memory lock = veMEZO.locked(tokenId);
 
-            if (lock.isPermanent) continue;
-            if (lock.end >= newEndTime) continue;
+            if (lock.isPermanent) { skippedCount++; continue; }
+            // Already at or past where a max extension would land. veMEZO would
+            // reject it as not-in-future, so skipping is not just an
+            // optimisation -- it keeps a no-op out of the failure count.
+            if (lock.end >= resultingEnd) { skippedCount++; continue; }
 
-            try veMEZO.increaseUnlockTime(tokenId, newEndTime) {
+            try veMEZO.increaseUnlockTime(tokenId, MAXTIME) {
                 extendedCount++;
             } catch {
                 emit LockExtendSkipped(tokenId);
+                failedCount++;
             }
         }
 
         uint256 to = from + batch;
         bool fullPass = to >= total;
         extendCursor = fullPass ? 0 : to;
+
+        // A batch where every single attempt REVERTED -- none extended, none
+        // skipped as already-long-enough -- is the signature of a broken call
+        // rather than of nothing needing doing. Both used to emit
+        // LocksExtended(keeper, 0, ...) and mark the epoch done, which is how
+        // the ABI mismatch above stayed invisible for two epochs on Matsnet:
+        // the keeper page read "extended" while nothing had been, and the locks
+        // kept decaying (BYND-14).
+        //
+        // Deliberately narrow. A token holding an active gauge vote reverts
+        // AlreadyVoted() and is a normal, temporary condition -- token 829 is in
+        // exactly that state today. Firing whenever ANY token failed would let
+        // one busy token block extension for every other lock in the vault, so
+        // mixed batches must still complete. Only a wholesale failure, with no
+        // successes and no legitimate skips, is diagnostic.
+        require(
+            extendedCount > 0 || skippedCount > 0 || failedCount == 0,
+            "ByNdVault: every extension failed"
+        );
 
         if (address(voter) != address(0)) {
             // Only credit the keeper and close the epoch's extend flag once the
@@ -287,7 +378,7 @@ contract ByNdVault is
             }
         }
         emit ExtendProgress(from, to, total, fullPass);
-        emit LocksExtended(msg.sender, extendedCount, newEndTime);
+        emit LocksExtended(msg.sender, extendedCount, resultingEnd);
     }
 
     function claimRebases() external nonReentrant returns (uint256) {
@@ -347,6 +438,15 @@ contract ByNdVault is
         voter = IByNdVoter(_voter);
         veMEZO.setApprovalForAll(_voter, true);
         emit VoterSet(_voter);
+    }
+
+    /// Sets BoostVoter, used only by retryMerge to clear a straggler's gauge
+    /// vote. Separate from setVoter: that one wires ByNdVoter and grants it
+    /// approval over the ve NFTs, which BoostVoter must not receive.
+    function setBoostVoter(address _boostVoter) external onlyOwner {
+        require(_boostVoter != address(0), "ByNdVault: zero address");
+        boostVoter = IBoostVoterReset(_boostVoter);
+        emit BoostVoterSet(_boostVoter);
     }
 
     function grantVoterApproval() external onlyOwner {

@@ -28,9 +28,19 @@ describe("Security: reentrancy & trust-boundary tests", function () {
       await malVeMEZO.connect(ctx.alice).approve(await vault.getAddress(), 1);
       await vault.connect(ctx.alice).deposit(1);
 
-      // Arm the malicious NFT to call vault.extendLocks() reentrantly on the
-      // very first increaseUnlockTime() call triggered by the outer extendLocks().
-      await malVeMEZO.arm(await vault.getAddress());
+      // A second, healthy lock, so the batch also contains a real success. The
+      // test's subject is the per-tokenId catch, not the whole-call fate: with
+      // only the malicious token, the every-extension-failed guard (BYND-14)
+      // would revert the batch before the assertion ever ran -- which is
+      // exactly the wholesale-failure signature the guard exists to surface.
+      await malVeMEZO.mint(ctx.alice.address, 0);
+      await malVeMEZO.connect(ctx.alice).approve(await vault.getAddress(), 2);
+      await vault.connect(ctx.alice).deposit(2);
+
+      // Arm the malicious NFT to call vault.extendLocks() reentrantly, on
+      // tokenId 1 specifically. Token 2 extends normally, so the batch has a
+      // genuine success and the whole-call guard stays quiet.
+      await malVeMEZO.arm(await vault.getAddress(), 1);
 
       const before = await malVeMEZO.locked(1);
       // extendLocks() carries a nonReentrant guard, so the inner reentrant

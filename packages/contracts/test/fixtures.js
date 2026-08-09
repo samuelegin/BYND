@@ -71,6 +71,10 @@ async function deployAll() {
   await veBYND.grantRole(await veBYND.BURNER_ROLE(), await vault.getAddress());
   await vault.setVoter(await voter.getAddress());
   await vault.setRewardsDistributor(await rewardsDistributor.getAddress());
+  // On-chain this is BoostVoter, which owns vote state. In the test world the
+  // vote flag lives on MockVeMEZO, so it also exposes reset() and is what the
+  // vault points at -- the vault only ever calls reset() through this handle.
+  await vault.setBoostVoter(await veMEZO.getAddress());
   await voter.setVault(await vault.getAddress());
   await staking.setDistributor(await voter.getAddress());
 

@@ -22,7 +22,8 @@ describe("ByNdVault — batching, merge retry, observability", () => {
    * Puts `n` stragglers in allTokenIds. Depositing normally merges everything
    * into the canonical lock, so the only way to get a large allTokenIds is to
    * make each merge fail — which is exactly the real-world condition BYND-02
-   * matters under. setVotedForTest makes MockVeMEZO.merge revert.
+   * matters under. setMergeBlockedForTest makes MockVeMEZO.merge revert without
+   * also blocking increaseUnlockTime, which a vote would (BYND-14).
    */
   async function seedStragglers(n) {
     const { veMEZO, vault, alice } = ctx;
@@ -42,7 +43,12 @@ describe("ByNdVault — batching, merge retry, observability", () => {
       }
       // Canonical is set by the first deposit and never merges, so only the
       // later ones need to fail.
-      if (i > 0) await veMEZO.setVotedForTest(tokenId, true);
+      //
+      // Blocks the merge WITHOUT marking the token voted. These tests assert
+      // cursor mechanics, so every straggler must still be extendable; a voted
+      // token cannot be extended either, since the real veMEZO gates merge and
+      // increaseUnlockTime on the same vote (BYND-14).
+      if (i > 0) await veMEZO.setMergeBlockedForTest(tokenId, true);
       await veMEZO.connect(alice).approve(await vault.getAddress(), tokenId);
       await vault.connect(alice).deposit(tokenId);
       ids.push(tokenId);
@@ -134,11 +140,11 @@ describe("ByNdVault — batching, merge retry, observability", () => {
 
       // Still blocked — retrying now must surface the reason, not swallow it.
       await expect(vault.retryMerge(straggler)).to.be.revertedWith(
-        "MockVeMEZO: already voted"
+        "MockVeMEZO: merge blocked"
       );
 
-      // The lock is no longer voted, so the merge can go through.
-      await veMEZO.setVotedForTest(straggler, false);
+      // The blocker has cleared, so the merge can go through.
+      await veMEZO.setMergeBlockedForTest(straggler, false);
       await expect(vault.retryMerge(straggler))
         .to.emit(vault, "StragglerMerged")
         .withArgs(straggler, await vault.canonicalTokenId());
@@ -154,7 +160,7 @@ describe("ByNdVault — batching, merge retry, observability", () => {
     it("is permissionless — it can only consolidate the vault's own holdings", async () => {
       const { vault, veMEZO, alice, stranger } = ctx;
       const ids = await seedStragglers(2);
-      await veMEZO.setVotedForTest(ids[1], false);
+      await veMEZO.setMergeBlockedForTest(ids[1], false);
 
       await expect(vault.connect(stranger).retryMerge(ids[1])).to.not.be
         .reverted;
@@ -183,7 +189,7 @@ describe("ByNdVault — batching, merge retry, observability", () => {
       await vault.extendLocks();
       expect(await vault.extendCursor()).to.equal(MAX_BATCH);
 
-      await veMEZO.setVotedForTest(ids[MAX_BATCH], false);
+      await veMEZO.setMergeBlockedForTest(ids[MAX_BATCH], false);
       await vault.retryMerge(ids[MAX_BATCH]);
 
       // A stale cursor at the old length would skip a whole pass; it wraps.

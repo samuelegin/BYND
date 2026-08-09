@@ -46,26 +46,34 @@ describe("Security: reentrancy & trust-boundary tests", function () {
     });
   });
 
-  describe("markLocksExtended() and tx.origin (RelayerCaller)", () => {
-    it("records tx.origin, not msg.sender, as the keeper when called via a relayer contract", async () => {
+  describe("markLocksExtended() credits the immediate caller (BYND-10)", () => {
+    it("records the relayer contract, not tx.origin, as the keeper", async () => {
       const { vault, voter, alice } = ctx;
       const tokenId = await mintAndDeposit(ctx, alice);
 
       const RelayerCaller = await ethers.getContractFactory("RelayerCaller");
       const relayer = await RelayerCaller.deploy();
 
-      // alice (EOA, tx.origin) calls through the relayer contract (msg.sender to the vault)
+      // alice (EOA, tx.origin) calls through the relayer contract, which is
+      // msg.sender to the vault.
       await jumpInsideExtendWindow(voter);
       await relayer.connect(alice).relayExtendLocks(await vault.getAddress());
 
-      expect(await voter.epochKeeperExtendLocks(0)).to.equal(alice.address);
-      // NOTE: this means any keeper-bounty logic keyed off markLocksExtended's
-      // recorded address is spoofable/observable via tx.origin rather than the
-      // immediate caller — relevant if ByNdVault ever routes an actual "extend
-      // locks" bounty through this path, or if a malicious contract in the
-      // call chain (e.g. a wallet's batching/relay layer) triggers extendLocks
-      // as a side effect of an unrelated user transaction, silently crediting
-      // that user as the keeper.
+      // This assertion is INVERTED from what it was before the fix. It used to
+      // assert alice.address — that markLocksExtended recorded tx.origin — and
+      // carried a note that the behaviour was spoofable: any contract in the
+      // call chain (a wallet's batching layer, say) that triggered extendLocks
+      // as a side effect of an unrelated transaction would silently credit that
+      // user as the keeper. It also made contract-based keepers impossible,
+      // since they could never be tx.origin.
+      //
+      // The vault now passes its own msg.sender explicitly, matching
+      // markRebasesClaimed. The entity that actually made the call gets the
+      // credit, whether it is an EOA or a contract.
+      expect(await voter.epochKeeperExtendLocks(0)).to.equal(
+        await relayer.getAddress()
+      );
+      expect(await voter.epochKeeperExtendLocks(0)).to.not.equal(alice.address);
     });
   });
 

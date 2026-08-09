@@ -127,8 +127,17 @@ async function main() {
   const gaugeScanAddr = await gaugeScan.getAddress();
   console.log(`GaugeScan: ${gaugeScanAddr}`);
 
+  const HarvestLib = await ethers.getContractFactory("HarvestLib");
+  const harvestLib = await HarvestLib.deploy();
+  await harvestLib.waitForDeployment();
+  const harvestLibAddr = await harvestLib.getAddress();
+  console.log(`HarvestLib: ${harvestLibAddr}`);
+
   const ByNdVoter = await ethers.getContractFactory("ByNdVoter", {
-    libraries: { GaugeScan: gaugeScanAddr },
+    libraries: {
+      GaugeScan: gaugeScanAddr,
+      HarvestLib: harvestLibAddr
+    },
   });
   const voter = await upgrades.deployProxy(
     ByNdVoter,
@@ -182,6 +191,7 @@ async function main() {
       ByNdStaking: stakingAddr,
       ByNdVoter: voterAddr,
       GaugeScan: gaugeScanAddr,
+      HarvestLib: harvestLibAddr,
     },
     externalAddresses: {
       veMEZO: veMEZOAddr,

@@ -1,7 +1,13 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const { deployAll, setupSingleGauge } = require("./fixtures");
 const { jumpInsideVoteWindow } = require("./epochTime");
+
+// Staker rewards stream over this window rather than landing in one block (BYND-03).
+const REWARDS_DURATION = 7 * 24 * 60 * 60;
+// Truncation dust from the per-second reward rate.
+const DUST = 1_000_000n;
 
 describe("ByNdVoter — protocol fee", function () {
   let ctx;
@@ -91,6 +97,9 @@ describe("ByNdVoter — protocol fee", function () {
     const treasuryAfter = await rewardTokenA.balanceOf(treasury.address);
     const feeAndBountyToTreasury = treasuryAfter - treasuryBefore;
 
+    // The staker share streams over rewardsDuration, so the full window has to
+    // elapse before the conservation check sees all of it.
+    await time.increase(REWARDS_DURATION);
     const stakerClaimable = await staking.claimable(await rewardTokenA.getAddress(), alice.address);
 
     // Recompute using the exact same integer arithmetic the contract uses,
@@ -140,8 +149,16 @@ describe("ByNdVoter — protocol fee", function () {
 
     // 1% bountyBps default, all 5 keeper slots effectively the same address
     // here (deployer/treasury), so entire bounty + remainder is still exactly
-    // predictable: 99% of harvest reaches the staking pool as before.
+    // predictable: 99% of harvest reaches the staking pool as before. That
+    // transfer is immediate; the claim matures across rewardsDuration.
+    const expectedStakerAmount = (harvestAmount * 9900n) / 10000n;
+    expect(await rewardTokenA.balanceOf(await staking.getAddress())).to.equal(
+      expectedStakerAmount
+    );
+
+    await time.increase(REWARDS_DURATION);
     const stakerClaimable = await staking.claimable(await rewardTokenA.getAddress(), alice.address);
-    expect(stakerClaimable).to.equal((harvestAmount * 9900n) / 10000n);
+    expect(stakerClaimable).to.be.closeTo(expectedStakerAmount, DUST);
+    expect(stakerClaimable).to.be.lte(expectedStakerAmount);
   });
 });

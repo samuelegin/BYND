@@ -1,7 +1,11 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const { deployAll, setupSingleGauge } = require("./fixtures");
 const { jumpInsideVoteWindow } = require("./epochTime");
+
+// Rewards stream over this window rather than landing in a single block (BYND-03).
+const REWARDS_DURATION = 7 * 24 * 60 * 60;
 
 describe("Economic invariants & tokenomics stress tests", function () {
   let ctx;
@@ -78,15 +82,20 @@ describe("Economic invariants & tokenomics stress tests", function () {
       await musd.connect(deployer).approve(await staking.getAddress(), notifyAmount);
       await staking.notifyRewardAmount(await musd.getAddress(), notifyAmount);
 
+      // Let the whole window stream so the conservation check covers the full
+      // notified amount, not a partial slice of it.
+      await time.increase(REWARDS_DURATION);
+
       const claimA = await staking.claimable(await musd.getAddress(), alice.address);
       const claimB = await staking.claimable(await musd.getAddress(), bob.address);
       const claimC = await staking.claimable(await musd.getAddress(), carol.address);
       const totalClaimable = claimA + claimB + claimC;
 
       expect(totalClaimable).to.be.lte(notifyAmount);
-      // dust left behind by integer division should be small — bounded by
-      // roughly 1 wei of rounding loss per staker, never a meaningful amount
-      expect(notifyAmount - totalClaimable).to.be.lte(3n);
+      // Dust left behind by integer division should be small — roughly 1 wei of
+      // rounding loss per staker, plus a sub-wei residue from truncating
+      // rewardRate. Never a meaningful amount.
+      expect(notifyAmount - totalClaimable).to.be.lte(4n);
 
       // and claiming for real must actually succeed for exactly these amounts
       await staking.connect(alice).claimAll();
@@ -114,6 +123,10 @@ describe("Economic invariants & tokenomics stress tests", function () {
         await staking.notifyRewardAmount(await musd.getAddress(), perNotify);
       }
 
+      // Each notify folds the unstreamed leftover into a fresh window, so the
+      // last one has to run out before everything notified is claimable.
+      await time.increase(REWARDS_DURATION);
+
       const claimable = await staking.claimable(await musd.getAddress(), alice.address);
       const totalNotified = perNotify * BigInt(rounds);
       expect(claimable).to.be.lte(totalNotified);
@@ -122,7 +135,7 @@ describe("Economic invariants & tokenomics stress tests", function () {
       expect(totalNotified - claimable).to.be.lte(BigInt(rounds));
     });
 
-    it("a staker who joins immediately before notify and exits immediately after still captures a full pro-rata share (documents reward-sniping exposure — no time-weighting/vesting exists)", async () => {
+    it("cannot be sniped: staking immediately before a notify and exiting immediately after captures ~nothing", async () => {
       const { staking, veBYND, deployer, alice, bob, musd } = ctx;
       await veBYND.grantRole(await veBYND.MINTER_ROLE(), deployer.address);
       await veBYND.mint(alice.address, ethers.parseEther("100"));
@@ -131,7 +144,7 @@ describe("Economic invariants & tokenomics stress tests", function () {
       await veBYND.connect(bob).approve(await staking.getAddress(), ethers.MaxUint256);
 
       // alice has been staked "forever"; bob stakes in the same block as the
-      // notify and could in principle unstake right after claiming.
+      // notify and unstakes right after claiming.
       await staking.connect(alice).stake(ethers.parseEther("100"));
       await staking.setDistributor(deployer.address);
 
@@ -142,21 +155,24 @@ describe("Economic invariants & tokenomics stress tests", function () {
       await staking.notifyRewardAmount(await musd.getAddress(), notifyAmount);
 
       // bob claims and fully exits in the very next actions
-      const bobClaimable = await staking.claimable(await musd.getAddress(), bob.address);
       await staking.connect(bob).claimAll();
       await staking.connect(bob).unstake(ethers.parseEther("100"));
 
-      // bob (0 blocks of "at risk" time) got an equal 50/50 split with alice,
-      // purely because stake sizes were equal at the moment of notify.
+      // Rewards accrue per second over rewardsDuration rather than landing in the
+      // notify block, so bob's zero-risk window earns him a few seconds of
+      // half-pool accrual out of a 7-day stream: dust, not 50% of the harvest.
+      // This is BYND-03; before the fix bob took exactly notifyAmount / 2.
+      const bobTook = await musd.balanceOf(bob.address);
+      expect(bobTook).to.be.lt(notifyAmount / 1000n);
+
+      // The value bob did not take is not stranded — it keeps streaming to alice,
+      // who is now the only staker. Bob's own residual counts too: he accrued for
+      // one more block between claiming and unstaking, which stays credited to
+      // him rather than being lost.
+      await time.increase(REWARDS_DURATION);
       const aliceClaimable = await staking.claimable(await musd.getAddress(), alice.address);
-      expect(bobClaimable).to.equal(aliceClaimable);
-      expect(bobClaimable).to.equal(notifyAmount / 2n);
-      // NOTE: this is expected behavior for the current Synthetix-style
-      // rewardPerToken design, not a bug — flagging it because there is no
-      // minimum-staking-duration or linear-vesting mechanism, so a keeper bot
-      // could in principle front-run every harvestAndDistribute() call,
-      // capture a share, and exit same-block. Worth a deliberate go/no-go
-      // decision before mainnet, not something a test can "pass/fail" on.
+      const bobResidual = await staking.claimable(await musd.getAddress(), bob.address);
+      expect(aliceClaimable + bobTook + bobResidual).to.be.closeTo(notifyAmount, 1_000_000n);
     });
   });
 
@@ -190,8 +206,15 @@ describe("Economic invariants & tokenomics stress tests", function () {
       // ...and the full tiny amount instead reached the staking contract as
       // staker rewards rather than being silently stuck/lost in the voter.
       expect(await rewardTokenA.balanceOf(await staking.getAddress())).to.equal(tinyHarvest);
+
+      // The staking contract streams over rewardsDuration, so the whole window
+      // has to elapse before all 100 wei is claimable. A 100-wei reward split
+      // across 604800 seconds is the worst case for rate truncation; the 1e36
+      // rate scaling is what keeps it from rounding to nothing, but a handful
+      // of wei can still be lost to the floor() in rewardRate and rewardPerToken.
+      await time.increase(REWARDS_DURATION);
       const claimable = await staking.claimable(await rewardTokenA.getAddress(), alice.address);
-      expect(claimable).to.equal(tinyHarvest);
+      expect(claimable).to.be.closeTo(tinyHarvest, 15n);
     });
   });
 
@@ -211,8 +234,15 @@ describe("Economic invariants & tokenomics stress tests", function () {
       await musd.connect(deployer).approve(await staking.getAddress(), hugeNotify);
       await expect(staking.notifyRewardAmount(await musd.getAddress(), hugeNotify)).to.not.be.reverted;
 
+      // Sole staker, so after the full window they own essentially all of it.
+      // rewardPerToken is quantised to 1e18, so the largest amount that can be
+      // lost to truncation is one quantum spread over the pool — totalStaked/1e18,
+      // here 1e9 wei against a 5e25 reward, a relative loss of ~2e-17.
+      await time.increase(REWARDS_DURATION);
       const claimable = await staking.claimable(await musd.getAddress(), alice.address);
-      expect(claimable).to.equal(hugeNotify); // sole staker, so it should be exact
+      const quantum = hugeStake / ethers.parseEther("1");
+      expect(claimable).to.be.closeTo(hugeNotify, quantum);
+      expect(claimable).to.be.lte(hugeNotify);
     });
   });
 });

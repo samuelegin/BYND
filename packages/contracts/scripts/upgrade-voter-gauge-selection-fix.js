@@ -47,7 +47,7 @@ async function main() {
   const voterProxyAddr = deployment.contracts.ByNdVoter;
   const musdAddr = process.env.MUSD_ADDRESS || DEFAULT_MUSD_ADDRESS;
 
-  console.log(`ByNdVoter proxy      : ${voterProxyAddr}`);
+  console.log(`ByNdVoter proxy : ${voterProxyAddr}`);
   console.log(`Bribe reference token: ${musdAddr} (MUSD)\n`);
 
   const [signer] = await ethers.getSigners();
@@ -65,11 +65,13 @@ async function main() {
   console.log("=".repeat(60));
   console.log("STEP 1 — Upgrade the ByNdVoter proxy to the new implementation");
   console.log("=".repeat(60));
-  // ByNdVoter links the external GaugeScan library by address, so the factory
-  // cannot be built until that library exists on-chain. Reuse the copy from the
-  // deployment record (or GAUGE_SCAN_ADDRESS) when there is one; otherwise
-  // deploy a fresh copy. GaugeScan is stateless and view-only, so redeploying
-  // it is safe — it just costs gas we needn't spend twice.
+  // ByNdVoter links the external GaugeScan and HarvestLib libraries by address,
+  // so the factory cannot be built until both exist on-chain. Reuse the copies
+  // from the deployment record (or the env overrides) when there are any;
+  // otherwise deploy fresh ones. GaugeScan is stateless and view-only, and
+  // HarvestLib holds no storage of its own — it runs by DELEGATECALL against
+  // ByNdVoter's storage — so redeploying either is safe. It just costs gas we
+  // needn't spend twice.
   let gaugeScanAddr =
     process.env.GAUGE_SCAN_ADDRESS || deployment.contracts.GaugeScan;
   if (gaugeScanAddr && (await ethers.provider.getCode(gaugeScanAddr)) === "0x") {
@@ -87,8 +89,28 @@ async function main() {
     console.log(`Reusing GaugeScan library: ${gaugeScanAddr}`);
   }
 
+  let harvestLibAddr =
+    process.env.HARVEST_LIB_ADDRESS || deployment.contracts.HarvestLib;
+  if (harvestLibAddr && (await ethers.provider.getCode(harvestLibAddr)) === "0x") {
+    console.log(`Recorded HarvestLib ${harvestLibAddr} has no code — redeploying.`);
+    harvestLibAddr = null;
+  }
+  if (!harvestLibAddr) {
+    const harvestLib = await (
+      await ethers.getContractFactory("HarvestLib")
+    ).deploy();
+    await harvestLib.waitForDeployment();
+    harvestLibAddr = await harvestLib.getAddress();
+    console.log(`Deployed HarvestLib library: ${harvestLibAddr}`);
+  } else {
+    console.log(`Reusing HarvestLib library: ${harvestLibAddr}`);
+  }
+
   const ByNdVoterV2 = await ethers.getContractFactory("ByNdVoter", {
-    libraries: { GaugeScan: gaugeScanAddr },
+    libraries: {
+      GaugeScan: gaugeScanAddr,
+      HarvestLib: harvestLibAddr,
+    },
   });
   const upgraded = await upgrades.upgradeProxy(voterProxyAddr, ByNdVoterV2, {
     unsafeAllow: ["external-library-linking"],

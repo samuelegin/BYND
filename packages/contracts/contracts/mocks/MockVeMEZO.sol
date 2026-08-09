@@ -60,6 +60,13 @@ contract MockVeMEZO is ERC721 {
         _voted[tokenId] = voted_;
     }
 
+    /// Lets a test build a permanent lock, which is otherwise unreachable
+    /// through mint()/mintCustom(). 115 of these exist on Matsnet, so the
+    /// deposit and extend paths have to be exercised against them.
+    function setPermanentForTest(uint256 tokenId, bool permanent_) external {
+        _locked[tokenId].isPermanent = permanent_;
+    }
+
     function merge(uint256 _from, uint256 _to) external {
         require(_from != _to, "MockVeMEZO: same NFT");
         require(!_voted[_from], "MockVeMEZO: already voted");

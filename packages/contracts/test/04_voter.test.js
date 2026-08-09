@@ -1,9 +1,14 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const { deployAll, mintAndDeposit, setupSingleGauge } = require("./fixtures");
 const { jumpOutsideVoteWindow, jumpInsideVoteWindow } = require("./epochTime");
 
 const DAY = 86400;
+// Staker rewards stream over this window rather than landing in one block (BYND-03).
+const REWARDS_DURATION = 7 * DAY;
+// Truncation dust from the per-second reward rate.
+const DUST = 1_000_000n;
 
 describe("ByNdVoter", function () {
   let ctx;
@@ -23,7 +28,7 @@ describe("ByNdVoter", function () {
         voter.connect(alice).markRebasesClaimed(alice.address)
       ).to.be.revertedWith("ByNdVoter: only vault");
       await expect(
-        voter.connect(alice).markLocksExtended()
+        voter.connect(alice).markLocksExtended(alice.address)
       ).to.be.revertedWith("ByNdVoter: only vault");
     });
 
@@ -383,10 +388,16 @@ describe("ByNdVoter", function () {
         ethers.parseEther("4")
       );
 
-      // 99% (990 MUSD) flowed into staking for the single staker
+      // 99% (990 MUSD) flowed into staking for the single staker. It streams
+      // over rewardsDuration rather than landing in the harvest block, so the
+      // balance transfer is immediate but the claim matures over the window.
+      expect(await musd.balanceOf(await staking.getAddress())).to.equal(
+        ethers.parseEther("990")
+      );
+      await time.increase(REWARDS_DURATION);
       expect(
         await staking.claimable(await musd.getAddress(), alice.address)
-      ).to.equal(ethers.parseEther("990"));
+      ).to.be.closeTo(ethers.parseEther("990"), DUST);
     });
 
     it("leaves the staker share sitting in the voter (not lost) if nobody is staked yet", async () => {
@@ -537,15 +548,23 @@ describe("ByNdVoter", function () {
     it("only governance can authorize an upgrade", async () => {
       const { voter, alice } = ctx;
       const { upgrades } = require("hardhat");
-      // ByNdVoter links the external GaugeScan library, so a factory for it
-      // can only be built once that library has an address to link against.
+      // ByNdVoter links the external GaugeScan and HarvestLib libraries, so a
+      // factory for it can only be built once both have an address to link
+      // against.
       const gaugeScan = await (
         await ethers.getContractFactory("GaugeScan")
       ).deploy();
       await gaugeScan.waitForDeployment();
+      const harvestLib = await (
+        await ethers.getContractFactory("HarvestLib")
+      ).deploy();
+      await harvestLib.waitForDeployment();
       const ByNdVoterV2 = await ethers.getContractFactory("ByNdVoter", {
         signer: alice,
-        libraries: { GaugeScan: await gaugeScan.getAddress() },
+        libraries: {
+          GaugeScan: await gaugeScan.getAddress(),
+          HarvestLib: await harvestLib.getAddress(),
+        },
       });
       await expect(
         upgrades.upgradeProxy(await voter.getAddress(), ByNdVoterV2, {

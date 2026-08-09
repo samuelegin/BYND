@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test",
+    "test": "hardhat test && hardhat run scripts/check-sizes.js",
+    "test:only": "hardhat test",
+    "check:sizes": "hardhat run scripts/check-sizes.js",
     "deploy:matsnet": "hardhat run scripts/deploy-matsnet.js --network mezotestnet",
     "scan:gauges": "hardhat run scripts/scan-matsnet-gauges.js --network mezotestnet",
     "check:gauge": "hardhat run scripts/check-gauge-status.js --network mezotestnet",

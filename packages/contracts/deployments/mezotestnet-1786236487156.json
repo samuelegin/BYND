@@ -1,0 +1,21 @@
+{
+  "network": "mezotestnet",
+  "chainId": "31611",
+  "deployer": "0x73a7ec8628Be276eC8799DECE3067798613950C2",
+  "timestamp": "2026-08-09T00:48:07.156Z",
+  "contracts": {
+    "VeBYND": "0x0736B44A94b5f8d322D2f51A108e70e86589D91a",
+    "ByNdVault": "0xb7B1CD5c9D6d3deDE64F3c803826f6B6150a2B6C",
+    "ByNdStaking": "0xb95c341BD147FcD6c1a2Fe4B7Be1C68b830A416d",
+    "ByNdVoter": "0x76b7e2EbD2839c36802442931382032e8840218d",
+    "GaugeScan": "0x7e76F14175c659b518ce23542d4D0aaA1d30f511",
+    "HarvestLib": "0x458521aB462b72212b155060deCb9ab1007D6f54"
+  },
+  "externalAddresses": {
+    "veMEZO": "0xaCE816CA2bcc9b12C59799dcC5A959Fb9b98111b",
+    "boostVoter": "0x21d7bDF5a5929AD179F8cA0c9014A0B62ae6Bfd1",
+    "rewardsDistributor": "0x2962E8817ae716019F759d098e2caE658bDcAd04",
+    "treasury": "0x73a7ec8628Be276eC8799DECE3067798613950C2"
+  },
+  "note": "Pre-audit remediation build (BYND-01..BYND-13). GaugeScan and HarvestLib were deployed fresh: GaugeScan.best() changed arity this build, so the previous library is NOT link-compatible with this ByNdVoter."
+}

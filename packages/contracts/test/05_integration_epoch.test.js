@@ -1,7 +1,13 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const { deployAll, mintAndDeposit, setupSingleGauge } = require("./fixtures");
 const { jumpInsideVoteWindow, jumpInsideExtendWindow } = require("./epochTime");
+
+// Staker rewards stream over this window rather than landing in one block (BYND-03).
+const REWARDS_DURATION = 7 * 24 * 60 * 60;
+// Truncation dust from the per-second reward rate.
+const DUST = 1_000_000n;
 
 describe("Integration: one full BynD epoch", function () {
   it("deposit -> extendLocks -> claimRebases -> optimiseAndVote -> harvestAndDistribute -> stake -> claimAll", async () => {
@@ -72,16 +78,27 @@ describe("Integration: one full BynD epoch", function () {
     expect(keeperBounty).to.equal(ethers.parseEther("16")); // 4 * 4 MUSD
     expect(treasuryBounty).to.equal(ethers.parseEther("4")); // 1 * 4 MUSD
 
-    // 99% (1980 MUSD) split 2:1 between alice (1000 staked) and bob (500 staked)
+    // 99% (1980 MUSD) reaches the staking contract immediately, then streams to
+    // stakers over rewardsDuration rather than being claimable in the harvest
+    // block (BYND-03). Let the window elapse, then check the 2:1 split between
+    // alice (1000 staked) and bob (500 staked).
+    expect(await musd.balanceOf(await staking.getAddress())).to.equal(
+      ethers.parseEther("1980")
+    );
+    await time.increase(REWARDS_DURATION);
+
     const aliceClaimable = await staking.claimable(await musd.getAddress(), alice.address);
     const bobClaimable = await staking.claimable(await musd.getAddress(), bob.address);
-    expect(aliceClaimable).to.equal(ethers.parseEther("1320"));
-    expect(bobClaimable).to.equal(ethers.parseEther("660"));
-    expect(aliceClaimable + bobClaimable).to.equal(ethers.parseEther("1980"));
+    expect(aliceClaimable).to.be.closeTo(ethers.parseEther("1320"), DUST);
+    expect(bobClaimable).to.be.closeTo(ethers.parseEther("660"), DUST);
+    expect(aliceClaimable + bobClaimable).to.be.closeTo(ethers.parseEther("1980"), DUST);
 
     // Exit: alice claims yield and can freely unstake / trade veBYND (no unbonding)
     await staking.connect(alice).claimAll();
-    expect(await musd.balanceOf(alice.address)).to.equal(ethers.parseEther("1320"));
+    expect(await musd.balanceOf(alice.address)).to.be.closeTo(
+      ethers.parseEther("1320"),
+      DUST
+    );
 
     await staking.connect(bob).unstake(ethers.parseEther("500"));
     // bob kept 500 liquid from the start + gets his 500 staked veBYND back

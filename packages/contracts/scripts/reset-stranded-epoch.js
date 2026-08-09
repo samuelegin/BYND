@@ -21,6 +21,10 @@ const { ethers } = require("hardhat");
 // Any already-harvested value is banked into carriedOver rather than lost, so
 // running this is not a write-off of real funds.
 //
+// Governance can run this at any time. Anyone else can run it once the epoch is
+// more than FORCE_CLOSE_DELAY (2 weeks) past its natural end -- the script checks
+// forceCloseStatus() and refuses early rather than sending a reverting tx.
+//
 // Usage:
 //   npx hardhat run scripts/reset-stranded-epoch.js --network mezotestnet
 //
@@ -45,6 +49,7 @@ const BYND_VOTER_ABI = [
   "function getGaugeCount() view returns (uint256)",
   "function claimBribesBatch(uint256)",
   "function forceCloseEpoch()",
+  "function forceCloseStatus() view returns (uint256,bool)",
 ];
 
 const BOOST_VOTER_ABI = ["function epochNext(uint256) view returns (uint256)"];
@@ -59,10 +64,27 @@ async function main() {
   const boostVoter = await ethers.getContractAt(BOOST_VOTER_ABI, BOOST_VOTER);
 
   const governance = await voter.governance();
+  const isGovernance = governance.toLowerCase() === signer.address.toLowerCase();
   console.log(`Signer     : ${signer.address}`);
   console.log(`Governance : ${governance}`);
-  if (governance.toLowerCase() !== signer.address.toLowerCase()) {
-    throw new Error("Signer is not governance -- forceCloseEpoch() is governance-only.");
+
+  // forceCloseEpoch() is no longer governance-only. Anyone can call it once the
+  // epoch is more than FORCE_CLOSE_DELAY past its natural end, so that a lost
+  // governance key is an outage rather than a permanent freeze (BYND-06).
+  // Governance still has the immediate path.
+  if (!isGovernance) {
+    const [opensAt, open] = await voter.forceCloseStatus();
+    const opensAtIso = new Date(Number(opensAt) * 1000).toISOString();
+    console.log(`Role       : not governance -- using the permissionless path`);
+    console.log(`Opens at   : ${opensAtIso} (${open ? "OPEN NOW" : "not yet open"})`);
+    if (!open) {
+      throw new Error(
+        `Permissionless forceCloseEpoch() is not open yet (opens ${opensAtIso}). ` +
+        `Either wait, or run this as governance.`
+      );
+    }
+  } else {
+    console.log(`Role       : governance -- immediate path, no waiting period`);
   }
   if (dryRun) console.log("\n*** DRY_RUN -- no transactions will be sent ***");
 

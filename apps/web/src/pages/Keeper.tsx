@@ -14,6 +14,14 @@ import { useWallet } from "@/hooks/useWallet";
 import { useWriteContract, usePublicClient } from "wagmi";
 import { getAddresses, VAULT_ABI, VOTER_ABI } from "@/lib/contracts";
 
+// 208 weeks, not "4 years": veMEZO's cap is 345,600 seconds short of 4 * 365
+// days, and asking for the round number reverts. Locks are paged 200 at a time
+// from a cursor that persists across calls, so one call is not a full sweep.
+const EXTEND_BLURB =
+  "Pushes protocol-held veMEZO back out to veMEZO's 208-week maximum, 200 locks " +
+  "per call from a cursor that resumes where the last call stopped. Locks that " +
+  "are permanent or already long enough are skipped.";
+
 export default function KeeperPage() {
   const { address, chainId } = useWallet();
   // Pass address+chainId so contractsEnabled fires and all on-chain reads execute
@@ -190,10 +198,10 @@ export default function KeeperPage() {
       done: epoch.epochLocksExtended,
       isLoading: extendingLocks,
       description: epoch.epochLocksExtended
-        ? "Resets all protocol-held veMEZO to the 4-year maximum, ensuring permanent max governance weight."
+        ? `${EXTEND_BLURB}`
         : extendWindowOpen
-          ? "Resets all protocol-held veMEZO to the 4-year maximum, ensuring permanent max governance weight. Extend window is open now. Only the first keeper to call it each epoch is credited a keeper slot."
-          : `Resets all protocol-held veMEZO to the 4-year maximum, ensuring permanent max governance weight. Only callable in the final window before the epoch boundary. Opens in ${formatTime(epoch.timeUntilExtendWindow)}.`,
+          ? `${EXTEND_BLURB} Extend window is open now. Only the first keeper to call it each epoch is credited a keeper slot.`
+          : `${EXTEND_BLURB} Only callable in the final window before the epoch boundary. Opens in ${formatTime(epoch.timeUntilExtendWindow)}.`,
       onClick: handleExtendLocks,
       badge: epoch.epochLocksExtended
         ? "Done"

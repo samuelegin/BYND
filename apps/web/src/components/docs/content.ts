@@ -73,13 +73,13 @@ export const DOCS_NAV: DocGroup[] = [
         title: 'veMEZO & the boost block',
         description: 'What veMEZO is, and what "pooling" actually means on-chain.',
         blocks: [
-          p('veMEZO is Mezo\'s vote-escrow token. You lock MEZO for up to 4 years and receive a non-fungible position (an NFT, not an ERC-20) representing that lock. The longer and larger the lock, the more voting power it carries, and that power decays as the lock approaches expiry unless extended.'),
+          p('veMEZO is Mezo\'s vote-escrow token. You lock MEZO for up to 208 weeks (just under 4 years) and receive a non-fungible position (an NFT, not an ERC-20) representing that lock. The longer and larger the lock, the more voting power it carries, and that power decays as the lock approaches expiry unless extended.'),
           h2('nft-not-token', 'It\'s an NFT, not a balance'),
           p('Each veMEZO lock is its own ERC-721 token with its own ID, amount, and expiry. Mezo\'s VotingEscrow contract doesn\'t implement `ERC721Enumerable`, so there\'s no `tokenOfOwnerByIndex()` to cheaply list what a wallet owns. BynD\'s frontend discovers your NFTs by scanning `ownerOf()` across the live token ID range in batches. That scan is exactly what the mascot loading carousel in the Terminal is covering for.'),
           h2('boost-block', 'The "boost block"'),
           p('Once multiple veMEZO NFTs are deposited into `ByNdVault`, they don\'t stay as separate positions. Every deposit after the first is merged into a single canonical veMEZO NFT (`ByNdVault.canonicalTokenId`) via veMEZO\'s own `merge()` function, folding its locked amount in and burning the incoming NFT. That single position is what carries the pool\'s entire voting power, and it\'s what `ByNdVoter` casts as one block every epoch. That consolidation is the entire thesis: gauges and bribe markets respond to how much power shows up at once, and a single, ever-growing position reaches influence that fragmented, individually-managed locks rarely do — and it means voting, claiming bribes, and extending the lock all cost the same in gas whether 10 people have deposited or 10,000.'),
-          callout('info', 'Deposited veMEZO NFTs are also kept from expiring automatically. `ByNdVault.extendLocks()` is permissionless and takes no arguments — any keeper can call it once per epoch, in the final 24h before the epoch boundary, to push the pool\'s lock(s) back out to the max 4-year duration. In the rare case a deposit can\'t be merged (e.g. it already voted elsewhere this epoch, or is itself an unvested grant NFT), the deposit still succeeds and still mints veBYND — the NFT is just kept as a separately-managed straggler, and a `MergeFailedFallback` event records it.'),
-          callout('info', 'Consolidation applies from the deposit that follows the first one, so positions deposited **before** the canonical-merge logic existed are not retro-merged — there is no backfill. On the current Matsnet deployment that means five NFTs are still tracked individually alongside the canonical one, while every new deposit merges cleanly into it. It costs a little more gas per epoch than the ideal, and nothing else: correctness, rewards, and voting are unaffected.'),
+          callout('info', 'Deposited veMEZO NFTs are also kept from expiring automatically. `ByNdVault.extendLocks()` is permissionless and takes no arguments — any keeper can call it once per epoch, in the final 24h before the epoch boundary, to push the pool\'s lock(s) back out to veMEZO\'s 208-week maximum. In the rare case a deposit can\'t be merged (e.g. it already voted elsewhere this epoch, or is itself an unvested grant NFT), the deposit still succeeds and still mints veBYND — the NFT is just kept as a separately-managed straggler, and a `MergeFailedFallback` event records it.'),
+          callout('info', 'A straggler isn\'t stuck there. `ByNdVault.retryMerge(tokenId)` folds it into the canonical lock once whatever blocked it clears, and it\'s permissionless — it can only ever consolidate the vault\'s own holdings into the vault\'s own lock. It also clears a live gauge vote first, which is what veMEZO refuses a merge on. The current Matsnet deployment has been fully consolidated this way: five NFTs became one, holding all 1446.12 MEZO. Merging also takes the later of the two locks\' end dates, so it pushed the canonical expiry out by 658 days as a side effect.'),
         ],
       },
       {
@@ -95,7 +95,7 @@ export const DOCS_NAV: DocGroup[] = [
             { label: 'Protocol-level redemption', value: 'None (see below)' },
           ]),
           h2('exit', 'How to exit'),
-          p('BynD never unlocks the underlying veMEZO back to you. The deposit is one-way at the protocol level, and the vault itself relocks the position toward the maximum 4-year duration as it goes. This is the same trade every liquid-wrapper protocol makes: what you get in exchange is a token that\'s liquid **immediately**, rather than a position that\'s liquid only once its original lock finally expires.'),
+          p('BynD never unlocks the underlying veMEZO back to you. The deposit is one-way at the protocol level, and the vault itself relocks the position toward veMEZO\'s 208-week maximum as it goes. This is the same trade every liquid-wrapper protocol makes: what you get in exchange is a token that\'s liquid **immediately**, rather than a position that\'s liquid only once its original lock finally expires.'),
           p('To exit a position, trade veBYND for MEZO on the veBYND/MEZO liquidity pool, seeded at launch. Price will track the pool\'s depth and the market\'s view of BynD\'s yield.'),
         ],
       },
@@ -110,7 +110,7 @@ export const DOCS_NAV: DocGroup[] = [
             ['Function', 'What it does'],
             [
               ['`deposit(tokenId)`', 'Takes custody of a veMEZO NFT and mints veBYND 1:1 to the caller. Every deposit after the first is merged into a single canonical veMEZO NFT, so the vault only ever has to manage one voting position regardless of how many people deposit.'],
-              ['`extendLocks()`', 'Permissionless, no arguments. Extends the pool\'s managed lock(s) back toward the 4-year max so voting power never decays to zero. Callable once per epoch, in the final 24h before the epoch boundary — only the first caller each epoch is credited a keeper slot, so later callers are rejected instead of wasting gas.'],
+              ['`extendLocks()`', 'Permissionless, no arguments. Extends the pool\'s managed lock(s) back to veMEZO\'s 208-week max so voting power never decays to zero. Callable once per epoch, in the final 24h before the epoch boundary — only the first caller each epoch is credited a keeper slot, so later callers are rejected instead of wasting gas.'],
               ['`claimRebases()`', 'Permissionless, no arguments, no epoch gate. Compounds any MEZO rebase accrued on the managed lock(s) directly back into them. Nothing leaves the vault.'],
               ['`totalVotingPower()` / `totalLockedMEZO()`', 'View functions returning the pool\'s current aggregated numbers.'],
               ['`canonicalTokenId()`', 'The single veMEZO NFT every deposit after the first gets merged into.'],
@@ -189,7 +189,7 @@ export const DOCS_NAV: DocGroup[] = [
           steps([
             { title: 'Open the confirm modal anyway', body: 'Select the flagged NFT. It\'ll show a warning banner explaining it\'s permanently locked.' },
             { title: 'Convert to a time-based lock', body: 'Click **Unlock permanent lock**. This is a one-time conversion on Mezo\'s own veMEZO contract, not on BynD.' },
-            { title: 'Confirm the deposit', body: 'Once converted, the **Lock & Mint veBYND** button becomes available. From here, `ByNdVault` takes over and relocks it toward the 4-year max automatically going forward.' },
+            { title: 'Confirm the deposit', body: 'Once converted, the **Lock & Mint veBYND** button becomes available. From here, `ByNdVault` takes over and relocks it to veMEZO\'s 208-week max automatically going forward.' },
           ]),
           h2('expired', 'If your NFT\'s lock has expired'),
           p('An expired lock can\'t be deposited directly. It needs to be withdrawn and re-locked on Mezo\'s own app first, since an expired veMEZO position carries no voting power for the pool to use.'),
@@ -247,7 +247,7 @@ export const DOCS_NAV: DocGroup[] = [
           p('The Keeper page exposes every permissionless maintenance call in call order, with live status on what\'s currently eligible to run. The whole run fits in the final 24h before Mezo\'s epoch boundary (Thursday 00:00 UTC), which is when the gated steps open.'),
           steps([
             { title: 'Claim rebases', body: 'Not epoch-gated, not time-gated. Run `claimRebases()` — no arguments needed — whenever convenient to compound accrued MEZO rebases back into the vault\'s managed lock(s). Doing it first means the locks you extend and vote with are already as large as possible.' },
-            { title: 'Extend locks', body: 'Run `extendLocks()` — no arguments needed. It automatically pushes every currently-managed lock (almost always just the single canonical NFT) back toward the 4-year max so voting power keeps compounding instead of decaying toward expiry. This opens in the final 24h before the epoch boundary and is credited to one keeper per epoch, so call it as soon as the window opens: once someone else has done it, later calls are rejected rather than silently wasting your gas.' },
+            { title: 'Extend locks', body: 'Run `extendLocks()` — no arguments needed. It automatically pushes every currently-managed lock (almost always just the single canonical NFT) back to veMEZO\'s 208-week max so voting power keeps compounding instead of decaying toward expiry. This opens in the final 24h before the epoch boundary and is credited to one keeper per epoch, so call it as soon as the window opens: once someone else has done it, later calls are rejected rather than silently wasting your gas.' },
             { title: 'Cast votes', body: 'Run `optimiseAndVote()` — but only once the vote window is actually open (the final 3h before Mezo\'s epoch boundary by default). It\'ll revert if called earlier, deliberately, so votes are cast as late as possible and most of the epoch\'s bribes have already been posted before we commit to a gauge. Everything downstream depends on the pool\'s votes being current.' },
             { title: 'Claim bribes', body: 'Run `claimBribesBatch(limit)`. This is a required step, not an optional one: it takes the epoch\'s reward snapshot and pulls each managed veMEZO NFT\'s bribes out of every configured gauge\'s bribe contract. It\'s paged rather than once-per-epoch, so keep pressing until the Keeper page shows Done — the UI sends `limit = 200` (the on-chain maximum), which is a single press for any realistic pool, so the cursor is only shown when there are more than 200 NFTs and paging genuinely takes more than one call. Harvest reverts until this finishes.' },
             { title: 'Harvest & distribute', body: 'Once the bribes are claimed, call `harvestAndDistribute()`. This is the step that pays you a bounty: 1% of every token swept. It also closes the epoch out, which is what re-arms all of the above for the next one. If the claim step processed every NFT but pulled in nothing, harvest is disabled rather than offered — the on-chain gates are met, but there is genuinely nothing to distribute and the call would revert.' },
@@ -276,7 +276,7 @@ export const DOCS_NAV: DocGroup[] = [
         blocks: [
           kv([
             { label: 'Mint rate', value: '1:1 veBYND per MEZO locked' },
-            { label: 'Max lock duration', value: '4 years' },
+            { label: 'Max lock duration', value: '208 weeks (veMEZO\'s cap — just under 4 years)' },
             { label: 'Keeper bounty', value: '1% per token harvested (`bountyBps`)' },
             { label: 'Protocol fee', value: '0% by default, governance-gated, capped at 20% (`protocolFeeBps`)' },
             { label: 'Epoch length', value: 'Weekly, aligned to Mezo\'s epoch cycle' },
@@ -312,7 +312,7 @@ export const DOCS_NAV: DocGroup[] = [
           table(
             ['Term', 'Meaning'],
             [
-              ['veMEZO', 'Mezo\'s vote-escrow NFT: MEZO locked for up to 4 years in exchange for voting power.'],
+              ['veMEZO', 'Mezo\'s vote-escrow NFT: MEZO locked for up to 208 weeks in exchange for voting power.'],
               ['veBYND', 'BynD\'s liquid ERC-20, minted 1:1 against locked MEZO. Freely tradeable, unlike veMEZO.'],
               ['Boost block', 'The pooled voting power of every veMEZO NFT deposited into `ByNdVault`, cast as one combined vote.'],
               ['Gauge', 'An on-chain destination that receives votes in exchange for emissions. BynD targets veBTC gauges.'],

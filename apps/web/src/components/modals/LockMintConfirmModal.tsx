@@ -156,7 +156,7 @@ export const LockMintConfirmModal: React.FC<LockMintConfirmModalProps> = ({
                   veMEZO #{tokenId} is permanently locked
                 </p>
                 <p className="text-xs text-white/60 leading-relaxed">
-                  Convert to a time-based lock once — the vault re-locks it to 4 years automatically on deposit.
+                  Convert to a time-based lock once — the vault re-locks it to 208 weeks automatically on deposit.
                 </p>
               </div>
             </div>
@@ -189,7 +189,7 @@ export const LockMintConfirmModal: React.FC<LockMintConfirmModalProps> = ({
             value={lockedAmount ? `${parseFloat(lockedAmount).toLocaleString()} veMEZO` : '–'}
           />
           <BreakdownRow icon={<Lock size={13} />} label="Mint rate" value="1:1 veBYND" accent />
-          <BreakdownRow icon={<Clock size={13} />} label="Lock duration" value="4 years (max)" />
+          <BreakdownRow icon={<Clock size={13} />} label="Lock duration" value="208 weeks (max)" />
           {protocolFeeBps > 0 && (
             <BreakdownRow
               icon={<Percent size={13} />}

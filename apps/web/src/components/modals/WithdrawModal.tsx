@@ -23,7 +23,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({ isOpen, onClose })
               veMEZO is permanently locked
             </p>
             <p className="text-xs text-orange-400/80 leading-relaxed">
-              Bynd permanently locks all deposited veMEZO to the 4-year maximum to maintain 100% governance weight.
+              Bynd holds all deposited veMEZO at veMEZO's 208-week maximum, rolled forward each epoch, to maintain 100% governance weight.
               There is no withdrawal function by design.
             </p>
           </div>

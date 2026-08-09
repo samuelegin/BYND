@@ -166,7 +166,12 @@ export const VEMEZO_ABI = [
   { name: 'approve',             type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'tokenId', type: 'uint256' }],             outputs: [] },
   { name: 'locked',              type: 'function', stateMutability: 'view',       inputs: [{ name: 'tokenId', type: 'uint256' }],                                             outputs: [{ name: 'amount', type: 'int128' }, { name: 'end', type: 'uint256' }, { name: 'isPermanent', type: 'bool' }] },
   { name: 'unlockPermanent',     type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenId', type: 'uint256' }],                                             outputs: [] },
-  { name: 'increaseUnlockTime',  type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenId', type: 'uint256' }, { name: 'newEndTime', type: 'uint256' }],  outputs: [] },
+  // `duration`, NOT an end date, despite the function name. Seconds from now,
+  // week-rounded down, capped at 208 weeks. It was named `newEndTime` here and
+  // callers passed `now + 4 years`, which veMEZO read as a ~57-year duration and
+  // rejected every time -- see BYND-14. Only types feed the selector, so the
+  // rename is encoding-safe.
+  { name: 'increaseUnlockTime',  type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenId', type: 'uint256' }, { name: 'duration', type: 'uint256' }],     outputs: [] },
 ] as const;
 
 export const ERC20_ABI = [

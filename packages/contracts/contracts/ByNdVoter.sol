@@ -40,18 +40,25 @@ library GaugeScan {
     /// with `vt`
     /// @return bestGauge highest-scoring gauge, or zero if none scored
     /// @return bestScore its value-weighted bribe total
+    /// @return examined how many gauges the loop actually looked at
+    /// @return total how many exist on the boost voter
+    /// @dev `examined` and `total` are returned rather than emitted because this
+    /// function is `view` -- a view cannot log. The non-view caller compares them
+    /// and emits ScanTruncated, so a partial scan is distinguishable from a
+    /// complete one (BYND-11). The cap itself is deliberate and stays: 656 gauges
+    /// live today and a full scan measures ~11.6M gas against a 10M block limit.
     function best(
         IBoostVoter bv,
         uint256 cap,
         address[] memory vt,
         uint256[] memory vw
-    ) external view returns (address bestGauge, uint256 bestScore) {
-        uint256 total = bv.length();
-        if (total > cap) total = cap;
+    ) external view returns (address bestGauge, uint256 bestScore, uint256 examined, uint256 total) {
+        total = bv.length();
+        examined = total > cap ? cap : total;
         uint256 n = vt.length;
         uint256 epoch = bv.epochStart(block.timestamp);
 
-        for (uint256 i = 0; i < total; i++) {
+        for (uint256 i = 0; i < examined; i++) {
             address g = bv.gauges(i);
             if (!bv.isAlive(g)) continue;
 
@@ -78,6 +85,228 @@ library GaugeScan {
             if (bv.isAlive(g)) return g;
         }
         return address(0);
+    }
+}
+
+/// @notice The end-of-epoch settlement, extracted into an external library for
+/// the same reason as GaugeScan: ByNdVoter sits hard against EIP-170 and the
+/// remediation work needs the room.
+/// @dev Unlike GaugeScan this library *writes* — it moves tokens and updates
+/// `carriedOver`. That is safe because ByNdVoter reaches it by DELEGATECALL, so
+/// the library body executes in ByNdVoter's own storage and balance context: the
+/// `carriedOver` pointer resolves to ByNdVoter's slot, and `address(this)` inside
+/// a transfer is ByNdVoter. No layout change, no migration.
+///
+/// The events below are declared here so the library can emit them, and again in
+/// ByNdVoter so they appear in its ABI. Identical signatures give identical
+/// topics, and DELEGATECALL logs carry ByNdVoter's address, so an off-chain
+/// consumer sees exactly what it saw before this extraction.
+library HarvestLib {
+    using SafeERC20Upgradeable for IERC20Upgradeable;
+
+    uint256 private constant MAX_BPS = 10_000;
+
+    event KeeperPaid(uint256 indexed epoch, address indexed keeper, address token, uint256 amount);
+    event ProtocolFeeCollected(uint256 indexed epoch, address indexed token, uint256 amount);
+    event HarvestSkippedBelowThreshold(uint256 indexed epoch, address indexed token, uint256 harvested);
+    event StakerRewardDeferred(uint256 indexed epoch, address indexed token, uint256 amount);
+
+    /// @dev Everything the settlement reads out of ByNdVoter that is not a
+    /// mapping, bundled so the call site stays legible and the stack stays shallow.
+    struct Params {
+        uint256 epoch;
+        address[] uniqueTokens;
+        uint256[] balancesBefore;
+        address[5] keepers;
+        address treasury;
+        ByNdStaking staking;
+        uint256 protocolFeeBps;
+        uint256 bountyBps;
+        uint256 minHarvestThreshold;
+    }
+
+    /// @param carriedOver ByNdVoter's `carriedOver` mapping, by storage pointer.
+    ///        Value that has NOT yet paid the protocol fee or keeper bounty:
+    ///        below-threshold harvests and forceCloseEpoch banking. Taxed once,
+    ///        on the epoch that finally clears it.
+    /// @param carriedOverNet ByNdVoter's `carriedOverNet` mapping. Value that has
+    ///        ALREADY been taxed — the deferred staker share from an epoch where
+    ///        nobody was staked. It passes straight through to stakers on the next
+    ///        clearing; taxing it again is the BYND-04 double-tax.
+    /// @param tokenMinThreshold ByNdVoter's per-token threshold override mapping
+    /// @param carriedOverTokens Persistent registry of every token with a live
+    ///        carry. `epochUniqueTokens` is rebuilt from currently-configured
+    ///        gauges each epoch, so dropping a gauge via setGauges used to orphan
+    ///        any token unique to it — its carry was never read again and the
+    ///        balance was unrecoverable (BYND-05). This set is walked regardless
+    ///        of gauge configuration.
+    /// @param carryIndex 1-based index into `carriedOverTokens`; 0 means absent
+    function distribute(
+        mapping(address => uint256) storage carriedOver,
+        mapping(address => uint256) storage carriedOverNet,
+        mapping(address => uint256) storage tokenMinThreshold,
+        address[] storage carriedOverTokens,
+        mapping(address => uint256) storage carryIndex,
+        Params memory p
+    ) external returns (uint256 totalBountyPaid) {
+        // Walk this epoch's harvested tokens UNION every token still carrying a
+        // balance. Built up front, in memory, so the registry can be mutated
+        // freely below without the iteration tripping over its own swap-and-pop.
+        // Built in a helper to keep this frame's stack shallow -- `distribute`
+        // already carries five storage pointers and hits "stack too deep"
+        // without the optimizer's IR pipeline if it holds the builder's locals
+        // as well.
+        uint256 uniqueCount = p.uniqueTokens.length;
+        (address[] memory walk, uint256 n) = _buildWalk(carriedOverTokens, p.uniqueTokens);
+
+        bool anyValue;
+
+        for (uint256 i = 0; i < n; i++) {
+            // Only tokens from this epoch's snapshot have a balanceBefore; a
+            // carry-only token was not harvested this epoch, so its delta is 0.
+            uint256 gross = carriedOver[walk[i]];
+            if (i < uniqueCount) {
+                gross +=
+                    IERC20Upgradeable(walk[i]).balanceOf(address(this)) - p.balancesBefore[i];
+            }
+            if (gross + carriedOverNet[walk[i]] == 0) continue;
+            anyValue = true;
+            // Processed in its own frame: holding the per-token locals here as
+            // well as five storage pointers overruns the 16-slot stack.
+            totalBountyPaid += _processToken(
+                carriedOver, carriedOverNet, tokenMinThreshold,
+                carriedOverTokens, carryIndex, p, walk[i], gross
+            );
+        }
+
+        require(anyValue, "ByNdVoter: nothing harvested this epoch");
+    }
+
+    /// One token's settlement: carry it if the combined balance is under the
+    /// threshold, otherwise clear the books and pay it out.
+    function _processToken(
+        mapping(address => uint256) storage carriedOver,
+        mapping(address => uint256) storage carriedOverNet,
+        mapping(address => uint256) storage tokenMinThreshold,
+        address[] storage carriedOverTokens,
+        mapping(address => uint256) storage carryIndex,
+        Params memory p,
+        address token,
+        uint256 gross
+    ) private returns (uint256) {
+        uint256 net = carriedOverNet[token];
+        uint256 threshold = tokenMinThreshold[token] > 0
+            ? tokenMinThreshold[token]
+            : p.minHarvestThreshold;
+
+        if (gross + net < threshold) {
+            carriedOver[token] = gross;
+            _register(carriedOverTokens, carryIndex, token);
+            emit HarvestSkippedBelowThreshold(p.epoch, token, gross + net);
+            return 0;
+        }
+
+        carriedOver[token] = 0;
+        carriedOverNet[token] = 0;
+        _deregister(carriedOverTokens, carryIndex, token);
+        return _settle(carriedOverNet, carriedOverTokens, carryIndex, p, token, gross, net);
+    }
+
+    /// Union of `uniqueTokens` (this epoch's snapshot, order preserved so index
+    /// i < uniqueTokens.length still lines up with `balancesBefore[i]`) and the
+    /// persistent carry registry, deduplicated.
+    function _buildWalk(
+        address[] storage carriedOverTokens,
+        address[] memory uniqueTokens
+    ) private view returns (address[] memory walk, uint256 n) {
+        uint256 uniqueCount = uniqueTokens.length;
+        uint256 carryLen = carriedOverTokens.length;
+        walk = new address[](uniqueCount + carryLen);
+        for (uint256 i = 0; i < uniqueCount; i++) walk[n++] = uniqueTokens[i];
+        for (uint256 i = 0; i < carryLen; i++) {
+            address t = carriedOverTokens[i];
+            bool dup;
+            for (uint256 j = 0; j < uniqueCount; j++) {
+                if (walk[j] == t) { dup = true; break; }
+            }
+            if (!dup) walk[n++] = t;
+        }
+    }
+
+    /// @param gross untaxed value — pays the protocol fee and keeper bounty
+    /// @param net already-taxed value — bypasses both, straight to stakers
+    function _settle(
+        mapping(address => uint256) storage carriedOverNet,
+        address[] storage carriedOverTokens,
+        mapping(address => uint256) storage carryIndex,
+        Params memory p,
+        address token,
+        uint256 gross,
+        uint256 net
+    ) private returns (uint256 actualBounty) {
+        uint256 protocolFee = (gross * p.protocolFeeBps) / MAX_BPS;
+        if (protocolFee > 0 && p.treasury != address(0)) {
+            IERC20Upgradeable(token).safeTransfer(p.treasury, protocolFee);
+            emit ProtocolFeeCollected(p.epoch, token, protocolFee);
+        } else {
+            protocolFee = 0;
+        }
+        uint256 grossAfterFee = gross - protocolFee;
+
+        uint256 sharePerKeeper = (grossAfterFee * p.bountyBps) / MAX_BPS / 5;
+        actualBounty = sharePerKeeper * 5;
+        // `net` was already taxed on the epoch that deferred it, so it joins the
+        // staker share untouched rather than being run through the fee and
+        // bounty a second time.
+        uint256 stakerAmount = (grossAfterFee - actualBounty) + net;
+
+        for (uint256 k = 0; k < 5; k++) {
+            if (sharePerKeeper > 0 && p.keepers[k] != address(0)) {
+                IERC20Upgradeable(token).safeTransfer(p.keepers[k], sharePerKeeper);
+                emit KeeperPaid(p.epoch, p.keepers[k], token, sharePerKeeper);
+            }
+        }
+
+        if (stakerAmount > 0) {
+            if (p.staking.totalStaked() == 0) {
+                // Nobody to pay. This amount has now paid its fee and bounty, so
+                // it is banked as NET — the next clearing must not tax it again.
+                carriedOverNet[token] += stakerAmount;
+                _register(carriedOverTokens, carryIndex, token);
+                emit StakerRewardDeferred(p.epoch, token, stakerAmount);
+            } else {
+                IERC20Upgradeable(token).forceApprove(address(p.staking), stakerAmount);
+                p.staking.notifyRewardAmount(token, stakerAmount);
+            }
+        }
+    }
+
+    function _register(
+        address[] storage toks,
+        mapping(address => uint256) storage idx,
+        address t
+    ) private {
+        if (idx[t] == 0) {
+            toks.push(t);
+            idx[t] = toks.length; // 1-based
+        }
+    }
+
+    function _deregister(
+        address[] storage toks,
+        mapping(address => uint256) storage idx,
+        address t
+    ) private {
+        uint256 i = idx[t];
+        if (i == 0) return;
+        uint256 len = toks.length;
+        if (i != len) {
+            address moved = toks[len - 1];
+            toks[i - 1] = moved;
+            idx[moved] = i;
+        }
+        toks.pop();
+        idx[t] = 0;
     }
 }
 
@@ -117,6 +346,11 @@ contract ByNdVoter is
     mapping(uint256 => mapping(address => uint256)) private epochBalanceBefore;
     uint256 public constant MAX_CLAIM_BATCH = 200;
     uint256 internal constant DEFAULT_SCAN_CAP = 300;
+    /// How long past an epoch's natural end before forceCloseEpoch opens to
+    /// anyone. Long enough that a functioning keeper set always closes the epoch
+    /// normally first; short enough that a lost governance key is a two-week
+    /// outage rather than a permanent freeze (BYND-06).
+    uint256 public constant FORCE_CLOSE_DELAY = 2 weeks;
 
     mapping(address => uint256) public tokenMinHarvestThreshold;
 
@@ -139,6 +373,22 @@ contract ByNdVoter is
     uint256 public scanCap;
     mapping(address => uint256) public tokenWeights;
     address[] public valuedTokens;
+
+    /// Value that has ALREADY paid the protocol fee and keeper bounty: the
+    /// deferred staker share from an epoch where nobody was staked. Kept apart
+    /// from `carriedOver` so the next clearing passes it straight to stakers
+    /// instead of taxing it a second time (BYND-04).
+    mapping(address => uint256) public carriedOverNet;
+
+    /// Every token with a live carry, regardless of gauge configuration.
+    /// `epochUniqueTokens` is rebuilt from the currently-configured gauges each
+    /// epoch, so dropping a gauge via setGauges used to orphan any token unique
+    /// to it -- its carry was never read again and the balance was unrecoverable
+    /// (BYND-05). HarvestLib walks this set as well as the epoch's own.
+    address[] public carriedOverTokens;
+
+    /// 1-based index into `carriedOverTokens`; 0 means the token is absent.
+    mapping(address => uint256) private carriedOverTokenIndex;
 
     event VotesCast(uint256 indexed epoch, uint256 tokenCount, uint256 gaugeCount);
     event GaugesOptimised(uint256 indexed epoch, address topGauge, uint256 claimableAmount);
@@ -163,6 +413,12 @@ contract ByNdVoter is
     event ExtendWindowUpdated(uint256 newWindow);
     event ScanCapUpdated(uint256 newCap);
     event TokenWeightsUpdated(uint256 count);
+    /// The gauge scan stopped at the cap without reaching the end of the list, so
+    /// the chosen gauge is the best of `examined`, not of `total` (BYND-11).
+    event ScanTruncated(uint256 indexed epoch, uint256 examined, uint256 total);
+    /// The epoch voted through auto-select while `gauges` was empty, so its
+    /// bribes are unclaimable until governance calls setGauges (BYND-06).
+    event VotedWithoutConfiguredGauges(uint256 indexed epoch, address gauge);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -204,13 +460,13 @@ contract ByNdVoter is
         emit RebasesClaimedMarked(currentEpoch, keeper);
     }
 
-    function markLocksExtended() external {
+    function markLocksExtended(address keeper) external {
         require(msg.sender == vault, "ByNdVoter: only vault");
         require(!epochLocksExtended[currentEpoch], "ByNdVoter: already extended this epoch");
         require(extendWindowOpen(), "ByNdVoter: extend window not open");
         epochLocksExtended[currentEpoch]     = true;
-        epochKeeperExtendLocks[currentEpoch] = tx.origin;
-        emit LocksExtendedMarked(currentEpoch, tx.origin);
+        epochKeeperExtendLocks[currentEpoch] = keeper;
+        emit LocksExtendedMarked(currentEpoch, keeper);
     }
 
     function extendWindowOpen() public view returns (bool) {
@@ -239,6 +495,15 @@ contract ByNdVoter is
         } else {
             (gaugeAddrs, weights) = _selectOptimalGauges();
             require(gaugeAddrs.length > 0, "ByNdVoter: no alive gauges");
+            // Voting through auto-select is allowed, but the bribes it earns
+            // cannot be claimed until governance configures `gauges`: both
+            // claimBribesBatch and harvestAndDistribute require a configured set,
+            // because the bribe addresses and reward-token lists live there and
+            // the scan does not produce them. The value is not lost -- it sits in
+            // the bribe contract until a later epoch claims it -- but the epoch
+            // itself cannot close normally, so it needs either setGauges or
+            // forceCloseEpoch. That was previously silent (BYND-06).
+            emit VotedWithoutConfiguredGauges(currentEpoch, gaugeAddrs[0]);
         }
 
         uint256 tokenCount = managedTokenIds.length;
@@ -251,16 +516,6 @@ contract ByNdVoter is
                 emit VoteCastFailed(currentEpoch, managedTokenIds[i]);
             }
         }
-
-        // Per-tokenId failures stay tolerated (one bad lock must not block the
-        // rest), but a clean sweep of failures means no vote reached any bribe
-        // contract. Marking the epoch voted anyway strands it permanently:
-        // claimBribesBatch then claims 0, and harvestAndDistribute reverts on
-        // "nothing harvested this epoch" with no way back short of governance
-        // calling forceCloseEpoch. Revert instead so the keeper can fix the
-        // cause (missing vault approval, dead gauge) and retry this epoch.
-        // Reuses an existing revert literal verbatim -- the contract sits ~60
-        // bytes under EIP-170, so a new string would push it over.
         require(anySucceeded, "ByNdVoter: votes not cast");
 
         lastVoteTimestamp = block.timestamp;
@@ -270,9 +525,16 @@ contract ByNdVoter is
         emit VotesCast(currentEpoch, tokenCount, gaugeAddrs.length);
     }
 
-    function _scanBest() internal view returns (address bestGauge, uint256 bestScore) {
+    /// @dev Returns the scan's coverage alongside its result so the non-view
+    /// caller can emit ScanTruncated. previewOptimalGauge drops the extra two
+    /// values, keeping its ABI unchanged for the dashboard.
+    function _scanBest()
+        internal
+        view
+        returns (address bestGauge, uint256 bestScore, uint256 examined, uint256 total)
+    {
         uint256 n = valuedTokens.length;
-        if (n == 0) return (address(0), 0);
+        if (n == 0) return (address(0), 0, 0, boostVoter.length());
 
         address[] memory vt = new address[](n);
         uint256[] memory vw = new uint256[](n);
@@ -294,7 +556,13 @@ contract ByNdVoter is
         internal
         returns (address[] memory gaugeAddrs, uint256[] memory weights)
     {
-        (address bestGauge, uint256 bestScore) = _scanBest();
+        (address bestGauge, uint256 bestScore, uint256 examined, uint256 total) = _scanBest();
+
+        // A capped scan ranked only a prefix of the gauge list, so the "best"
+        // gauge is the best of what was seen -- not necessarily the best that
+        // exists. Previously indistinguishable from a complete scan, which meant
+        // a silently-truncated ranking looked authoritative.
+        if (examined < total) emit ScanTruncated(currentEpoch, examined, total);
 
         if (bestGauge == address(0)) {
             bestGauge = GaugeScan.firstAlive(boostVoter);
@@ -413,8 +681,23 @@ contract ByNdVoter is
 
         address[5] memory keepers = _resolveKeepers(epoch);
 
-        uint256 totalBountyPaid = _distribute(
-            epoch, uniqueTokens, uniqueTokens.length, balancesBefore, keepers
+        uint256 totalBountyPaid = HarvestLib.distribute(
+            carriedOver,
+            carriedOverNet,
+            tokenMinHarvestThreshold,
+            carriedOverTokens,
+            carriedOverTokenIndex,
+            HarvestLib.Params({
+                epoch: epoch,
+                uniqueTokens: uniqueTokens,
+                balancesBefore: balancesBefore,
+                keepers: keepers,
+                treasury: treasury,
+                staking: staking,
+                protocolFeeBps: protocolFeeBps,
+                bountyBps: bountyBps,
+                minHarvestThreshold: minHarvestThreshold
+            })
         );
 
         emit Harvested(epoch, msg.sender, totalBountyPaid);
@@ -428,84 +711,47 @@ contract ByNdVoter is
         keepers[4] = treasury;
     }
 
-    function _distribute(
-        uint256 epoch,
-        address[] memory uniqueTokens,
-        uint256 uniqueCount,
-        uint256[] memory balancesBefore,
-        address[5] memory keepers
-    ) internal returns (uint256 totalBountyPaid) {
-        bool anyValue;
-
-        for (uint256 i = 0; i < uniqueCount; i++) {
-            address token = uniqueTokens[i];
-            uint256 harvested = IERC20Upgradeable(token).balanceOf(address(this)) - balancesBefore[i];
-            uint256 available = harvested + carriedOver[token];
-            if (available == 0) continue;
-            anyValue = true;
-
-            uint256 threshold = tokenMinHarvestThreshold[token] > 0
-                ? tokenMinHarvestThreshold[token]
-                : minHarvestThreshold;
-
-            if (available < threshold) {
-                carriedOver[token] = available;
-                emit HarvestSkippedBelowThreshold(epoch, token, available);
-                continue;
-            }
-
-            carriedOver[token] = 0;
-            totalBountyPaid += _settleHarvestedToken(epoch, token, available, keepers);
-        }
-
-        require(anyValue, "ByNdVoter: nothing harvested this epoch");
-    }
-
-    function _settleHarvestedToken(
-        uint256 epoch,
-        address token,
-        uint256 harvested,
-        address[5] memory keepers
-    ) internal returns (uint256 actualBounty) {
-        uint256 protocolFee = (harvested * protocolFeeBps) / MAX_BPS;
-        if (protocolFee > 0 && treasury != address(0)) {
-            IERC20Upgradeable(token).safeTransfer(treasury, protocolFee);
-            emit ProtocolFeeCollected(epoch, token, protocolFee);
-        } else {
-            protocolFee = 0;
-        }
-        uint256 harvestedAfterFee = harvested - protocolFee;
-
-        uint256 sharePerKeeper = (harvestedAfterFee * bountyBps) / MAX_BPS / 5;
-        actualBounty = sharePerKeeper * 5;
-        uint256 stakerAmount = harvestedAfterFee - actualBounty;
-
-        for (uint256 k = 0; k < 5; k++) {
-            if (sharePerKeeper > 0 && keepers[k] != address(0)) {
-                IERC20Upgradeable(token).safeTransfer(keepers[k], sharePerKeeper);
-                emit KeeperPaid(epoch, keepers[k], token, sharePerKeeper);
-            }
-        }
-
-        if (stakerAmount > 0) {
-            if (staking.totalStaked() == 0) {
-                carriedOver[token] += stakerAmount;
-                emit StakerRewardDeferred(epoch, token, stakerAmount);
-            } else {
-                IERC20Upgradeable(token).forceApprove(address(staking), stakerAmount);
-                staking.notifyRewardAmount(token, stakerAmount);
-            }
-        }
-    }
-
-    function forceCloseEpoch() external onlyGovernance {
+    /// Banks the epoch's harvestable balance into `carriedOver` and advances the
+    /// clock, without paying a fee or bounty. The escape hatch for an epoch that
+    /// cannot complete a normal harvest.
+    ///
+    /// Governance may call it at any time. Anyone may call it once the epoch is
+    /// more than FORCE_CLOSE_DELAY past its natural end, because every state that
+    /// needs this hatch is otherwise a permanent freeze if the governance key is
+    /// lost: an epoch voted through auto-select with `gauges` never configured
+    /// (claim and harvest both refuse), or one where nothing was harvested
+    /// (`harvestAndDistribute` reverts on "nothing harvested this epoch"). Value
+    /// only moves into `carriedOver`, where the next clearing taxes it normally,
+    /// so a late close costs a delay and nothing else (BYND-06).
+    ///
+    /// The permissionless path additionally requires the epoch to have been voted.
+    /// That is what stops it being called in a loop: the epoch it opens has
+    /// `epochVoted == false`, so the next permissionless close has to wait for a
+    /// real vote. Without it, a caller past the deadline could burn through epoch
+    /// numbers indefinitely, since `lastVoteTimestamp` does not move here.
+    function forceCloseEpoch() external {
         uint256 epoch = currentEpoch;
         require(!epochHarvested[epoch], "ByNdVoter: already harvested");
+
+        if (msg.sender != governance) {
+            require(epochVoted[epoch], "ByNdVoter: votes not cast");
+            require(
+                block.timestamp > boostVoter.epochNext(lastVoteTimestamp) + FORCE_CLOSE_DELAY,
+                "ByNdVoter: force close not yet open"
+            );
+        }
+
         address[] memory toks = epochUniqueTokens[epoch];
         for (uint256 i = 0; i < toks.length; i++) {
             uint256 delta = IERC20Upgradeable(toks[i]).balanceOf(address(this))
                 - epochBalanceBefore[epoch][toks[i]];
-            if (delta > 0) carriedOver[toks[i]] += delta;
+            if (delta > 0) {
+                carriedOver[toks[i]] += delta;
+                if (carriedOverTokenIndex[toks[i]] == 0) {
+                    carriedOverTokens.push(toks[i]);
+                    carriedOverTokenIndex[toks[i]] = carriedOverTokens.length;
+                }
+            }
         }
 
         epochHarvested[epoch] = true;
@@ -534,7 +780,8 @@ contract ByNdVoter is
         }
     }
 
-    function removeManagedTokenId(uint256 tokenId) external onlyGovernance {
+    function removeManagedTokenId(uint256 tokenId) external {
+        require(msg.sender == governance || msg.sender == vault, "ByNdVoter: not governance");
         uint256 idx = tokenIdIndex[tokenId];
         require(idx > 0, "ByNdVoter: not managed");
         uint256 lastTokenId = managedTokenIds[managedTokenIds.length - 1];
@@ -564,7 +811,16 @@ contract ByNdVoter is
     }
 
     function previewOptimalGauge() external view returns (address bestGauge, uint256 bestScore) {
-        return _scanBest();
+        (bestGauge, bestScore, , ) = _scanBest();
+    }
+
+    /// When the permissionless forceCloseEpoch path opens for the current epoch,
+    /// and whether it is open now. Governance is not subject to either.
+    function forceCloseStatus() external view returns (uint256 opensAt, bool open) {
+        opensAt = boostVoter.epochNext(lastVoteTimestamp) + FORCE_CLOSE_DELAY;
+        open = epochVoted[currentEpoch]
+            && !epochHarvested[currentEpoch]
+            && block.timestamp > opensAt;
     }
 
     function getValuedTokenCount() external view returns (uint256) {

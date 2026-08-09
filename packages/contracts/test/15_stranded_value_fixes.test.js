@@ -1,7 +1,13 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const { deployAll, setupSingleGauge } = require("./fixtures");
 const { jumpInsideVoteWindow } = require("./epochTime");
+
+// Staker rewards stream over this window rather than landing in one block (BYND-03).
+const REWARDS_DURATION = 7 * 24 * 60 * 60;
+// Truncation dust from the per-second reward rate.
+const DUST = 1_000_000n;
 
 /**
  * Regression tests for the value-stranding / liveness bugs.
@@ -61,8 +67,12 @@ describe("ByNdVoter — stranded value & liveness fixes", () => {
 
       // The 99% staker share could not be pushed (notifyRewardAmount no-ops at
       // zero stake), so it stays in the voter and is recorded as carried over.
-      const carried = await voter.carriedOver(await rewardTokenA.getAddress());
+      // It banks into carriedOverNet: the fee and bounty were already paid out
+      // of this epoch's harvest, so the next clearing must pass it through
+      // untaxed (BYND-04).
+      const carried = await voter.carriedOverNet(await rewardTokenA.getAddress());
       expect(carried).to.equal(ethers.parseEther("990"));
+      expect(await voter.carriedOver(await rewardTokenA.getAddress())).to.equal(0);
       expect(await staking.rewardTokenCount()).to.equal(0);
 
       // --- Epoch 1: a real staker shows up, fresh bribes arrive. ---
@@ -74,19 +84,29 @@ describe("ByNdVoter — stranded value & liveness fixes", () => {
       // snapshot and silently never distributed. Post-fix it is combined with
       // epoch 1's harvest and pushed to the staking contract.
       expect(await voter.carriedOver(await rewardTokenA.getAddress())).to.equal(0);
+      expect(await voter.carriedOverNet(await rewardTokenA.getAddress())).to.equal(0);
 
       const staked = await rewardTokenA.balanceOf(await staking.getAddress());
-      // Epoch 1's available = 1000 new + 990 carried = 1990. At bountyBps=100,
-      // keepers take 1% of each of the two epoch shares (10 + 9.9) leaving
-      // 1970.1 in the pool — strictly more than the 990 a single epoch alone
-      // could ever produce.
-      expect(staked).to.equal(ethers.parseEther("1970.1"));
+      // Epoch 1's available = 1000 new (untaxed) + 990 deferred (already taxed
+      // in epoch 0). Only the new 1000 pays the 1% bounty, leaving 990; the
+      // deferred 990 passes straight through. 990 + 990 = 1980.
+      //
+      // This assertion previously read 1970.1, which encoded the BYND-04
+      // double-tax: the deferred share was banked into `carriedOver` and taxed
+      // a second time on this clearing, burning a further 9.9 to keepers who
+      // had already been paid for that value. The deferred path now banks into
+      // `carriedOverNet`, which bypasses fee and bounty. The test was asserting
+      // the bug, so the number moves up — this is not a weakened assertion.
+      expect(staked).to.equal(ethers.parseEther("1980"));
       expect(staked).to.be.gt(ethers.parseEther("990"));
 
-      // And it is genuinely claimable by the staker, not just parked.
+      // And it is genuinely claimable by the staker, not just parked — once the
+      // streaming window has elapsed. The transfer into the pool is immediate;
+      // only the claim matures over rewardsDuration (BYND-03).
+      await time.increase(REWARDS_DURATION);
       expect(
         await staking.claimable(await rewardTokenA.getAddress(), alice.address)
-      ).to.equal(staked);
+      ).to.be.closeTo(staked, DUST);
     });
 
     it("does not leave a dangling allowance to the staking contract when the share is deferred", async () => {
@@ -268,11 +288,21 @@ describe("ByNdVoter — stranded value & liveness fixes", () => {
       await expect(voter.optimiseAndVote()).to.not.be.reverted;
     });
 
-    it("is still governance-only", async () => {
+    // This test used to be "is still governance-only", asserting that a
+    // non-governance caller got "ByNdVoter: not governance". That assertion
+    // encoded the BYND-06 freeze: every state needing this hatch — voted with no
+    // gauges configured, or nothing harvested — is a permanent freeze if the
+    // governance key is lost, because no other path advances the epoch. The
+    // restriction is now a delay rather than a permanent bar. Governance keeps
+    // the immediate path; see test/19_liveness.test.js for the full gating.
+    it("is gated for non-governance callers, but no longer barred outright", async () => {
       const { voter, alice } = ctx;
+
+      // Epoch 0 was never voted here, so there is nothing stranded to rescue —
+      // this is the guard that also stops the permissionless path being looped.
       await expect(
         voter.connect(alice).forceCloseEpoch()
-      ).to.be.revertedWith("ByNdVoter: not governance");
+      ).to.be.revertedWith("ByNdVoter: votes not cast");
     });
 
     it("banks already-claimed value into carriedOver instead of stranding it", async () => {

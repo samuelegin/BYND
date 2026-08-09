@@ -46,8 +46,15 @@ async function deployAll() {
   const gaugeScan = await GaugeScan.deploy();
   await gaugeScan.waitForDeployment();
 
+  const HarvestLib = await ethers.getContractFactory("HarvestLib");
+  const harvestLib = await HarvestLib.deploy();
+  await harvestLib.waitForDeployment();
+
   const ByNdVoter = await ethers.getContractFactory("ByNdVoter", {
-    libraries: { GaugeScan: await gaugeScan.getAddress() },
+    libraries: {
+      GaugeScan: await gaugeScan.getAddress(),
+      HarvestLib: await harvestLib.getAddress(),
+    },
   });
   const voter = await upgrades.deployProxy(
     ByNdVoter,

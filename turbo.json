@@ -2,7 +2,7 @@
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "compile": {
-      "inputs": ["contracts/**", "hardhat.config.ts"],
+      "inputs": ["contracts/**", "hardhat.config.js"],
       "outputs": ["artifacts/**", "cache/**", "typechain-types/**"]
     },
     "build": {

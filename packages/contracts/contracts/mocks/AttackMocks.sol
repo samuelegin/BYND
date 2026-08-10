@@ -17,13 +17,18 @@ contract MaliciousVeMEZO is ERC721 {
     uint256 private _nextId = 1;
 
     address public reentryTarget;
-    bool    public armed;
+    uint256 public armedTokenId;
 
     constructor() ERC721("Malicious veMEZO", "mveMEZO") {}
 
-    function arm(address target) external {
+    /// Arms exactly one tokenId, rather than a boolean that disarms itself on
+    /// first use. The reentrant call reverts, and that revert rolls back any
+    /// `armed = false` written before it -- so a flag re-arms for every
+    /// subsequent token in the batch, turning a single-token attack into a
+    /// whole-batch failure and masking what the test is actually asserting.
+    function arm(address target, uint256 tokenId) external {
         reentryTarget = target;
-        armed         = true;
+        armedTokenId  = tokenId;
     }
 
     function mint(address to, uint256 /*tokenId*/) external {
@@ -46,14 +51,21 @@ contract MaliciousVeMEZO is ERC721 {
         return uint256(uint128(l.amount));
     }
 
-    function increaseUnlockTime(uint256 tokenId, uint256 newEnd) external {
-        if (armed) {
-            armed = false;
+    function increaseUnlockTime(uint256 tokenId, uint256 duration) external {
+        if (reentryTarget != address(0) && tokenId == armedTokenId) {
             IExtendLocksCallback(reentryTarget).extendLocks();
         }
+        // Duration semantics, matching the real veMEZO (BYND-14). This mock
+        // previously took an absolute end, so with a correct caller every
+        // extension attempt failed.
+        require(duration <= MAXTIME, "MaliciousVeMEZO: too long");
+        uint256 newEnd = ((block.timestamp + duration) / WEEK) * WEEK;
         require(_locked[tokenId].end < newEnd, "MaliciousVeMEZO: new end not later");
         _locked[tokenId].end = newEnd;
     }
+
+    uint256 public constant MAXTIME = 208 weeks;
+    uint256 public constant WEEK = 1 weeks;
 
     function depositFor(uint256 tokenId, uint256 amount) external {
         _locked[tokenId].amount += int128(int256(amount));

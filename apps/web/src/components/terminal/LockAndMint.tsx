@@ -86,7 +86,7 @@ export function LockAndMint({
             Step 01 · Lock &amp; Mint
           </p>
           <p className="text-sm text-white/60">
-            Permanent 4-year lock · mints liquid veBYND 1:1
+            208-week lock, no withdrawal · mints liquid veBYND 1:1
           </p>
         </div>
         <Badge variant={hasNfts ? 'acid' : 'muted'}>
@@ -188,7 +188,7 @@ export function LockAndMint({
             <div className="rounded-control border border-void-border bg-bg p-3 flex flex-col gap-1.5">
               <Clock size={13} className="text-white/[.38]" />
               <span className="font-mono text-[9px] uppercase tracking-widest text-white/[.38]">Lock</span>
-              <span className="font-mono text-xs font-medium text-white/[.87]">4 years</span>
+              <span className="font-mono text-xs font-medium text-white/[.87]">208 weeks</span>
             </div>
           </div>
         </>

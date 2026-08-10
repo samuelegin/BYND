@@ -71,7 +71,7 @@ BynD aggregates veMEZO positions into a single coordinated boost block and autom
 ## Screenshots
 
 ### Lock veMEZO & Mint veBYND
-Deposit a veMEZO NFT to receive veBYND 1:1. The vault keeps deposited locks extended toward the 4-year maximum for highest governance weight, and every deposit after the first is merged into a single canonical veMEZO NFT so the vault's gas cost never scales with how many people deposit.
+Deposit a veMEZO NFT to receive veBYND 1:1. The vault keeps deposited locks extended toward veMEZO's 208-week maximum for highest governance weight, and every deposit after the first is merged into a single canonical veMEZO NFT so the vault's gas cost never scales with how many people deposit.
 
 Merging is **confirmed working on Matsnet**. Deposits of tokenIds `864` and `869` both emitted `MergedIntoCanonical(tokenId, 860)`: each NFT was burned by veMEZO's `merge()`, its locked MEZO folded into canonical tokenId `860`, and `veBYND` still minted 1:1 to the depositor. `getAllTokenIds()` did not grow, so the pool's per-epoch work is unchanged by those deposits — which is the entire point of consolidation.
 
@@ -82,7 +82,16 @@ block 14694004  Deposited  tokenId=869 minted=100.0
 block 14694004  MergedIntoCanonical  tokenId=869 -> canonical=860
 ```
 
-> **Reading the vault's history:** tokenIds `857`, `829`, `859`, `866` and `860` are each tracked separately in `getAllTokenIds()` because they were deposited **before** the canonical-merge logic shipped, when the vault had no `canonicalTokenId` to merge into. `860` became canonical simply by being the first deposit after that upgrade, while `canonicalTokenId` was still `0`. Those five pre-existing positions are not retro-merged; they stay as managed stragglers and every new deposit merges into `860`. Absence of a `MergeFailedFallback` event for them is the tell — they never attempted a merge at all.
+> **The vault's history, and how it got consolidated:** tokenIds `857`, `829`, `859`, `866` and `860` were each tracked separately in `getAllTokenIds()` for months, because they were deposited **before** the canonical-merge logic shipped, when the vault had no `canonicalTokenId` to merge into. `860` became canonical simply by being the first deposit after that upgrade, while `canonicalTokenId` was still `0`. Absence of a `MergeFailedFallback` event for the others is the tell — they never attempted a merge at all.
+>
+> `retryMerge(tokenId)` retro-merges them, and **all four have now been consolidated on Matsnet**. The vault holds exactly one NFT: canonical `860`, carrying the full 1446.12 MEZO. That also bought real runway — veMEZO's `merge()` takes the **later** of the two locks' end dates, so folding in `829` (which ran to 2029-05-17) moved the canonical lock's expiry out from 2027-07-29 by 658 days.
+>
+> ```
+> before   [857, 829, 859, 866, 860]   canonical 860:  301.18 MEZO, ends 2027-07-29
+> after    [860]                       canonical 860: 1446.12 MEZO, ends 2029-05-17
+> ```
+>
+> `retryMerge` is permissionless — it can only ever fold the vault's own holdings into the vault's own canonical lock. **Set an explicit gas limit** when calling it: `eth_estimateGas` under-reports it by roughly 2x (consolidating `859` was estimated at 664k and needed 1,329k), because the swallowed `reset()` inside a `try/catch` lets the estimator's search settle on a limit where the real path doesn't fit. 2–4x the estimate is safe; unused gas is refunded.
 
 ![Lock veMEZO and Mint veBYND](docs/lock_and_mint.png)
 ![Lock confirmation](docs/lock_confirm_modal.png)
@@ -118,9 +127,9 @@ Live protocol metrics read directly from Mezo Matsnet — TVL, veBYND supply, st
 
 | Contract | Role |
 |---|---|
-| `ByNdVault` | Custodies veMEZO NFTs (UUPS upgradeable) · mints veBYND 1:1 · every deposit after the first is merged into a single canonical veMEZO NFT via `merge()`, so `extendLocks()`/`claimRebases()` take no arguments and gas never scales with vault size · a deposit whose `merge()` reverts is kept as a separately-managed straggler rather than failing the deposit |
+| `ByNdVault` | Custodies veMEZO NFTs (UUPS upgradeable) · mints veBYND 1:1 · every deposit after the first is merged into a single canonical veMEZO NFT via `merge()`, so `extendLocks()`/`claimRebases()` take no arguments and gas never scales with vault size · a deposit whose `merge()` reverts is kept as a separately-managed straggler rather than failing the deposit, and `retryMerge(tokenId)` folds it in later once whatever blocked it clears |
 | `VeBYND` | Liquid ERC-20 receipt token, `AccessControl`-gated `mint`/`burn` (`MINTER_ROLE`/`BURNER_ROLE`), UUPS upgradeable via `UPGRADER_ROLE` |
-| `ByNdStaking` | Multi-token reward distributor (Synthetix `rewardPerToken` pattern, unlimited simultaneous reward tokens) · `claimAll()` / `claimReward(token)` |
+| `ByNdStaking` | Multi-token reward distributor (Synthetix `rewardPerToken` pattern, unlimited simultaneous reward tokens) · rewards **stream over a 7-day period** rather than landing in a single block, so `stake → harvest → claim → unstake` in one transaction captures ~nothing · `claimAll()` / `claimReward(token)` |
 | `ByNdVoter` | Epoch state machine · on-chain gauge optimiser or governance-set gauge list · batched bribe claiming · 5-way keeper bounty split · optional protocol fee · emergency epoch escape hatch |
 
 ---
@@ -156,8 +165,7 @@ Every step is permissionless — any wallet can call any of them. Two are time-g
 | Step | Time gate | Per-epoch |
 |---|---|---|
 | `claimRebases()` | none — call any time | first caller credited |
-| `extendLocks()` | final `extendWindow` (**24h** by default) | **once per epoch** — later callers revert |
-| `optimiseAndVote()` | final `voteWindow` (**3h** by default — ends exactly at Mezo's own vote cutoff, `epochNext - 1h`) | once per epoch |
+| `extendLocks()` | final `extendWindow` (**24h** by default) | **once per epoch** — later callers revert || `optimiseAndVote()` | final `voteWindow` (**3h** by default — ends exactly at Mezo's own vote cutoff, `epochNext - 1h`) | once per epoch |
 | `claimBribesBatch(limit)` | none | paged, call repeatedly |
 | `harvestAndDistribute()` | none (needs the vote cast first) | once per epoch — advances the epoch |
 
@@ -167,8 +175,10 @@ The extend and vote windows are both governance-tunable (`setExtendWindow` / `se
 Step 1  claimRebases()             Compounds the veMEZO rebase into whatever the vault currently manages
                                     No epoch gate, no arguments — call any time
 
-Step 2  extendLocks()              Extends the vault's managed lock(s) toward the 4-year maximum
-                                    No arguments — harmless no-op for any tokenId that doesn't need it
+Step 2  extendLocks()              Extends the vault's managed lock(s) to veMEZO's 208-week maximum
+                                    No arguments — skips any tokenId already long enough or permanent
+                                    Pages 200 tokens per call from a persistent cursor that wraps, so
+                                    a vault larger than one batch is covered across successive epochs
                                     Once per epoch, and only in the final 24h before the epoch boundary:
                                     only the first caller is credited a keeper slot, so leaving it open
                                     all week just burned gas for everyone who lost the race
@@ -214,6 +224,30 @@ This was not hypothetical. It stranded 1000 MUSD on Matsnet: `ByNdVault` held th
 
 > If `optimiseAndVote()` reverts with `ByNdVoter: votes not cast`, that is the guard working. Check `veMEZO.isApprovedOrOwner(<ByNdVoter>, <tokenId>)` first — `ByNdVault.grantVoterApproval()` re-grants it — and retry before the window closes.
 
+### Failure handling: extension that reports success without extending
+
+`extendLocks()` shipped broken and stayed broken for two Matsnet epochs, and the way it hid is worth recording.
+
+`veMEZO.increaseUnlockTime(tokenId, duration)` takes its second argument as a **duration in seconds from now**, not an absolute end timestamp. The vault passed `block.timestamp + MAXTIME` — an absolute timestamp of ~1.79e9, which veMEZO read as a 57-year duration and rejected with `LockDurationTooLong()`. `MAXTIME` was independently wrong too: `4 * 365 days` overshoots veMEZO's real 208-week cap by 345,600s, so even a correctly-shaped call would have failed.
+
+The per-token `try/catch` swallowed all of it. `LocksExtended(keeper, 0, ...)` emitted, the epoch was marked extended, and the keeper dashboard read "done" while every lock kept decaying toward expiry. Nothing ever left the vault — but with no withdrawal function behind it, a canonical lock allowed to reach expiry means unreachable principal, so the end state was severe even though the symptom was silent.
+
+**Why the test suite didn't catch it:** `MockVeMEZO` took an absolute end too. The mock encoded the same misreading as the contract, so the two agreed with each other and 200 tests passed green against a call that reverts 100% of the time on-chain. The mock's default lock was also `4 * 365 days` — a lock the real contract cannot issue — and because `MAXTIME` is a whole number of weeks, that sat exactly where a max-length extension lands, so every default lock read as "already long enough" and skipped the extension path entirely.
+
+> A mock that shares the contract's assumption about an external interface cannot test that assumption. All three mocks now match semantics measured against the live contract, and `test/21_lock_extension_abi.test.js` asserts the duration semantics directly, including that `MAXTIME < 4 * 365 days`.
+
+Two guards came out of it:
+
+```solidity
+// Wholesale failure only: no successes AND no legitimate skips.
+require(extendedCount > 0 || skippedCount > 0 || failedCount == 0,
+        "ByNdVault: every extension failed");
+```
+
+This is deliberately narrow. A token holding an active gauge vote reverts `AlreadyVoted()` and is a normal transient condition, so **mixed batches must still complete** — firing whenever any token failed would let one busy token block extension for every other lock in the vault. Only a batch where every attempt reverted is diagnostic of a broken call rather than of nothing needing doing.
+
+Separately, a straggler carrying a live gauge vote could never be consolidated: veMEZO rejects `merge()` with `AlreadyVoted()`, and the vault had no way to clear one — it held the ve NFTs but never referenced `BoostVoter`, where vote state actually lives. `retryMerge()` now clears the vote first through an optional `boostVoter` handle, degrading to its old behaviour when unset. Extension is **not** gated on the vote, contrary to the obvious assumption — a voted token extends fine — so that defect cost consolidation and per-vote gas, not principal.
+
 ### How the "highest paying" gauge is chosen
 
 Bribes arrive in different tokens, so raw amounts are not comparable: 100 MUSD, 100 MEZO and 100 sats are three different amounts of money. Ranking gauges by whichever number is largest would hand the pool's votes to whichever briber picked the token with the smallest unit.
@@ -251,13 +285,24 @@ The scan is capped at `effectiveScanCap()` gauges (300 by default, governance-se
 | **ByNdVault** | `0xb7B1CD5c9D6d3deDE64F3c803826f6B6150a2B6C` |
 | **ByNdStaking** | `0xb95c341BD147FcD6c1a2Fe4B7Be1C68b830A416d` |
 | **ByNdVoter** | `0x76b7e2EbD2839c36802442931382032e8840218d` |
-| GaugeScan (library) | `0x3A55794Cab6c1119925f94A8B6F050977B61936f` |
+| GaugeScan (library) | `0x7e76F14175c659b518ce23542d4D0aaA1d30f511` |
+| HarvestLib (library) | `0x458521aB462b72212b155060deCb9ab1007D6f54` |
 
 Addresses are re-generated on every `deploy:matsnet` run and written to `packages/contracts/deployments/<network>-<timestamp>.json` — the table above reflects the latest deployment record in that folder.
 
-`GaugeScan` is a stateless external library the voter reaches by `DELEGATECALL`. It exists because the gauge scan and scoring loops pushed `ByNdVoter` past EIP-170's 24576-byte limit; moving them out is what keeps the implementation deployable. It has to be linked by address at compile time, which is why `deploy-matsnet.js` and `upgrade-voter-gauge-selection-fix.js` both deploy or reuse it before building the `ByNdVoter` factory.
+`GaugeScan` and `HarvestLib` are stateless external libraries the voter reaches by `DELEGATECALL`. They exist because the gauge scan/scoring loops and the harvest distribution logic pushed `ByNdVoter` past EIP-170's 24576-byte limit; moving them out is what keeps the implementation deployable. Both have to be linked by address at compile time, which is why the deploy and upgrade scripts deploy them before building the `ByNdVoter` factory.
 
-> The four BynD contracts are UUPS proxies, so **these addresses do not change when the implementation is upgraded** — only the implementation behind them does. The current `ByNdVoter` implementation is `0x04F5473ff8eDC2019A8cd5796fF4400bdC60E9aE`; `packages/contracts/.openzeppelin/unknown-31611.json` is the authoritative record of every implementation ever deployed.
+> **Never reuse a library address across a signature change.** A library is linked by raw address and called by `DELEGATECALL`, so there is **no ABI check at the call site**. `GaugeScan.best()` changed arity (it now returns `examined` and `total` alongside the gauge and score, so a truncated scan is distinguishable from a complete one), and linking the old library to the new voter would have returned two words where four were expected and corrupted the decode — silently. "It has code at that address" is not evidence it is the right version, which is exactly the limit of what a reuse check can see. Both libraries are stateless, so redeploying costs gas and nothing else.
+
+> The four BynD contracts are UUPS proxies, so **these addresses do not change when the implementation is upgraded** — only the implementation behind them does. Current implementations: `ByNdVault` `0x287F0Be4aADa18C903F61fB9643D2D540338E875`, `ByNdVoter` `0x72b35596A1F1584016B714Becc11C3bd0Bc439b9`, `ByNdStaking` `0x690Ac88F2419949e770FAc1256cDa9cd962B7A53`, `VeBYND` `0xE79151422c444D784C794270A324c7B0aCfe12B2`. `packages/contracts/.openzeppelin/unknown-31611.json` is the authoritative record of every implementation ever deployed, and OpenZeppelin validates storage layout against it on every upgrade.
+
+**Before any upgrade, run the layout gate.** It is the only check that compares a new implementation against what is actually deployed — `hardhat test` deploys fresh proxies every run and can never catch a layout violation:
+
+```bash
+npx hardhat run scripts/validate-upgrade.js --network mezotestnet
+```
+
+Storage is **append-only** on these proxies: no reordering, no removal, no new base contracts in any inheritance list. New variables go last. Where a new variable needs a non-zero starting value, the setter or `initializeV2` is called through `upgradeProxy`'s `call` option so it lands in the **same transaction** as the upgrade, leaving no block in which the new implementation is live but unconfigured.
 
 ---
 
@@ -278,7 +323,16 @@ pnpm --filter bynd-v2-contracts compile
 pnpm --filter bynd-v2-contracts test
 ```
 
-The suite currently covers 16 test files / 157 tests: core behavior per contract (`01`–`04`), a full integration epoch (`05`), reentrancy attack mocks (`06`), economic/invariant checks — reward conservation, precision drift, bounty rounding, MEV-sniping documentation (`07`), extra coverage per contract (`08`–`11`), protocol fee accounting (`12`), the gauge/harvest guards and vote-failure visibility (`13`), BYND emissions (`14`), the stranded-value/liveness fixes (`15`), and the `extendLocks()` once-per-epoch window (`16`).
+The suite currently covers 23 test files / 211 tests: core behavior per contract (`01`–`04`), a full integration epoch (`05`), reentrancy attack mocks (`06`), economic/invariant checks — reward conservation, precision drift, bounty rounding, MEV-sniping documentation (`07`), extra coverage per contract (`08`–`11`), protocol fee accounting (`12`), the gauge/harvest guards and vote-failure visibility (`13`), BYND emissions (`14`), the stranded-value/liveness fixes (`15`), the `extendLocks()` once-per-epoch window and `HarvestLib`'s storage-pointer writes (`16`), carry accounting (`17`), vault batching and the extend cursor (`18`), permissionless liveness recovery (`19`), protocol-wide invariants (`20`), the lock-extension ABI semantics (`21`), and straggler vote-reset (`22`).
+
+`pnpm test` runs the suite **and then the EIP-170 size gate**, which is not optional:
+
+```bash
+pnpm --filter bynd-v2-contracts test          # hardhat test && scripts/check-sizes.js
+pnpm --filter bynd-v2-contracts check:sizes   # size gate alone
+```
+
+> The `hardhat` network sets `allowUnlimitedContractSize: true`, so **the full suite passes on a contract far too large to deploy**. `scripts/check-sizes.js` is the only thing standing between a green run and an undeployable implementation. `ByNdVoter` is the constraint at 23,912 / 24,576 bytes — 664 bytes spare — so anything added there needs a size check, and reusing an existing revert string costs ~0 bytes where a new one costs real ones (Solidity dedupes identical literals).
 
 ### Deploy / redeploy to Matsnet
 Contracts are already live at the addresses above — only redeploy if you need a fresh instance.
@@ -346,6 +400,12 @@ cast send <ByNdVoter> "claimBribesBatch(uint256)" 200 --private-key <KEY> --rpc-
 
 # Step 5 — earns a keeper bounty share
 cast send <ByNdVoter> "harvestAndDistribute()" --private-key <KEY> --rpc-url <RPC>
+
+# Out of band — fold a straggler into the canonical lock. Permissionless, no
+# window, no per-epoch limit. Pass an explicit gas limit: eth_estimateGas
+# under-reports this by ~2x and the transaction reverts at the estimate.
+cast send <ByNdVault> "retryMerge(uint256)" <TOKEN_ID> \
+  --gas-limit 2000000 --private-key <KEY> --rpc-url <RPC>
 ```
 
 The web app's **Keeper dashboard** (`apps/web/src/pages/Keeper.tsx`) exposes all five steps as one-click buttons. `claimBribesBatch` is sent with `limit = 200` (the on-chain `MAX_CLAIM_BATCH`), so a single press covers any realistic number of managed tokenIds. The `cursor/total` counter is only surfaced when `total > 200` — below that it is always one press, so the numbers would be noise rather than a result. Harvest is gated on `claimProgress().readyToHarvest` rather than on `epochVoted`, so it never offers a call that would revert on "call claimBribesBatch first".

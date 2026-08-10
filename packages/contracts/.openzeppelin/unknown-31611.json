@@ -4588,6 +4588,255 @@
         },
         "namespaces": {}
       }
+    },
+    "018c22bfa5b29ff347044363b6d1987b07be08ef0c75ff65430a434a1e368afd": {
+      "address": "0x287F0Be4aADa18C903F61fB9643D2D540338E875",
+      "txHash": "0x44767efa8ebfc2f5c579350b23f29120b6a601b06cc8af95e7cff1a1ba19d9b5",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC721HolderUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC721\\utils\\ERC721HolderUpgradeable.sol:35"
+          },
+          {
+            "label": "_status",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_uint256",
+            "contract": "ReentrancyGuardUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\security\\ReentrancyGuardUpgradeable.sol:38"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "ReentrancyGuardUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\security\\ReentrancyGuardUpgradeable.sol:88"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\utils\\ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "201",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ERC1967UpgradeUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\proxy\\ERC1967\\ERC1967UpgradeUpgradeable.sol:169"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "251",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "UUPSUpgradeable",
+            "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\UUPSUpgradeable.sol:111"
+          },
+          {
+            "label": "veMEZO",
+            "offset": 0,
+            "slot": "301",
+            "type": "t_contract(IVeMEZO)6569",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:75"
+          },
+          {
+            "label": "veBYND",
+            "offset": 0,
+            "slot": "302",
+            "type": "t_contract(VeBYND)8027",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:76"
+          },
+          {
+            "label": "voter",
+            "offset": 0,
+            "slot": "303",
+            "type": "t_contract(IByNdVoter)6639",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:77"
+          },
+          {
+            "label": "rewardsDistributor",
+            "offset": 0,
+            "slot": "304",
+            "type": "t_contract(IRewardsDistributor)6600",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:78"
+          },
+          {
+            "label": "depositorOf",
+            "offset": 0,
+            "slot": "305",
+            "type": "t_mapping(t_uint256,t_address)",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:80"
+          },
+          {
+            "label": "_userTokens",
+            "offset": 0,
+            "slot": "306",
+            "type": "t_mapping(t_address,t_array(t_uint256)dyn_storage)",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:81"
+          },
+          {
+            "label": "_tokenIndex",
+            "offset": 0,
+            "slot": "307",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:82"
+          },
+          {
+            "label": "allTokenIds",
+            "offset": 0,
+            "slot": "308",
+            "type": "t_array(t_uint256)dyn_storage",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:83"
+          },
+          {
+            "label": "canonicalTokenId",
+            "offset": 0,
+            "slot": "309",
+            "type": "t_uint256",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:85"
+          },
+          {
+            "label": "extendCursor",
+            "offset": 0,
+            "slot": "310",
+            "type": "t_uint256",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:93"
+          },
+          {
+            "label": "rejectPermanentLocks",
+            "offset": 0,
+            "slot": "311",
+            "type": "t_bool",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:117"
+          },
+          {
+            "label": "boostVoter",
+            "offset": 1,
+            "slot": "311",
+            "type": "t_contract(IBoostVoterReset)6577",
+            "contract": "ByNdVault",
+            "src": "contracts\\ByNdVault.sol:123"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(IBoostVoterReset)6577": {
+            "label": "contract IBoostVoterReset",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IByNdVoter)6639": {
+            "label": "contract IByNdVoter",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IRewardsDistributor)6600": {
+            "label": "contract IRewardsDistributor",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IVeMEZO)6569": {
+            "label": "contract IVeMEZO",
+            "numberOfBytes": "20"
+          },
+          "t_contract(VeBYND)8027": {
+            "label": "contract VeBYND",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_array(t_uint256)dyn_storage)": {
+            "label": "mapping(address => uint256[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_address)": {
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
     }
   }
 }

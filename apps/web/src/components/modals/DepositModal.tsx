@@ -131,7 +131,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
                 </p>
                 <p className="text-xs text-white/60 leading-relaxed">
                   The vault requires a time-based lock. Click below to convert it. This is a one-time
-                  wallet transaction. The vault will immediately re-lock it to 4 years on your first deposit.
+                  wallet transaction. The vault will immediately re-lock it to 208 weeks on your first deposit.
                 </p>
               </div>
             </div>
@@ -261,7 +261,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
             </div>
             <div className="flex items-start gap-2.5">
               <Clock size={13} className="text-white/[.38] mt-0.5 shrink-0" />
-              <StatRow label="Lock duration" value="4 years (max, permanent)" />
+              <StatRow label="Lock duration" value="208 weeks (max, no withdrawal)" />
             </div>
             <div className="flex items-start gap-2.5">
               <Percent size={13} className="text-white/[.38] mt-0.5 shrink-0" />
@@ -269,7 +269,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, tok
             </div>
             <p className="text-xs text-white/[.38] leading-relaxed pt-2 border-t border-void-border">
               You receive veBYND 1:1 per MEZO locked{protocolFeeBps > 0 ? ', minus the protocol fee above' : ''}. Once
-              deposited, this lock extends to the 4-year maximum and can't be withdrawn — exit only via secondary markets.
+              deposited, this lock extends to veMEZO's 208-week maximum and can't be withdrawn — exit only via secondary markets.
             </p>
           </div>
         </div>

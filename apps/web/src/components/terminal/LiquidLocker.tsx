@@ -27,7 +27,7 @@ export function LiquidLocker({ position, stats, isScanning, isLoading, onDeposit
             Liquid locker
           </p>
           <p className="text-sm text-white/60 mt-1">
-            Step 01. Lock and mint veBYND. Permanent 4-year lock
+            Step 01. Lock and mint veBYND. 208-week lock, no withdrawal
           </p>
         </div>
         <Badge variant={hasNFT ? 'acid' : 'muted'}>
@@ -38,9 +38,10 @@ export function LiquidLocker({ position, stats, isScanning, isLoading, onDeposit
       <div className="mb-5 rounded-control p-3 border border-gold/20 bg-gold/5 flex items-center gap-3">
         <Shield size={14} className="text-gold shrink-0" />
         <p className="text-sm text-white/60 leading-relaxed">
-          <span className="text-gold font-medium">Permanent lock.</span>{' '}
-          Your veMEZO NFT locks for 4 years and can't be withdrawn. You get
-          liquid <span className="text-white/[.87] font-medium">veBYND</span> 1:1
+          <span className="text-gold font-medium">One-way deposit.</span>{' '}
+          Your veMEZO NFT is held at veMEZO's 208-week maximum and rolled forward
+          each epoch, and there's no withdrawal function. You get liquid{' '}
+          <span className="text-white/[.87] font-medium">veBYND</span> 1:1
           in return — trade it on secondary markets anytime.
         </p>
       </div>
@@ -154,7 +155,7 @@ export function LiquidLocker({ position, stats, isScanning, isLoading, onDeposit
             </div>
             <StatRow label="Vault voting power" value={stats.totalVotingPower} />
             <StatRow label="Mint rate" value="1:1 veBYND" accent />
-            <StatRow label="Lock duration" value="4 years (max)" accent />
+            <StatRow label="Lock duration" value="208 weeks (max)" accent />
           </div>
 
           <div className="space-y-3">

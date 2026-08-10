@@ -242,15 +242,21 @@ export default function TerminalPage() {
     // Fixes the exact bug that silently broke veMEZO #832's deposit: the
     // vault requires (isPermanent || end > now), and an already-expired,
     // non-permanent lock reverts deposit() every time until extended.
-    const FOUR_YEARS = 4 * 365 * 24 * 60 * 60;
-    const newEnd = BigInt(Math.floor(Date.now() / 1000) + FOUR_YEARS);
+    //
+    // increaseUnlockTime takes a DURATION IN SECONDS FROM NOW, not the absolute
+    // end date the name suggests. This used to pass `now + 4 years`, which
+    // veMEZO read as a ~57-year duration and rejected with LockDurationTooLong()
+    // on every call -- the same mistake that made ByNdVault.extendLocks() a
+    // no-op since deploy (BYND-14). 4 * 365 days was wrong twice over: it also
+    // overshoots the real 208-week cap by 345,600 seconds.
+    const MAXTIME = BigInt(208 * 7 * 24 * 60 * 60);
     await withTx(
       () =>
         writeContractAsync({
           address: addrs.VeMEZO,
           abi: VEMEZO_ABI,
           functionName: "increaseUnlockTime",
-          args: [BigInt(tokenId), newEnd],
+          args: [BigInt(tokenId), MAXTIME],
         }),
       `Extend lock for veMEZO #${tokenId}`,
     );

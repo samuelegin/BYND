@@ -32,7 +32,18 @@ export function KeeperPanel({
   // claimBribesBatch() sits between voting and harvesting: it takes the epoch
   // snapshot and pulls each managed NFT's bribes in.
   const bribesClaimed = epoch.claimBribesReady;
-  const canClaimBribes = epoch.epochVoted && !epoch.epochHarvested && !bribesClaimed;
+  // pendingIncentives (previewOptimalGauge()'s bestScore) is the same
+  // "is there actually anything here" check HarvestModal already uses to
+  // gate harvestAndDistribute(). Without it, "Ready" showed as soon as votes
+  // were cast, even when the bribe for this epoch hadn't checkpointed in
+  // yet (bribes deposited mid-epoch settle on the NEXT epoch's snapshot on
+  // Mezo's bribe contract) — so claimBribesBatch() would fire, succeed, and
+  // move nothing, then harvestAndDistribute() would correctly refuse right
+  // after. Gating here on the same signal stops that dead-end tx before it
+  // happens instead of only catching it one step later.
+  const nothingPending = parseFloat(stats.pendingIncentives.replace(/[$,]/g, '')) === 0
+    || Number.isNaN(parseFloat(stats.pendingIncentives.replace(/[$,]/g, '')));
+  const canClaimBribes = epoch.epochVoted && !epoch.epochHarvested && !bribesClaimed && !nothingPending;
   // harvestAndDistribute() requires epochSnapshotTaken && cursor >= total
   // on-chain. Gating on epochVoted alone showed READY for a call that always
   // reverted with "ByNdVoter: call claimBribesBatch first".
@@ -83,7 +94,11 @@ export function KeeperPanel({
             // a single press, so the counter would be noise.
             ? `Required before harvest · ${epoch.claimBribesCursor}/${epoch.claimBribesTotal}`
             : 'Required before harvest'
-          : 'Needs votes cast first',
+          : !epoch.epochVoted
+            ? 'Needs votes cast first'
+            // Votes are in but the bribe hasn't checkpointed on Mezo's side
+            // yet — usually settles on the next epoch boundary, not instant.
+            : 'Nothing to claim yet',
       status: bribesClaimed ? 'Done' : canClaimBribes ? 'Ready' : 'Wait',
       variant: bribesClaimed ? 'muted' : canClaimBribes ? 'acid' : 'muted',
       onClick: onClaimBribes,

@@ -21,6 +21,20 @@ interface IBoostVoter {
     function epochStart(uint256 _timestamp) external view returns (uint256);
 }
 
+// Mezo's Bribe contract pays claimBribes() payouts to the veMEZO NFT's
+// registered owner (IERC721.ownerOf), which is the vault -- NOT to
+// msg.sender, even though ByNdVoter is the one calling claimBribes(). This
+// stranded a real 900 MUSD claim (BYND-16): claimBribesBatch() succeeded,
+// the Bribe contract's own accounting correctly zeroed out as paid, but the
+// funds landed in the vault instead of here, so harvestAndDistribute() --
+// which only checks ITS OWN balance delta -- saw 0 and reverted with
+// "nothing harvested". forwardBribeToken is gated to only accept calls from
+// this exact contract (see ByNdVault.sol), so this interface is safe to
+// call permissionlessly from here.
+interface IByNdVaultForward {
+    function forwardBribeToken(address token, uint256 amount) external;
+}
+
 interface IReward {
     function tokenRewardsPerEpoch(address token, uint256 epochStart) external view returns (uint256);
 }
@@ -613,6 +627,24 @@ contract ByNdVoter is
 
         epochClaimCursor[epoch] = end;
         emit BribesClaimBatch(epoch, end - cursor, end, total);
+    }
+
+    event BribesSyncedFromVault(address indexed token, uint256 amount);
+
+    /// New keeper step, meant to run right after claimBribesBatch(): pulls
+    /// whatever balance of `token` claimBribes() actually deposited into the
+    /// vault (see IByNdVaultForward above for why it lands there, not here)
+    /// into this contract, where harvestAndDistribute()'s balance-delta
+    /// check can actually see it. Permissionless like the rest of the
+    /// keeper flow -- forwardBribeToken() on the vault side is what's
+    /// access-controlled, hard-gated to this exact contract's address, so
+    /// there's nothing unsafe about leaving the pull side open. Idempotent:
+    /// a second call after the vault balance is already 0 is just a no-op.
+    function syncBribesFromVault(address token) external nonReentrant {
+        uint256 bal = IERC20Upgradeable(token).balanceOf(vault);
+        if (bal == 0) return;
+        IByNdVaultForward(vault).forwardBribeToken(token, bal);
+        emit BribesSyncedFromVault(token, bal);
     }
 
     function claimProgress() external view returns (uint256 cursor, uint256 total, bool readyToHarvest) {

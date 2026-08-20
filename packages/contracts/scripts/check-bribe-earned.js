@@ -17,6 +17,11 @@ const BOOST_VOTER_ABI = [
   "function epochStart(uint256) view returns (uint256)",
 ];
 
+const BYND_VOTER_ABI = [
+  "function lastVoteTimestamp() view returns (uint256)",
+  "function managedTokenIds(uint256) view returns (uint256)",
+];
+
 // Solidly/Velodrome-style Bribe.sol convention (matches the
 // tokenRewardsPerEpoch(address,uint256) signature ByNdVoter.sol already
 // depends on) — try the common view names for a per-tokenId claim amount.
@@ -56,10 +61,26 @@ async function main() {
 
   const gauge = process.env.GAUGE_ADDRESS || DEFAULT_GAUGE;
   const bribeToken = process.env.BRIBE_TOKEN || MUSD;
-  const tokenId = BigInt(process.env.TOKEN_ID || "860");
   const boostVoterAddr = process.env.BOOST_VOTER_ADDRESS || DEFAULT_BOOST_VOTER;
 
   const boostVoter = await ethers.getContractAt(BOOST_VOTER_ABI, boostVoterAddr, ethers.provider);
+  const voter = await ethers.getContractAt(BYND_VOTER_ABI, deployment.contracts.ByNdVoter, ethers.provider);
+
+  // Pull the tokenId and vote timestamp straight from ByNdVoter instead of
+  // trusting a manually-typed/env-provided TOKEN_ID — a stale TOKEN_ID left
+  // over in the shell from an earlier command is exactly what silently
+  // pointed this same check at the wrong tokenId (846) last run.
+  let tokenId;
+  if (process.env.TOKEN_ID) {
+    tokenId = BigInt(process.env.TOKEN_ID);
+    console.log(`Using TOKEN_ID from env: ${tokenId} (make sure this is intentional —`);
+    console.log(`leftover env vars from earlier commands in the same shell session`);
+    console.log(`silently override this. Open a fresh terminal if unsure.)\n`);
+  } else {
+    tokenId = await voter.managedTokenIds(0);
+    console.log(`No TOKEN_ID env set — read managedTokenIds(0) from ByNdVoter: ${tokenId}\n`);
+  }
+
   const bribeAddr = await boostVoter.gaugeToBribe(gauge);
   const bribe = await ethers.getContractAt(BRIBE_CANDIDATE_ABI, bribeAddr, ethers.provider);
 
@@ -69,11 +90,23 @@ async function main() {
   console.log(`token         : ${bribeToken}`);
   console.log("=".repeat(60));
 
+  // Use the ACTUAL vote timestamp to compute the epoch bucket, not "now" —
+  // if a real epoch boundary has passed since the vote was cast (as it had
+  // here: voted 2026-08-19 21:06 UTC, checked after the 2026-08-20 00:00
+  // UTC boundary), "now"'s bucket is simply the wrong one to check.
+  const lastVoteTs = await voter.lastVoteTimestamp();
   const now = Math.floor(Date.now() / 1000);
-  let epochStart;
+  let epochStart, epochStartNow;
   try {
-    epochStart = await boostVoter.epochStart(now);
-    console.log(`Current real epochStart: ${epochStart} (${new Date(Number(epochStart) * 1000).toISOString()})`);
+    epochStart = await boostVoter.epochStart(lastVoteTs);
+    epochStartNow = await boostVoter.epochStart(now);
+    console.log(`Vote cast at         : ${lastVoteTs} (${new Date(Number(lastVoteTs) * 1000).toISOString()})`);
+    console.log(`Epoch bucket AT VOTE : ${epochStart} (${new Date(Number(epochStart) * 1000).toISOString()})`);
+    console.log(`Epoch bucket NOW     : ${epochStartNow} (${new Date(Number(epochStartNow) * 1000).toISOString()})`);
+    if (epochStart !== epochStartNow) {
+      console.log(`  -> A real epoch boundary has passed since the vote. Checking the VOTE's`);
+      console.log(`     bucket below (${epochStart}), not "now"'s — that's the one that matters.`);
+    }
   } catch {
     console.log("Could not read epochStart from BoostVoter.");
   }

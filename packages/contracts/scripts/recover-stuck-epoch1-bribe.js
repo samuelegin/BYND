@@ -99,28 +99,53 @@ async function main() {
   console.log("\n" + "=".repeat(60));
   console.log("STEP 2 — Temporarily widen voteWindow so we can re-vote NOW");
   console.log("=".repeat(60));
-  const epochDuration = await voter.epochDuration();
+  const originalEpochDuration = await voter.epochDuration();
   const originalVoteWindow = await voter.voteWindow();
-  console.log(`epochDuration        : ${epochDuration}`);
-  console.log(`voteWindow (current) : ${originalVoteWindow}`);
-  console.log(`*** SAVE THIS VALUE — you need it to restore voteWindow after recovery: ${originalVoteWindow} ***`);
+  console.log(`epochDuration (current) : ${originalEpochDuration}`);
+  console.log(`voteWindow (current)    : ${originalVoteWindow}`);
+  console.log(`*** SAVE THESE TWO VALUES to restore after recovery: epochDuration=${originalEpochDuration}, voteWindow=${originalVoteWindow} ***`);
 
   const alreadyVoted = await voter.epochVoted(epoch);
   if (alreadyVoted) {
     console.log(`Epoch ${epoch} already voted — skipping window widen + re-vote.`);
   } else {
-    // Widen to the full epoch duration so the "block.timestamp >=
-    // epochNext(now) - voteWindow" check is satisfied at any point in the
-    // epoch, not just its final hours.
-    if (epochDuration > originalVoteWindow) {
-      console.log(`Widening voteWindow to ${epochDuration} (full epoch) temporarily...`);
-      const tx = await voter.setVoteWindow(epochDuration);
-      console.log(`Tx sent: ${tx.hash}`);
-      const receipt = await tx.wait();
-      console.log(`Status: ${receipt.status === 1 ? "SUCCESS" : "REVERTED"}`);
-    } else {
-      console.log(`voteWindow already >= epochDuration — no widening needed.`);
+    // The actual gate — block.timestamp >= boostVoter.epochNext(now) -
+    // voteWindow — compares against MEZO'S REAL epoch boundary, not our own
+    // epochDuration. setVoteWindow only caps newWindow <= epochDuration/2,
+    // so if we're sitting near the START of a real ~7-day epoch (as we are
+    // right after forceCloseEpoch), even the max window allowed under the
+    // CURRENT epochDuration can't cover that gap. Fix: read the real gap
+    // from boostVoter itself, then temporarily raise epochDuration high
+    // enough that epochDuration/2 comfortably exceeds it, so voteWindow can
+    // be set to actually cover it.
+    const boostVoterAddr = await voter.boostVoter();
+    const bv = await ethers.getContractAt(
+      ["function epochNext(uint256) view returns (uint256)"],
+      boostVoterAddr,
+      ethers.provider,
+    );
+    const now = Math.floor(Date.now() / 1000);
+    const realEpochEnd = await bv.epochNext(now);
+    const gap = Number(realEpochEnd) - now;
+    const margin = 3600; // 1 hour buffer for tx confirmation delay
+    const neededWindow = gap + margin;
+    const neededEpochDuration = neededWindow * 2 + margin;
+    console.log(`Real epoch boundary (Mezo): ${realEpochEnd} (${new Date(Number(realEpochEnd) * 1000).toISOString()})`);
+    console.log(`Gap until boundary from now: ${gap} seconds (~${(gap / 86400).toFixed(1)} days)`);
+
+    if (neededEpochDuration > originalEpochDuration) {
+      console.log(`Temporarily raising epochDuration to ${neededEpochDuration} so voteWindow can cover the gap...`);
+      const txD = await voter.setEpochDuration(neededEpochDuration);
+      console.log(`Tx sent: ${txD.hash}`);
+      const receiptD = await txD.wait();
+      console.log(`Status: ${receiptD.status === 1 ? "SUCCESS" : "REVERTED"}`);
     }
+
+    console.log(`Widening voteWindow to ${neededWindow}...`);
+    const tx = await voter.setVoteWindow(neededWindow);
+    console.log(`Tx sent: ${tx.hash}`);
+    const receipt = await tx.wait();
+    console.log(`Status: ${receipt.status === 1 ? "SUCCESS" : "REVERTED"}`);
 
     // ── Step 3: re-vote ────────────────────────────────────────────────
     console.log("\n" + "=".repeat(60));
@@ -164,10 +189,14 @@ async function main() {
   const receipt4 = await tx4.wait();
   console.log(`Status: ${receipt4.status === 1 ? "SUCCESS" : "REVERTED"}`);
 
-  // ── Step 6: restore voteWindow ──────────────────────────────────────────
+  // ── Step 6: restore voteWindow + epochDuration ──────────────────────────
   console.log("\n" + "=".repeat(60));
-  console.log("STEP 6 — Restore voteWindow to its original value");
+  console.log("STEP 6 — Restore voteWindow and epochDuration to their original values");
   console.log("=".repeat(60));
+  // Restore voteWindow FIRST, while epochDuration is still the temporarily
+  // widened value — this guarantees originalVoteWindow always satisfies the
+  // "<= epochDuration/2" cap at the moment we set it, regardless of which
+  // original values were involved. Only shrink epochDuration back last.
   const currentWindow = await voter.voteWindow();
   if (currentWindow.toString() === originalVoteWindow.toString()) {
     console.log(`voteWindow already at original value (${originalVoteWindow}) — nothing to restore.`);
@@ -177,6 +206,17 @@ async function main() {
     console.log(`Tx sent: ${tx5.hash}`);
     const receipt5 = await tx5.wait();
     console.log(`Status: ${receipt5.status === 1 ? "SUCCESS" : "REVERTED"}`);
+  }
+
+  const currentDuration = await voter.epochDuration();
+  if (currentDuration.toString() === originalEpochDuration.toString()) {
+    console.log(`epochDuration already at original value (${originalEpochDuration}) — nothing to restore.`);
+  } else {
+    console.log(`Restoring epochDuration to ${originalEpochDuration}...`);
+    const tx6 = await voter.setEpochDuration(originalEpochDuration);
+    console.log(`Tx sent: ${tx6.hash}`);
+    const receipt6 = await tx6.wait();
+    console.log(`Status: ${receipt6.status === 1 ? "SUCCESS" : "REVERTED"}`);
   }
 
   console.log("\nDone. Recheck the terminal UI — the 900 MUSD should now show as distributed.");

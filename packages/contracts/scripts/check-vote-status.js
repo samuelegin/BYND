@@ -91,7 +91,16 @@ async function main() {
   const boostVoterAbi = [
     "function vote(uint256 tokenId, address[] gaugeVote, uint256[] weights) external",
   ];
-  const boostVoter = await ethers.getContractAt(boostVoterAbi, boostVoterAddr);
+  // IMPORTANT: connect with ethers.provider, NOT the default signer runner.
+  // A Contract connected to a signer refuses to staticCall with a `from`
+  // override that isn't the signer's own address — ethers throws
+  // "transaction from mismatch" client-side before the call ever reaches
+  // the chain, which looks exactly like a contract revert but isn't one.
+  // eth_call against a raw provider has no such restriction: `from` is
+  // just a message field, no signature required, so it's the correct way
+  // to simulate "as if ByNdVoter called this" on a live network without
+  // impersonation/private-key access.
+  const boostVoter = await ethers.getContractAt(boostVoterAbi, boostVoterAddr, ethers.provider);
 
   // Reconstruct whatever gauges ByNdVoter would currently vote with
   const gaugeCount = await voter.gaugesLength ? await voter.gaugesLength().catch(() => 0n) : 0n;
@@ -119,8 +128,19 @@ async function main() {
     console.log("If claimable(gauge) is still 0 despite this, the issue is elsewhere");
     console.log("(e.g. this simulated vote hasn't actually been submitted as a real tx yet).");
   } catch (err) {
+    // "transaction from mismatch" (or similar ethers-side guard errors) here
+    // means the simulation itself is still malformed, NOT a contract revert
+    // — don't report it as the real reason. Only err.reason (an actual
+    // decoded require()/revert string from the chain) is trustworthy.
+    if (!err.reason) {
+      console.log("Simulation could not run cleanly — this is a script/client-side error,");
+      console.log("not a contract revert. Raw error for debugging:");
+      console.log(`  ${err.shortMessage || err.message}`);
+      console.log("\nThis does NOT confirm or rule out a real on-chain vote failure.");
+      return;
+    }
     console.log("Simulation REVERTED. Real reason:");
-    console.log(`  ${err.reason || err.shortMessage || err.message}`);
+    console.log(`  ${err.reason}`);
     console.log("\nThis is almost certainly why claimable(gauge) has stayed at 0 —");
     console.log("optimiseAndVote()'s try/catch swallowed this exact revert and still");
     console.log("marked epochVoted[currentEpoch] = true, so the UI showed 'Votes cast: Yes'");

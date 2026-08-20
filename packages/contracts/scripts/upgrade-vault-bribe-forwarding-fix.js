@@ -133,14 +133,34 @@ async function main() {
   const voter = await ethers.getContractAt("ByNdVoter", c.ByNdVoter);
   const vault = await ethers.getContractAt("ByNdVault", c.ByNdVault);
   // A successful call to a function that only exists in the new build IS the
-  // evidence the upgrade landed, rather than silently no-op'd.
-  const vaultBalCheck = await voter.syncBribesFromVault.staticCall(musd).then(
-    () => true,
-    () => false,
-  );
+  // evidence the upgrade landed, rather than silently no-op'd. Surface the
+  // REAL revert reason instead of collapsing to a boolean — a swallowed
+  // error here just hides what actually went wrong.
+  let vaultBalCheck = false;
+  try {
+    await voter.syncBribesFromVault.staticCall(musd);
+    vaultBalCheck = true;
+  } catch (err) {
+    console.log(`syncBribesFromVault simulation failed:`);
+    console.log(`  reason : ${err.reason || "(no decoded revert reason)"}`);
+    console.log(`  raw    : ${err.shortMessage || err.message}`);
+  }
   console.log(`voter.syncBribesFromVault callable: ${vaultBalCheck}`);
   if (!vaultBalCheck) {
-    throw new Error("syncBribesFromVault isn't callable — upgrade may not have landed. Stopping.");
+    // Don't hard-stop anymore — the boolean-only version stopped here with
+    // no diagnostic info. Print what we can about current wiring instead,
+    // since that's usually the real cause (e.g. vault.voter not pointing at
+    // this proxy after upgrade, or an implementation address mismatch).
+    console.log("\nDiagnostic info:");
+    try {
+      const voterInVault = await vault.voter();
+      console.log(`  vault.voter()        : ${voterInVault}`);
+      console.log(`  ByNdVoter proxy addr : ${c.ByNdVoter}`);
+      console.log(`  Match                : ${voterInVault.toLowerCase() === c.ByNdVoter.toLowerCase()}`);
+    } catch (e) {
+      console.log(`  Could not read vault.voter(): ${e.shortMessage || e.message}`);
+    }
+    throw new Error("syncBribesFromVault isn't callable — see diagnostic info above. Stopping.");
   }
 
   console.log("\n" + "=".repeat(64));

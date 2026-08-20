@@ -30,7 +30,12 @@ const BYND_VOTER_ABI = [
   "function currentEpoch() view returns (uint256)",
   "function managedTokenIds(uint256) view returns (uint256)",
   "function boostVoter() view returns (address)",
-  "function gauges(uint256) view returns (address gauge, address bribe, string name, uint256 weightBps, address[] tokens)",
+  // NOTE: Gauge.tokens is a dynamically-sized array member of the Gauge
+  // struct — Solidity's auto-generated public getter for an array of
+  // structs SKIPS dynamic array/mapping members entirely, so gauges(i)
+  // only actually returns these four fields, never `tokens`. Declaring
+  // `tokens` in this ABI caused a decode error, not a revert.
+  "function gauges(uint256) view returns (address gauge, address bribe, string name, uint256 weightBps)",
   "event BribeClaimFailed(uint256 indexed epoch, uint256 indexed tokenId)",
 ];
 
@@ -71,11 +76,15 @@ async function main() {
   console.log("=".repeat(60));
 
   const boostVoterAddr = await voter.boostVoter();
-  // Reconstruct exactly what claimBribesBatch() builds: bribes[]/tokens[]
-  // pulled from our own stored `gauges` config.
+  // Reconstruct exactly what claimBribesBatch() builds: bribes[] pulled
+  // from our own stored `gauges` config. `tokens` isn't readable on-chain
+  // (see ABI note above) — setup-test-gauge.js is the only place it was
+  // ever set, to [MUSD], so we use that known value directly rather than
+  // trying to read it back.
+  const KNOWN_GAUGE_TOKENS = ["0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503"]; // MUSD
   const gauge0 = await voter.gauges(0);
   const bribes = [gauge0.bribe];
-  const bribeTokens = [gauge0.tokens];
+  const bribeTokens = [KNOWN_GAUGE_TOKENS];
   console.log(`Simulating claimBribes(bribes=[${bribes}], tokens=[[${bribeTokens[0]}]], tokenId=${tokenId})`);
   console.log(`  ...as if called BY ByNdVoter (${deployment.contracts.ByNdVoter})\n`);
 

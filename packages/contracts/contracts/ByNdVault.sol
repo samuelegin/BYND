@@ -7,6 +7,8 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./VeBYND.sol";
 
 interface IVeMEZO is IERC721 {
@@ -64,6 +66,8 @@ contract ByNdVault is
     OwnableUpgradeable,
     UUPSUpgradeable
 {
+    using SafeERC20 for IERC20;
+
     /// The longest lock veMEZO accepts. Measured against the live contract on
     /// Matsnet rather than assumed: 208 weeks is accepted, and `4 * 365 days`
     /// (345600s longer) is rejected with LockDurationTooLong(). The old value
@@ -460,6 +464,24 @@ contract ByNdVault is
     function setRejectPermanentLocks(bool reject) external onlyOwner {
         rejectPermanentLocks = reject;
         emit RejectPermanentLocksSet(reject);
+    }
+
+    event BribeForwarded(address indexed token, address indexed to, uint256 amount);
+
+    /// Mezo's Bribe contract pays reward claims out to the veMEZO NFT's
+    /// registered owner (IERC721.ownerOf), which is THIS vault -- not
+    /// ByNdVoter, even though ByNdVoter is the one that calls claimBribes().
+    /// Discovered when a real claimBribesBatch() call succeeded on-chain,
+    /// zeroed the Bribe contract's earned() accounting, but 900 MUSD landed
+    /// here instead of in ByNdVoter, leaving harvestAndDistribute() unable
+    /// to see it (it only checks its own balance delta). Gated to `voter`
+    /// only -- not onlyOwner -- so this can be wired directly into
+    /// claimBribesBatch()'s flow as a permanent forwarding step, not just a
+    /// one-off manual rescue.
+    function forwardBribeToken(address token, uint256 amount) external nonReentrant {
+        require(msg.sender == address(voter), "ByNdVault: caller not voter");
+        IERC20(token).safeTransfer(address(voter), amount);
+        emit BribeForwarded(token, address(voter), amount);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}

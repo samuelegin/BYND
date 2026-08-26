@@ -13,6 +13,7 @@ import {
 } from "@/components/terminal";
 import { useWallet } from "@/hooks/useWallet";
 import { useProtocol } from "@/hooks/useProtocol";
+import { useKeeperSteps } from "@/hooks/useKeeperSteps";
 import { useWriteContract, usePublicClient } from "wagmi";
 import { parseEther } from "viem";
 import {
@@ -42,8 +43,21 @@ export default function TerminalPage() {
   } = useProtocol(address, chainId);
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [extendingLocks, setExtendingLocks] = useState(false);
-  const [claimingBribes, setClaimingBribes] = useState(false);
+
+  // All keeper step gating + write-handler logic (extendLocks,
+  // claimBribesBatch, and the new syncBribesFromVault/retryMerge) now lives
+  // once, shared with /keeper — see hooks/useKeeperSteps.ts. Terminal's
+  // withTx (defined below) is passed in as runTx so its extra
+  // waitAndCheck() no-op/revert safety check still applies here, same as
+  // every other action on this page; /keeper uses its own simpler runTx.
+  const keeperSteps = useKeeperSteps({
+    epoch,
+    stats,
+    chainId,
+    onOpenCastVotesModal: () => setActiveModal("castVotes"),
+    onOpenHarvestModal: () => setActiveModal("harvest"),
+    runTx: (fn, label) => withTx(fn, label),
+  });
 
   // Countdown ticking now happens centrally inside useProtocol, so every
   // page reads the same live-updating clock — no local timer needed here.
@@ -188,24 +202,6 @@ export default function TerminalPage() {
     );
   };
 
-  const handleClaimBribes = async () => {
-    setClaimingBribes(true);
-    try {
-      await withTx(() =>
-        writeContractAsync({
-          address: addrs.ByNdVoter,
-          abi: VOTER_ABI,
-          functionName: "claimBribesBatch",
-          // MAX_CLAIM_BATCH on-chain is 200 — one tx covers any realistic
-          // managedTokenIds count. Above that, press again until Done.
-          args: [200n],
-        }),
-        "claimBribesBatch",
-      );
-    } finally {
-      setClaimingBribes(false);
-    }
-  };
 
   const handleHarvest = async () => {
     await withTx(() =>
@@ -262,33 +258,7 @@ export default function TerminalPage() {
     );
   };
 
-  const handleExtendLocks = async () => {
-    setExtendingLocks(true);
-    try {
-      await withTx(async () => {
-        // Every deposit after the first gets merged into a single canonical
-        // veMEZO NFT (see ByNdVault.canonicalTokenId), so extendLocks() no
-        // longer takes a tokenIds argument — it just processes whatever it's
-        // currently managing itself. No pre-fetch needed anymore.
-        //
-        // ByNdVault.extendLocks() already calls voter.markLocksExtended()
-        // internally as msg.sender == vault — a separate frontend call to
-        // markLocksExtended() would always revert, since ByNdVoter requires
-        // msg.sender == vault and a user's wallet is never that address.
-        return writeContractAsync({
-          address: addrs.ByNdVault,
-          abi: VAULT_ABI,
-          functionName: "extendLocks",
-          args: [],
-        });
-      });
-    } finally {
-      setExtendingLocks(false);
-    }
-  };
-
   const hasRewards = position.claimableRewards.some(r => parseFloat(r.amount || '0') > 0);
-  const canExtend = epoch.canExtendLocks;
 
   return (
     <div className="min-h-screen bg-void">
@@ -351,18 +321,7 @@ export default function TerminalPage() {
 
             {/* Secondary row — keeper status, protocol activity, epoch/rewards. */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-              <KeeperPanel
-                epoch={epoch}
-                stats={stats}
-                canExtend={canExtend}
-                extendingLocks={extendingLocks}
-                timeToVoteOpen={timeToVoteOpen}
-                onExtendLocks={handleExtendLocks}
-                onCastVotes={() => setActiveModal("castVotes")}
-                onClaimBribes={handleClaimBribes}
-                claimingBribes={claimingBribes}
-                onHarvest={() => setActiveModal("harvest")}
-              />
+              <KeeperPanel steps={keeperSteps.steps} />
               <ActivityPanel gauges={gauges} />
               <EpochRewardsPanel
                 epoch={epoch}

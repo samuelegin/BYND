@@ -34,6 +34,12 @@ export const VAULT_ABI = [
   // currently managing (almost always just the canonical NFT) itself.
   { name: 'extendLocks',         type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { name: 'claimRebases',        type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  // retryMerge: folds a "straggler" veMEZO NFT into the vault's canonical
+  // lock once whatever blocked the original merge clears (e.g. a live gauge
+  // vote on it, which the retry clears first). Permissionless — can only
+  // ever consolidate the vault's own holdings into the vault's own lock, so
+  // it's safe to expose without extra gating beyond the tokenId itself.
+  { name: 'retryMerge',          type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [] },
   { name: 'totalVotingPower',    type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'totalLockedMEZO',     type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'totalPendingRebase',  type: 'function', stateMutability: 'view',       inputs: [], outputs: [{ name: '', type: 'uint256' }] },
@@ -95,6 +101,14 @@ export const VOTER_ABI = [
   // harvestAndDistribute() will succeed. MAX_CLAIM_BATCH=200 on-chain, so
   // passing 200 covers any realistic managedTokenIds count in one tx.
   { name: 'claimBribesBatch', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'limit', type: 'uint256' }], outputs: [] },
+  // syncBribesFromVault: Mezo's Bribe contract pays claimBribes() payouts to
+  // the veMEZO NFT's registered owner (the vault), not to msg.sender
+  // (ByNdVoter, the caller) — see BYND-16. This pulls whatever balance
+  // claimBribesBatch() actually deposited into the vault into ByNdVoter,
+  // where harvestAndDistribute()'s balance-delta check can see it.
+  // Permissionless, idempotent — a call when the vault balance is already 0
+  // is just a no-op.
+  { name: 'syncBribesFromVault', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }], outputs: [] },
   {
     name: 'claimProgress', type: 'function', stateMutability: 'view', inputs: [],
     outputs: [

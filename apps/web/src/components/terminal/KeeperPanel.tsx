@@ -1,130 +1,31 @@
 import React, { useState } from 'react';
-import { Code2, HandCoins, RefreshCw, Shield, Zap } from 'lucide-react';
+import { Code2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Panel, Button, Badge, formatTime } from '@/components/ui';
-import type { EpochState, ProtocolStats } from '@/types';
+import { Panel, Button, Badge } from '@/components/ui';
+import type { KeeperStepDef } from '@/components/keeper';
 
 interface KeeperPanelProps {
-  epoch: EpochState;
-  stats: ProtocolStats;
-  canExtend: boolean;
-  extendingLocks: boolean;
-  timeToVoteOpen: number;
-  onExtendLocks: () => void;
-  onCastVotes: () => void;
-  onClaimBribes: () => void;
-  claimingBribes: boolean;
-  onHarvest: () => void;
+  // Full step list from useKeeperSteps() — this component filters to the
+  // "core" tier itself, so the caller doesn't need to pre-filter. Extended
+  // (recovery/maintenance) steps like syncBribesFromVault and retryMerge
+  // stay /keeper-only; Terminal is meant to be a quick-glance panel, not
+  // the full admin dashboard.
+  steps: (KeeperStepDef & { tier: 'core' | 'extended' })[];
 }
 
 // Keeper actions shown as human-readable status rows. The underlying
 // contract function name is only ever shown when the person explicitly
 // opts into developer mode — nobody needs to see optimiseAndVote() to
 // understand "Vote is available".
-export function KeeperPanel({
-  epoch, stats, canExtend, extendingLocks, timeToVoteOpen, onExtendLocks, onCastVotes,
-  onClaimBribes, claimingBribes, onHarvest,
-}: KeeperPanelProps) {
+//
+// Gating logic used to live here directly and drifted out of sync with the
+// separate /keeper page's copy of the same math (that page kept the old,
+// pre-fix canClaimBribes for weeks after this panel got patched). All of
+// that now lives once, in hooks/useKeeperSteps.ts — this component is pure
+// presentation.
+export function KeeperPanel({ steps }: KeeperPanelProps) {
   const [devMode, setDevMode] = useState(false);
-
-  const voteWindowOpen = timeToVoteOpen <= 0;
-  const canVote = !epoch.epochVoted && voteWindowOpen;
-  // claimBribesBatch() sits between voting and harvesting: it takes the epoch
-  // snapshot and pulls each managed NFT's bribes in.
-  const bribesClaimed = epoch.claimBribesReady;
-  // pendingIncentives (previewOptimalGauge()'s bestScore) is the same
-  // "is there actually anything here" check HarvestModal already uses to
-  // gate harvestAndDistribute(). Without it, "Ready" showed as soon as votes
-  // were cast, even when the bribe for this epoch hadn't checkpointed in
-  // yet (bribes deposited mid-epoch settle on the NEXT epoch's snapshot on
-  // Mezo's bribe contract) — so claimBribesBatch() would fire, succeed, and
-  // move nothing, then harvestAndDistribute() would correctly refuse right
-  // after. Gating here on the same signal stops that dead-end tx before it
-  // happens instead of only catching it one step later.
-  const nothingPending = parseFloat(stats.pendingIncentives.replace(/[$,]/g, '')) === 0
-    || Number.isNaN(parseFloat(stats.pendingIncentives.replace(/[$,]/g, '')));
-  const canClaimBribes = epoch.epochVoted && !epoch.epochHarvested && !bribesClaimed && !nothingPending;
-  // harvestAndDistribute() requires epochSnapshotTaken && cursor >= total
-  // on-chain. Gating on epochVoted alone showed READY for a call that always
-  // reverted with "ByNdVoter: call claimBribesBatch first".
-  const canHarvest = epoch.epochVoted && !epoch.epochHarvested && bribesClaimed;
-
-  const rows = [
-    {
-      icon: Shield,
-      fn: 'extendLocks()',
-      title: 'Extend locks',
-      detail: epoch.epochLocksExtended
-        ? 'Already done this epoch'
-        : canExtend
-          ? 'Reset all veMEZO to 4-yr max'
-          : `Available in ${formatTime(epoch.timeUntilExtendWindow)}`,
-      status: epoch.epochLocksExtended ? 'Done' : canExtend ? 'Ready' : 'Wait',
-      variant: epoch.epochLocksExtended ? 'muted' : canExtend ? 'acid' : 'muted',
-      onClick: onExtendLocks,
-      disabled: !canExtend,
-      loading: extendingLocks,
-      spin: false,
-    },
-    {
-      icon: RefreshCw,
-      fn: 'optimiseAndVote()',
-      title: 'Vote',
-      detail: epoch.epochVoted
-        ? 'Voted this epoch'
-        : voteWindowOpen
-          ? 'Vote window open'
-          : `Available in ${formatTime(timeToVoteOpen)}`,
-      status: epoch.epochVoted ? 'Done' : !voteWindowOpen ? 'Wait' : 'Ready',
-      variant: epoch.epochVoted ? 'muted' : !voteWindowOpen ? 'muted' : 'acid',
-      onClick: onCastVotes,
-      disabled: !canVote,
-      loading: false,
-      spin: canVote,
-    },
-    {
-      icon: HandCoins,
-      fn: 'claimBribesBatch(200)',
-      title: 'Claim bribes',
-      detail: bribesClaimed
-        ? 'Processed this epoch'
-        : canClaimBribes
-          ? epoch.claimBribesTotal > 200
-            // Paging only matters above MAX_CLAIM_BATCH; below that it is always
-            // a single press, so the counter would be noise.
-            ? `Required before harvest · ${epoch.claimBribesCursor}/${epoch.claimBribesTotal}`
-            : 'Required before harvest'
-          : !epoch.epochVoted
-            ? 'Needs votes cast first'
-            // Votes are in but the bribe hasn't checkpointed on Mezo's side
-            // yet — usually settles on the next epoch boundary, not instant.
-            : 'Nothing to claim yet',
-      status: bribesClaimed ? 'Done' : canClaimBribes ? 'Ready' : 'Wait',
-      variant: bribesClaimed ? 'muted' : canClaimBribes ? 'acid' : 'muted',
-      onClick: onClaimBribes,
-      disabled: !canClaimBribes,
-      loading: claimingBribes,
-      spin: false,
-    },
-    {
-      icon: Zap,
-      fn: 'harvestAndDistribute()',
-      title: 'Harvest rewards',
-      detail: epoch.epochHarvested
-        ? `Earned ${stats.bountyBps / 100}% bounty`
-        : canHarvest
-          ? `Ready · earn ${stats.bountyBps / 100}% bounty`
-          : epoch.epochVoted
-            ? 'Claim bribes first'
-            : 'Needs votes cast first',
-      status: epoch.epochHarvested ? 'Done' : canHarvest ? 'Ready' : 'Wait',
-      variant: epoch.epochHarvested ? 'muted' : canHarvest ? 'acid' : 'muted',
-      onClick: onHarvest,
-      disabled: !canHarvest,
-      loading: false,
-      spin: false,
-    },
-  ] as const;
+  const coreSteps = steps.filter((s) => s.tier === 'core');
 
   return (
     <Panel className="p-6 h-full">
@@ -147,37 +48,40 @@ export function KeeperPanel({
       </p>
 
       <div className="space-y-2">
-        {rows.map(row => {
-          const Icon = row.icon;
+        {coreSteps.map(step => {
+          const Icon = step.icon;
+          const ready = step.badge === 'Ready';
           return (
             <div
-              key={row.title}
+              key={step.id}
               className={clsx(
                 'rounded-control border p-3 space-y-2 transition-colors',
-                row.variant === 'acid' ? 'border-gold/30 bg-gold/5' : 'border-void-border',
+                ready ? 'border-gold/30 bg-gold/5' : 'border-void-border',
               )}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Icon size={13} className={clsx(row.variant === 'acid' ? 'text-gold' : 'text-white/60', 'shrink-0', row.spin && 'animate-spin')} />
+                  <Icon size={13} className={clsx(ready ? 'text-gold' : 'text-white/60', 'shrink-0', step.id === 'castVotes' && ready && 'animate-spin')} />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-white/[.87] truncate">{row.title}</p>
-                    <p className="text-xs text-white/60 truncate">{row.detail}</p>
+                    <p className="text-sm font-medium text-white/[.87] truncate">
+                      {devMode ? step.label : titleFor(step.id)}
+                    </p>
+                    <p className="text-xs text-white/60 truncate">{step.description}</p>
                   </div>
                 </div>
-                <Badge variant={row.status === 'Done' ? 'muted' : row.status === 'Ready' ? 'acid' : 'muted'}>
-                  {row.status}
+                <Badge variant={step.badgeVariant}>
+                  {step.badge}
                 </Badge>
               </div>
               <Button
-                variant={row.variant === 'acid' ? 'outline' : 'ghost'}
+                variant={ready ? 'outline' : 'ghost'}
                 size="sm"
                 fullWidth
-                onClick={row.onClick}
-                disabled={row.disabled}
-                isLoading={row.loading}
+                onClick={step.onClick}
+                disabled={(!step.can && !step.done) || step.isLoading}
+                isLoading={step.isLoading}
               >
-                {devMode ? <span className="font-mono">{row.fn}</span> : row.title}
+                {devMode ? <span className="font-mono">{step.label}</span> : titleFor(step.id)}
               </Button>
             </div>
           );
@@ -185,4 +89,18 @@ export function KeeperPanel({
       </div>
     </Panel>
   );
+}
+
+// Human-readable title per step id — kept separate from the shared
+// description text so this panel's tone (short, glance-friendly) doesn't
+// have to match /keeper's fuller dashboard copy.
+function titleFor(id: string): string {
+  switch (id) {
+    case 'claimRebases': return 'Claim rebases';
+    case 'extendLocks': return 'Extend locks';
+    case 'castVotes': return 'Vote';
+    case 'claimBribes': return 'Claim bribes';
+    case 'harvest': return 'Harvest rewards';
+    default: return id;
+  }
 }

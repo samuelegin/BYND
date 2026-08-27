@@ -65,6 +65,17 @@ export interface EpochState {
   extendWindowOpensAt: number;
   timeUntilExtendWindow: number;
   canExtendLocks: boolean;
+  // On-chain 7-day cooldowns (BYND-19) — claimRebases() and
+  // syncBribesFromVault() both enforce these as real contract-level
+  // requires, not just an off-chain scheduling convention. These mirror
+  // the extend-window fields above: an absolute on-chain timestamp plus a
+  // live-ticking countdown derived from it.
+  rebaseClaimOpensAt: number;
+  timeUntilRebaseClaim: number;
+  canClaimRebases: boolean;
+  syncOpensAt: number;
+  timeUntilSync: number;
+  canSyncVault: boolean;
   // claimBribesBatch() progress for the current epoch.
   // readyToHarvest = epochSnapshotTaken && cursor >= total (mirrors on-chain).
   claimBribesCursor: number;

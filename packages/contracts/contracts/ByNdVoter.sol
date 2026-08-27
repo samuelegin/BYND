@@ -640,11 +640,34 @@ contract ByNdVoter is
     /// access-controlled, hard-gated to this exact contract's address, so
     /// there's nothing unsafe about leaving the pull side open. Idempotent:
     /// a second call after the vault balance is already 0 is just a no-op.
+    /// @notice Minimum time between real (non-no-op) syncBribesFromVault()
+    /// calls, per token. Enforced on-chain — see the matching note in
+    /// ByNdVault.claimRebases(). Deliberately does NOT gate the early-return
+    /// no-op path below: a call that finds nothing to move shouldn't burn
+    /// the week's allowance, since it did no real work.
+    uint256 public constant SYNC_COOLDOWN = 7 days;
+    mapping(address => uint256) public lastSyncedAt;
+
     function syncBribesFromVault(address token) external nonReentrant {
         uint256 bal = IERC20Upgradeable(token).balanceOf(vault);
         if (bal == 0) return;
+        if (msg.sender != governance) {
+            require(
+                block.timestamp >= lastSyncedAt[token] + SYNC_COOLDOWN,
+                "ByNdVoter: synced too recently"
+            );
+        }
+        lastSyncedAt[token] = block.timestamp;
         IByNdVaultForward(vault).forwardBribeToken(token, bal);
         emit BribesSyncedFromVault(token, bal);
+    }
+
+    /// @notice Timestamp at which syncBribesFromVault(token) next becomes
+    /// callable by a non-governance caller, ASSUMING there's a nonzero
+    /// balance to move at that time (the no-op path is never gated).
+    /// Frontend-facing.
+    function nextSyncAt(address token) external view returns (uint256) {
+        return lastSyncedAt[token] + SYNC_COOLDOWN;
     }
 
     function claimProgress() external view returns (uint256 cursor, uint256 total, bool readyToHarvest) {

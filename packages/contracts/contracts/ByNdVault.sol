@@ -385,11 +385,29 @@ contract ByNdVault is
         emit LocksExtended(msg.sender, extendedCount, resultingEnd);
     }
 
+    /// @notice Minimum time between claimRebases() calls. Enforced on-chain
+    /// (not just via an off-chain schedule) so it's genuinely impossible to
+    /// call more often than intended, regardless of who or what is calling
+    /// it — a manual call, a script, or any future automation all hit the
+    /// same gate.
+    uint256 public constant REBASE_CLAIM_COOLDOWN = 7 days;
+    uint256 public lastClaimRebasesAt;
+
     function claimRebases() external nonReentrant returns (uint256) {
+        // owner() can bypass the cooldown — an emergency/off-schedule call
+        // should never require an upgrade to unblock, the way this week's
+        // stuck-epoch situation did for an unrelated reason.
+        if (msg.sender != owner()) {
+            require(
+                block.timestamp >= lastClaimRebasesAt + REBASE_CLAIM_COOLDOWN,
+                "ByNdVault: rebases claimed too recently"
+            );
+        }
         require(address(rewardsDistributor) != address(0), "ByNdVault: distributor not set");
         uint256 count = allTokenIds.length;
         require(count > 0, "ByNdVault: nothing to claim");
         rewardsDistributor.claimMany(allTokenIds);
+        lastClaimRebasesAt = block.timestamp;
         if (address(voter) != address(0)) {
             try voter.markRebasesClaimed(msg.sender) {} catch {
                 emit VoterCallFailed(IByNdVoter.markRebasesClaimed.selector, 0);
@@ -397,6 +415,13 @@ contract ByNdVault is
         }
         emit RebasesClaimed(msg.sender, count);
         return 0;
+    }
+
+    /// @notice Timestamp at which claimRebases() next becomes callable by a
+    /// non-owner caller. Frontend-facing — pairs with lastClaimRebasesAt for
+    /// a countdown display.
+    function nextRebaseClaimAt() external view returns (uint256) {
+        return lastClaimRebasesAt + REBASE_CLAIM_COOLDOWN;
     }
 
     function totalLockedMEZO() external view returns (uint256 total) {

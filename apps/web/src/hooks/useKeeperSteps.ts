@@ -141,14 +141,16 @@ export function useKeeperSteps({
       step: "00",
       label: "claimRebases()",
       icon: Droplets,
-      can: true,
+      // On-chain 7-day cooldown (BYND-19) — mirrors canExtendLocks below.
+      can: epoch.canClaimRebases,
       done: false,
       isLoading: claimingRebases,
-      description:
-        "Compounds veMEZO rebase rewards back into all deposited NFTs. Grows locked MEZO balance → grows BynD voting power. No tokens leave the vault.",
+      description: epoch.canClaimRebases
+        ? "Compounds veMEZO rebase rewards back into all deposited NFTs. Grows locked MEZO balance → grows BynD voting power. No tokens leave the vault."
+        : `Called too recently — the 7-day cooldown reopens in ${formatTime(epoch.timeUntilRebaseClaim)}.`,
       onClick: handleClaimRebases,
-      badge: "Ready",
-      badgeVariant: "orange",
+      badge: epoch.canClaimRebases ? "Ready" : "Waiting",
+      badgeVariant: epoch.canClaimRebases ? "orange" : "muted",
     },
     {
       id: "extendLocks",
@@ -230,18 +232,19 @@ export function useKeeperSteps({
       step: "R1",
       label: "syncBribesFromVault()",
       icon: ArrowRightLeft,
-      // Always callable — permissionless and idempotent (a no-op if the
-      // vault balance is already 0). Not epoch-gated like the core steps,
-      // since it's a recovery/maintenance action, not part of the routine
-      // weekly cycle.
-      can: true,
+      // Idempotent (a no-op if the vault balance is already 0), but a real
+      // (non-no-op) call is now rate-limited on-chain to once per 7 days,
+      // per token (BYND-19) — so "always callable" no longer holds once
+      // there's something real to move and it was moved recently.
+      can: epoch.canSyncVault,
       done: false,
       isLoading: syncingVault,
-      description:
-        "Mezo's Bribe contract pays claim payouts to the vault (the veMEZO NFT's registered owner), not to the voter that requested them. Run this after claimBribesBatch() if a harvest ever reports nothing to distribute — pulls the vault's balance into the voter so harvest can see it. Safe to run any time; a no-op if nothing's stuck.",
+      description: epoch.canSyncVault
+        ? "Mezo's Bribe contract pays claim payouts to the vault (the veMEZO NFT's registered owner), not to the voter that requested them. Run this after claimBribesBatch() if a harvest ever reports nothing to distribute — pulls the vault's balance into the voter so harvest can see it. Safe to run any time; a no-op if nothing's stuck."
+        : `Already synced recently — the 7-day cooldown reopens in ${formatTime(epoch.timeUntilSync)}. (Only applies when there was something real to move — a no-op call is never rate-limited.)`,
       onClick: handleSyncVault,
-      badge: "Ready",
-      badgeVariant: "orange",
+      badge: epoch.canSyncVault ? "Ready" : "Waiting",
+      badgeVariant: epoch.canSyncVault ? "orange" : "muted",
     },
     {
       id: "retryMerge",

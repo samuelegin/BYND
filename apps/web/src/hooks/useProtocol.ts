@@ -52,6 +52,12 @@ const EMPTY_EPOCH: EpochState = {
   extendWindowOpensAt: 0,
   timeUntilExtendWindow: EXTEND_WINDOW,
   canExtendLocks: false,
+  rebaseClaimOpensAt: 0,
+  timeUntilRebaseClaim: 0,
+  canClaimRebases: true, // no prior claim on record yet — cooldown hasn't started
+  syncOpensAt: 0,
+  timeUntilSync: 0,
+  canSyncVault: true,
   claimBribesCursor: 0,
   claimBribesTotal: 0,
   claimBribesReady: false,
@@ -277,8 +283,24 @@ export function useProtocol(
       // readyToHarvest is true, so the harvest button gates on this, not on
       // epochVoted alone. Reads currentEpoch internally — no arg needed.
       { address: addrs.ByNdVoter as Address, abi: VOTER_ABI, functionName: 'claimProgress' },
+      // 4 — claimRebases()'s on-chain 7-day cooldown (BYND-19). Not
+      // epoch-scoped like the flags above — a plain absolute timestamp.
+      { address: addrs.ByNdVault as Address, abi: VAULT_ABI, functionName: 'nextRebaseClaimAt' },
+      // 5 — syncBribesFromVault()'s matching per-token cooldown, keyed on
+      // the resolved reward token so this stays correct if that ever
+      // changes rather than hardcoding an address here. Falls back to the
+      // zero address before rewardTokenAddress resolves — that read comes
+      // back meaningless (0 + 7days) rather than erroring, and is treated
+      // as not-yet-authoritative below until the real address is in.
+      {
+        address: addrs.ByNdVoter as Address, abi: VOTER_ABI, functionName: 'nextSyncAt',
+        args: [rewardTokenAddress ?? ('0x0000000000000000000000000000000000000000' as Address)],
+      },
     ],
-    query: { enabled: (contractsEnabled || readOnlyContractsEnabled) && currentEpochNum !== undefined, refetchInterval: 5_000 },
+    query: {
+      enabled: (contractsEnabled || readOnlyContractsEnabled) && currentEpochNum !== undefined,
+      refetchInterval: 5_000,
+    },
   });
 
   // ── 5. User balances (veBYND + staked) ───────────────────────────────────
@@ -585,6 +607,22 @@ export function useProtocol(
       // and readyToHarvest comes back true, so no special-casing needed here.
       const claimProgressResult = epochFlags?.[3]?.result as [bigint, bigint, boolean] | undefined;
 
+      // BYND-19 cooldowns — plain absolute timestamps, not epoch-scoped.
+      const nextRebaseClaimAtRaw = epochFlags?.[4]?.result as bigint | undefined;
+      const rebaseClaimOpensAt = nextRebaseClaimAtRaw != null ? Number(nextRebaseClaimAtRaw) : undefined;
+      const timeUntilRebaseClaim = rebaseClaimOpensAt != null
+        ? Math.max(0, rebaseClaimOpensAt - now)
+        : undefined;
+
+      // Only trust nextSyncAt once rewardTokenAddress has actually
+      // resolved — before that, the read was made with a zero-address
+      // fallback and its result isn't meaningful (see the read above).
+      const nextSyncAtRaw = rewardTokenAddress != null
+        ? (epochFlags?.[5]?.result as bigint | undefined)
+        : undefined;
+      const syncOpensAt = nextSyncAtRaw != null ? Number(nextSyncAtRaw) : undefined;
+      const timeUntilSync = syncOpensAt != null ? Math.max(0, syncOpensAt - now) : undefined;
+
       setEpoch(prev => ({
         ...prev,
         currentEpoch:       Number(curEpoch),
@@ -606,6 +644,12 @@ export function useProtocol(
         canExtendLocks:         extendWindowIsOpen != null
           ? extendWindowIsOpen && !locksAlreadyExtended
           : prev.canExtendLocks,
+        rebaseClaimOpensAt:   rebaseClaimOpensAt   ?? prev.rebaseClaimOpensAt,
+        timeUntilRebaseClaim: timeUntilRebaseClaim ?? prev.timeUntilRebaseClaim,
+        canClaimRebases:      timeUntilRebaseClaim != null ? timeUntilRebaseClaim === 0 : prev.canClaimRebases,
+        syncOpensAt:          syncOpensAt   ?? prev.syncOpensAt,
+        timeUntilSync:        timeUntilSync ?? prev.timeUntilSync,
+        canSyncVault:         timeUntilSync != null ? timeUntilSync === 0 : prev.canSyncVault,
         epochVoted:         (epochFlags?.[0]?.result as boolean) ?? prev.epochVoted,
         epochHarvested:     (epochFlags?.[1]?.result as boolean) ?? prev.epochHarvested,
         epochLocksExtended:  (epochFlags?.[2]?.result as boolean) ?? prev.epochLocksExtended,
@@ -649,12 +693,25 @@ export function useProtocol(
           ? Math.max(0, prev.extendWindowOpensAt - Math.floor(nowMs / 1000))
           : Math.max(0, prev.timeUntilExtendWindow - 1);
         const extendWindowNowOpen = timeUntilExtendWindow === 0;
+        // Same treatment for the two BYND-19 cooldowns — tick smoothly
+        // from their absolute on-chain targets between the 5s epochFlags
+        // polls, same reasoning as the extend window above.
+        const timeUntilRebaseClaim = prev.rebaseClaimOpensAt > 0
+          ? Math.max(0, prev.rebaseClaimOpensAt - Math.floor(nowMs / 1000))
+          : Math.max(0, prev.timeUntilRebaseClaim - 1);
+        const timeUntilSync = prev.syncOpensAt > 0
+          ? Math.max(0, prev.syncOpensAt - Math.floor(nowMs / 1000))
+          : Math.max(0, prev.timeUntilSync - 1);
         return {
           ...prev,
           timeUntilNextVote,
           epochEndsIn,
           timeUntilExtendWindow,
           canExtendLocks: extendWindowNowOpen && !prev.epochLocksExtended,
+          timeUntilRebaseClaim,
+          canClaimRebases: timeUntilRebaseClaim === 0,
+          timeUntilSync,
+          canSyncVault: timeUntilSync === 0,
         };
       });
     }, 1000);

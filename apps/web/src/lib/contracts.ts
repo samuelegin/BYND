@@ -34,6 +34,9 @@ export const VAULT_ABI = [
   // currently managing (almost always just the canonical NFT) itself.
   { name: 'extendLocks',         type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { name: 'claimRebases',        type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  // nextRebaseClaimAt: absolute timestamp claimRebases() next becomes
+  // callable by a non-owner caller (7-day on-chain cooldown — BYND-19).
+  { name: 'nextRebaseClaimAt',   type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   // retryMerge: folds a "straggler" veMEZO NFT into the vault's canonical
   // lock once whatever blocked the original merge clears (e.g. a live gauge
   // vote on it, which the retry clears first). Permissionless — can only
@@ -109,6 +112,11 @@ export const VOTER_ABI = [
   // Permissionless, idempotent — a call when the vault balance is already 0
   // is just a no-op.
   { name: 'syncBribesFromVault', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }], outputs: [] },
+  // nextSyncAt: absolute timestamp syncBribesFromVault(token) next becomes
+  // callable by a non-governance caller, per-token, ASSUMING a nonzero
+  // vault balance exists at that time (the no-op path is never gated —
+  // BYND-19).
+  { name: 'nextSyncAt',          type: 'function', stateMutability: 'view', inputs: [{ name: 'token', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
   {
     name: 'claimProgress', type: 'function', stateMutability: 'view', inputs: [],
     outputs: [

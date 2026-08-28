@@ -286,14 +286,17 @@ export function useProtocol(
       // 4 — claimRebases()'s on-chain 7-day cooldown (BYND-19). Not
       // epoch-scoped like the flags above — a plain absolute timestamp.
       { address: addrs.ByNdVault as Address, abi: VAULT_ABI, functionName: 'nextRebaseClaimAt' },
-      // 5 — syncBribesFromVault()'s matching per-token cooldown, keyed on
-      // the resolved reward token so this stays correct if that ever
-      // changes rather than hardcoding an address here. Falls back to the
-      // zero address before rewardTokenAddress resolves — that read comes
-      // back meaningless (0 + 7days) rather than erroring, and is treated
-      // as not-yet-authoritative below until the real address is in.
+      // 5 — syncBribesFromVault()'s matching per-token cooldown timestamp
+      // (BYND-19 removed the dedicated nextSyncAt() view for contract-size
+      // reasons — this reads the raw lastSyncedAt(token) instead, and
+      // SYNC_COOLDOWN below is added client-side). Keyed on the resolved
+      // reward token so this stays correct if that ever changes rather than
+      // hardcoding an address here. Falls back to the zero address before
+      // rewardTokenAddress resolves — that read comes back meaningless (0)
+      // rather than erroring, and is treated as not-yet-authoritative below
+      // until the real address is in.
       {
-        address: addrs.ByNdVoter as Address, abi: VOTER_ABI, functionName: 'nextSyncAt',
+        address: addrs.ByNdVoter as Address, abi: VOTER_ABI, functionName: 'lastSyncedAt',
         args: [rewardTokenAddress ?? ('0x0000000000000000000000000000000000000000' as Address)],
       },
     ],
@@ -614,13 +617,17 @@ export function useProtocol(
         ? Math.max(0, rebaseClaimOpensAt - now)
         : undefined;
 
-      // Only trust nextSyncAt once rewardTokenAddress has actually
-      // resolved — before that, the read was made with a zero-address
-      // fallback and its result isn't meaningful (see the read above).
-      const nextSyncAtRaw = rewardTokenAddress != null
+      // Only trust this once rewardTokenAddress has actually resolved —
+      // before that, the read was made with a zero-address fallback and
+      // its result isn't meaningful (see the read above). SYNC_COOLDOWN
+      // (7 days) is added client-side — it's a Solidity `constant`, so it
+      // can never change on-chain and there's no correctness risk in not
+      // re-reading it every poll; mirrors the on-chain value exactly.
+      const SYNC_COOLDOWN_SECS = 7 * 24 * 60 * 60;
+      const lastSyncedAtRaw = rewardTokenAddress != null
         ? (epochFlags?.[5]?.result as bigint | undefined)
         : undefined;
-      const syncOpensAt = nextSyncAtRaw != null ? Number(nextSyncAtRaw) : undefined;
+      const syncOpensAt = lastSyncedAtRaw != null ? Number(lastSyncedAtRaw) + SYNC_COOLDOWN_SECS : undefined;
       const timeUntilSync = syncOpensAt != null ? Math.max(0, syncOpensAt - now) : undefined;
 
       setEpoch(prev => ({

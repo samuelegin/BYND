@@ -112,11 +112,13 @@ export const VOTER_ABI = [
   // Permissionless, idempotent — a call when the vault balance is already 0
   // is just a no-op.
   { name: 'syncBribesFromVault', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }], outputs: [] },
-  // nextSyncAt: absolute timestamp syncBribesFromVault(token) next becomes
-  // callable by a non-governance caller, per-token, ASSUMING a nonzero
-  // vault balance exists at that time (the no-op path is never gated —
-  // BYND-19).
-  { name: 'nextSyncAt',          type: 'function', stateMutability: 'view', inputs: [{ name: 'token', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+  // lastSyncedAt(token): timestamp of the last REAL (non-no-op)
+  // syncBribesFromVault(token) call. Combined with the SYNC_COOLDOWN
+  // constant below, the frontend computes "next eligible" itself
+  // (lastSyncedAt + SYNC_COOLDOWN) instead of ByNdVoter carrying a
+  // dedicated view function for that one-line addition — removed to help
+  // stay under the 24576-byte deployment limit (BYND-19).
+  { name: 'lastSyncedAt',        type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
   {
     name: 'claimProgress', type: 'function', stateMutability: 'view', inputs: [],
     outputs: [

@@ -648,26 +648,26 @@ contract ByNdVoter is
     uint256 public constant SYNC_COOLDOWN = 7 days;
     mapping(address => uint256) public lastSyncedAt;
 
+    /// @dev Custom error instead of a require string — ByNdVoter sits over
+    /// the 24576-byte deployment limit as of this addition (BYND-19); a
+    /// custom error's 4-byte selector costs meaningfully less bytecode than
+    /// an ABI-encoded revert string. No dedicated nextSyncAt() view either
+    /// (removed) — lastSyncedAt and SYNC_COOLDOWN are both already public,
+    /// so the frontend computes lastSyncedAt(token) + SYNC_COOLDOWN itself
+    /// from two reads it already needs, instead of this contract carrying a
+    /// third function that does the same one-line addition on-chain.
+    error SyncedTooRecently(uint256 nextEligibleAt);
+
     function syncBribesFromVault(address token) external nonReentrant {
         uint256 bal = IERC20Upgradeable(token).balanceOf(vault);
         if (bal == 0) return;
         if (msg.sender != governance) {
-            require(
-                block.timestamp >= lastSyncedAt[token] + SYNC_COOLDOWN,
-                "ByNdVoter: synced too recently"
-            );
+            uint256 nextEligible = lastSyncedAt[token] + SYNC_COOLDOWN;
+            if (block.timestamp < nextEligible) revert SyncedTooRecently(nextEligible);
         }
         lastSyncedAt[token] = block.timestamp;
         IByNdVaultForward(vault).forwardBribeToken(token, bal);
         emit BribesSyncedFromVault(token, bal);
-    }
-
-    /// @notice Timestamp at which syncBribesFromVault(token) next becomes
-    /// callable by a non-governance caller, ASSUMING there's a nonzero
-    /// balance to move at that time (the no-op path is never gated).
-    /// Frontend-facing.
-    function nextSyncAt(address token) external view returns (uint256) {
-        return lastSyncedAt[token] + SYNC_COOLDOWN;
     }
 
     function claimProgress() external view returns (uint256 cursor, uint256 total, bool readyToHarvest) {

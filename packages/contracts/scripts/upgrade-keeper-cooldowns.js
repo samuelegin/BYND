@@ -158,8 +158,20 @@ async function main() {
     console.log(`New implementation deployed at: ${newImplAddr}`);
 
     const proxy = await ethers.getContractAt("ByNdVoter", c.ByNdVoter);
-    console.log(`Calling upgradeToAndCall(${newImplAddr}, "0x") on the proxy directly...`);
-    const tx = await proxy.upgradeToAndCall(newImplAddr, "0x");
+    // upgradeTo(address), NOT upgradeToAndCall(address, bytes) — the latter
+    // ALWAYS forces a delegatecall into the new implementation with
+    // whatever `data` is passed (per OZ Contracts-Upgradeable v4.9.x's
+    // _upgradeToAndCallUUPS(..., forceCall=true) for upgradeToAndCall
+    // specifically), even when data is empty "0x". An empty-calldata
+    // delegatecall hits receive()/fallback() on the target, and ByNdVoter
+    // has neither, so that reverts with exactly the generic
+    // "Address: low-level delegate call failed" message this hit.
+    // upgradeTo() passes forceCall=false, which skips that delegatecall
+    // entirely when there's no data to pass — this is what
+    // upgrades.upgradeProxy() uses internally for a plain upgrade, which is
+    // why ByNdVault's went through cleanly via the plugin.
+    console.log(`Calling upgradeTo(${newImplAddr}) on the proxy directly...`);
+    const tx = await proxy.upgradeTo(newImplAddr);
     console.log(`Tx sent: ${tx.hash}`);
     const receipt = await tx.wait();
     console.log(`Status: ${receipt.status === 1 ? "SUCCESS" : "REVERTED"}`);

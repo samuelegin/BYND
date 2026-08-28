@@ -114,7 +114,17 @@ async function main() {
     console.log("DRY_RUN: would upgrade ByNdVault");
   } else {
     const ByNdVaultNext = await ethers.getContractFactory("ByNdVault");
-    const up = await upgrades.upgradeProxy(c.ByNdVault, ByNdVaultNext);
+    // redeployImplementation: 'always' — forces a genuinely fresh
+    // implementation deployment regardless of any hash-matching shortcut
+    // in the local manifest. Needed here specifically because the STEP 0
+    // forceImport above seeds the manifest using the SAME new factory,
+    // which would otherwise make upgradeProxy believe a matching
+    // implementation is already deployed (at the OLD address) and skip
+    // deploying anything new — exactly what happened on the previous run
+    // of this script, where the "upgrade" silently no-op'd.
+    const up = await upgrades.upgradeProxy(c.ByNdVault, ByNdVaultNext, {
+      redeployImplementation: "always",
+    });
     await up.waitForDeployment();
     console.log(`Upgraded. Proxy unchanged: ${await up.getAddress()}`);
   }
@@ -129,8 +139,10 @@ async function main() {
     const ByNdVoterNext = await ethers.getContractFactory("ByNdVoter", {
       libraries: { GaugeScan: c.GaugeScan, HarvestLib: c.HarvestLib },
     });
+    // Same redeployImplementation: 'always' reasoning as ByNdVault above.
     const up = await upgrades.upgradeProxy(c.ByNdVoter, ByNdVoterNext, {
       unsafeAllow: ["external-library-linking"],
+      redeployImplementation: "always",
     });
     await up.waitForDeployment();
     console.log(`Upgraded. Proxy unchanged: ${await up.getAddress()}`);

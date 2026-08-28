@@ -136,16 +136,50 @@ async function main() {
   if (dryRun) {
     console.log("DRY_RUN: would upgrade ByNdVoter, linking existing GaugeScan/HarvestLib");
   } else {
+    // Bypassing upgrades.upgradeProxy() entirely for this one — both its
+    // default hash-matching shortcut (first run) AND redeployImplementation:
+    // 'always' (second run) silently no-op'd here, seemingly specific to
+    // this proxy's external-library-linking combination with whatever this
+    // plugin version does differently for linked contracts. No Upgraded
+    // event was ever emitted either time despite the script reporting
+    // success — confirmed via check-voter-impl.js. Doing this manually
+    // removes every layer of plugin-side shortcut logic: deploy the new
+    // implementation directly, then call the proxy's own
+    // upgradeToAndCall() ourselves. This is the same UUPS mechanism the
+    // plugin would eventually call anyway — just with nothing in between
+    // that could silently skip it.
     const ByNdVoterNext = await ethers.getContractFactory("ByNdVoter", {
       libraries: { GaugeScan: c.GaugeScan, HarvestLib: c.HarvestLib },
     });
-    // Same redeployImplementation: 'always' reasoning as ByNdVault above.
-    const up = await upgrades.upgradeProxy(c.ByNdVoter, ByNdVoterNext, {
-      unsafeAllow: ["external-library-linking"],
-      redeployImplementation: "always",
-    });
-    await up.waitForDeployment();
-    console.log(`Upgraded. Proxy unchanged: ${await up.getAddress()}`);
+    console.log("Deploying new ByNdVoter implementation directly...");
+    const newImpl = await ByNdVoterNext.deploy();
+    await newImpl.waitForDeployment();
+    const newImplAddr = await newImpl.getAddress();
+    console.log(`New implementation deployed at: ${newImplAddr}`);
+
+    const proxy = await ethers.getContractAt("ByNdVoter", c.ByNdVoter);
+    console.log(`Calling upgradeToAndCall(${newImplAddr}, "0x") on the proxy directly...`);
+    const tx = await proxy.upgradeToAndCall(newImplAddr, "0x");
+    console.log(`Tx sent: ${tx.hash}`);
+    const receipt = await tx.wait();
+    console.log(`Status: ${receipt.status === 1 ? "SUCCESS" : "REVERTED"}`);
+
+    // Confirm via the same event-log method that caught the silent no-op —
+    // don't just trust the receipt status this time.
+    const upgradedEvent = receipt.logs
+      .map((log) => {
+        try {
+          return proxy.interface.parseLog(log);
+        } catch {
+          return null;
+        }
+      })
+      .find((e) => e?.name === "Upgraded");
+    if (upgradedEvent) {
+      console.log(`Confirmed via Upgraded event: implementation is now ${upgradedEvent.args.implementation}`);
+    } else {
+      throw new Error("No Upgraded event in this transaction's logs — something is still wrong, stop here.");
+    }
   }
 
   if (dryRun) {

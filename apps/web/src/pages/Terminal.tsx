@@ -297,9 +297,14 @@ export default function TerminalPage() {
               liveCountdown={epoch.epochEndsIn}
             />
 
-            {/* Primary workflow — Step 1 and Step 2 side by side, always
-                visible without scrolling. */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
+            {/* lg (1024px), not xl (1280px) — matches the breakpoint the
+                grid below already uses. At xl, a browser window whose
+                effective CSS width lands between 1024-1280px at 100% zoom
+                (common on laptop screens) silently fell back to a single
+                stacked column while the second grid on this same page did
+                not, which is what made 80% zoom "fix" it: zooming out
+                widens the effective CSS viewport past 1280px. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
               <LockAndMint
                 position={position}
                 stats={stats}

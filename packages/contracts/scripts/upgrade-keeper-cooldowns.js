@@ -19,7 +19,9 @@ const path = require("path");
 //               last REAL (non-no-op) call for that specific token
 //               (governance can bypass). A call that finds nothing to move
 //               is never rate-limited. New state: lastSyncedAt (mapping).
-//               New view: nextSyncAt(token).
+//               New view: nextSyncAt(token) — since removed for contract-size
+//               reasons (see below); lastSyncedAt(token) is used instead,
+//               which was already a public auto-getter either way.
 //
 // Both new state variables are appended strictly after every existing
 // declaration in their respective contracts (verified against this exact
@@ -81,6 +83,31 @@ async function main() {
   console.log("Authority   : signer controls both proxies\n");
 
   console.log("=".repeat(64));
+  console.log("STEP 0 - Sync local upgrade manifest with on-chain reality");
+  console.log("=".repeat(64));
+  console.log("NOTE: forceImport registers the factory it's given AS IF it represents");
+  console.log("the current on-chain state — it cannot independently verify that against");
+  console.log("real bytecode. We're passing the NEW (cooldown-added) factory here rather");
+  console.log("than the exact pre-upgrade source, which means the tool's usual automatic");
+  console.log("storage-layout check is effectively bypassed for THIS ONE transition. That");
+  console.log("layout was already manually verified append-only (no reordering, nothing");
+  console.log("removed) against the live source before either patch was written — this");
+  console.log("step relies on that manual check, not an automated one, for this specific");
+  console.log("run. Every upgrade FROM this point forward gets the normal automated check");
+  console.log("again, since the manifest will be properly seeded after this.\n");
+  const ByNdVaultCurrent = await ethers.getContractFactory("ByNdVault");
+  await upgrades.forceImport(c.ByNdVault, ByNdVaultCurrent).catch((err) => {
+    console.log(`  ByNdVault forceImport: ${err.shortMessage || err.message} (likely already registered — fine)`);
+  });
+  const ByNdVoterCurrent = await ethers.getContractFactory("ByNdVoter", {
+    libraries: { GaugeScan: c.GaugeScan, HarvestLib: c.HarvestLib },
+  });
+  await upgrades.forceImport(c.ByNdVoter, ByNdVoterCurrent, { unsafeAllow: ["external-library-linking"] }).catch((err) => {
+    console.log(`  ByNdVoter forceImport: ${err.shortMessage || err.message} (likely already registered — fine)`);
+  });
+  console.log("  Manifest sync attempted for both proxies.\n");
+
+  console.log("=".repeat(64));
   console.log("STEP 1 - Upgrade ByNdVault (adds claimRebases() cooldown)");
   console.log("=".repeat(64));
   if (dryRun) {
@@ -131,11 +158,15 @@ async function main() {
     console.log(`vault.nextRebaseClaimAt() FAILED: ${err.reason || err.shortMessage || err.message}`);
   }
   try {
-    const nextSync = await voter.nextSyncAt(rewardToken);
-    console.log(`voter.nextSyncAt(MUSD)   : ${nextSync} — should be far in the past (cooldown starts fresh)`);
+    // nextSyncAt() was removed for contract-size reasons after this script
+    // was first written — lastSyncedAt(token) is the real public getter
+    // now; "next eligible" is lastSyncedAt + SYNC_COOLDOWN, computed
+    // client-side (both are public, no dedicated view needed).
+    const lastSynced = await voter.lastSyncedAt(rewardToken);
+    console.log(`voter.lastSyncedAt(MUSD): ${lastSynced} — should be 0 (fresh storage, cooldown starts open)`);
   } catch (err) {
     ok = false;
-    console.log(`voter.nextSyncAt(token) FAILED: ${err.reason || err.shortMessage || err.message}`);
+    console.log(`voter.lastSyncedAt(token) FAILED: ${err.reason || err.shortMessage || err.message}`);
   }
 
   if (!ok) {

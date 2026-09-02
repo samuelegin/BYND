@@ -113,10 +113,12 @@ describe("ByNdVoter — protocol fee", function () {
     const expectedStakerAmount = harvestedAfterFee - actualBounty;
     // keepers[0]/[1] (claimRebases/extendLocks) were never recorded this
     // epoch, so they default to treasury; keepers[2] (optimiseAndVote
-    // caller) and keepers[3] (harvestAndDistribute caller) are both
-    // deployer here; keepers[4] is always treasury. So 3 of 5 shares land
-    // on treasury, 2 of 5 land on deployer.
-    const expectedTreasuryTotal = protocolFee + sharePerKeeper * 3n;
+    // caller), keepers[3] (harvestAndDistribute caller), and keepers[4]
+    // (claimBribesBatch caller — fixed: this was never credited before,
+    // always silently defaulting to treasury regardless of who actually
+    // called it) are all `deployer` here. So 2 of 5 shares land on
+    // treasury, 3 of 5 land on deployer.
+    const expectedTreasuryTotal = protocolFee + sharePerKeeper * 2n;
 
     expect(feeAndBountyToTreasury).to.equal(expectedTreasuryTotal);
     // staking's own rewardPerToken accounting has its own independent

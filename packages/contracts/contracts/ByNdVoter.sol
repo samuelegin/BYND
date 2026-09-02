@@ -626,6 +626,14 @@ contract ByNdVoter is
         }
 
         epochClaimCursor[epoch] = end;
+        // Credits whoever actually called this step — see
+        // epochKeeperClaimBribes' declaration comment for why this was
+        // missing before and what it was silently costing a sole keeper.
+        // NOTE: if this epoch needs multiple paginated calls (managedTokenIds
+        // beyond MAX_CLAIM_BATCH), the LAST caller of any page wins the
+        // credit, not necessarily whoever did the most work — acceptable
+        // for now since a single call covers every epoch seen in practice.
+        epochKeeperClaimBribes[epoch] = msg.sender;
         emit BribesClaimBatch(epoch, end - cursor, end, total);
     }
 
@@ -647,6 +655,19 @@ contract ByNdVoter is
     /// the week's allowance, since it did no real work.
     uint256 public constant SYNC_COOLDOWN = 7 days;
     mapping(address => uint256) public lastSyncedAt;
+
+    /// @notice Fixes a real bug: keepers[4] (the bounty share meant for
+    /// whoever calls claimBribesBatch()) was permanently hardcoded to
+    /// `treasury` with no tracking at all, unlike the other three keeper
+    /// roles which at least credit the real caller when one exists. This
+    /// meant a single keeper performing all five weekly actions solo —
+    /// the common real-world case — was structurally capped at 4 of 5
+    /// bounty shares forever, no matter what. Appended here (not next to
+    /// the other three epochKeeper* mappings above) because this contract
+    /// is an already-deployed proxy — a new state variable must go after
+    /// every existing one or it corrupts every later variable's storage
+    /// slot on upgrade.
+    mapping(uint256 => address) public epochKeeperClaimBribes;
 
     /// @dev Custom error instead of a require string — ByNdVoter sits over
     /// the 24576-byte deployment limit as of this addition (BYND-19); a
@@ -763,7 +784,7 @@ contract ByNdVoter is
         keepers[1] = epochKeeperExtendLocks[epoch] != address(0) ? epochKeeperExtendLocks[epoch]  : treasury;
         keepers[2] = epochKeeperOptimise[epoch] != address(0) ? epochKeeperOptimise[epoch]     : treasury;
         keepers[3] = msg.sender;
-        keepers[4] = treasury;
+        keepers[4] = epochKeeperClaimBribes[epoch] != address(0) ? epochKeeperClaimBribes[epoch] : treasury;
     }
 
     /// Banks the epoch's harvestable balance into `carriedOver` and advances the

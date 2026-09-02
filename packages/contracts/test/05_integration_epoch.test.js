@@ -71,12 +71,15 @@ describe("Integration: one full BynD epoch", function () {
       .to.emit(voter, "Harvested")
       .withArgs(0, keeper.address, ethers.parseEther("20")); // 1% of 2000
 
-    // keeper claimed rebases + extended locks + cast votes + called harvest itself
-    // => 4 of the 5 keeper shares go to `keeper`, 1 to treasury
+    // keeper claimed rebases + extended locks + cast votes + claimed bribes
+    // + called harvest itself => all 5 of the 5 keeper shares go to
+    // `keeper` now (fixed: claimBribesBatch's caller was never credited
+    // before, permanently capping a sole keeper at 4/5 — see
+    // epochKeeperClaimBribes in ByNdVoter.sol).
     const keeperBounty = await musd.balanceOf(keeper.address);
     const treasuryBounty = await musd.balanceOf(treasury.address);
-    expect(keeperBounty).to.equal(ethers.parseEther("16")); // 4 * 4 MUSD
-    expect(treasuryBounty).to.equal(ethers.parseEther("4")); // 1 * 4 MUSD
+    expect(keeperBounty).to.equal(ethers.parseEther("20")); // 5 * 4 MUSD
+    expect(treasuryBounty).to.equal(0);
 
     // 99% (1980 MUSD) reaches the staking contract immediately, then streams to
     // stakers over rewardsDuration rather than being claimable in the harvest

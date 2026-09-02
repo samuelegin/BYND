@@ -377,15 +377,18 @@ describe("ByNdVoter", function () {
         .withArgs(0, keeper.address, ethers.parseEther("10"));
 
       // claimRebases and extendLocks were never routed through the vault in
-      // this isolated test, so those 2 keeper slots default to treasury; add
-      // treasury's own fixed slot => 3 shares of 2 MUSD = 6 MUSD to treasury.
-      // keeper called both optimiseAndVote and harvestAndDistribute => 2
-      // shares of 2 MUSD = 4 MUSD to keeper.
+      // this isolated test, so those 2 keeper slots default to treasury =>
+      // 2 shares of 2 MUSD = 4 MUSD to treasury.
+      // keeper called optimiseAndVote, claimBribesBatch, AND
+      // harvestAndDistribute => 3 shares of 2 MUSD = 6 MUSD to keeper
+      // (fixed: claimBribesBatch's caller was never credited before,
+      // permanently costing this keeper 1 share — see
+      // epochKeeperClaimBribes in ByNdVoter.sol).
       expect((await musd.balanceOf(treasury.address)) - treasuryBefore).to.equal(
-        ethers.parseEther("6")
+        ethers.parseEther("4")
       );
       expect((await musd.balanceOf(keeper.address)) - keeperBefore).to.equal(
-        ethers.parseEther("4")
+        ethers.parseEther("6")
       );
 
       // 99% (990 MUSD) flowed into staking for the single staker. It streams

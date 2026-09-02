@@ -89,8 +89,9 @@ describe("ByNdVoter — carry accounting (BYND-04, BYND-05)", () => {
         ethers.parseEther("990")
       );
 
-      // treasury is keepers[0..2] and keepers[4] by default, so a second
-      // taxation would show up as a treasury balance increase. It must not.
+      // treasury is the fallback for any keeper slot nobody actually filled
+      // this epoch, so a second taxation would show up as a treasury
+      // balance increase. It must not.
       expect(await rewardTokenA.balanceOf(treasury.address)).to.equal(
         treasuryAfterEpoch0
       );
